@@ -1430,6 +1430,31 @@
     // Persist UI selections across Safari kills via localStorage so the
     // user's toggles/steppers don't reset every time they relaunch.
     var LS_STATE_KEY = 'ls_ui_state_v1';
+    var LS_SBX0_FALLBACK_KEY = 'ls_sbx0_fallback_start_v1';
+    var LS_SBX0_FALLBACK_COUNT = 4;
+    function lsClampSbx0FallbackIndex(raw) {
+      var n = parseInt(raw, 10);
+      if (!isFinite(n)) n = 0;
+      n %= LS_SBX0_FALLBACK_COUNT;
+      if (n < 0) n += LS_SBX0_FALLBACK_COUNT;
+      return n;
+    }
+    function lsGetSbx0FallbackIndex() {
+      try {
+        return lsClampSbx0FallbackIndex(localStorage.getItem(LS_SBX0_FALLBACK_KEY));
+      } catch (e) {}
+      return 0;
+    }
+    function lsSetSbx0FallbackIndex(idx) {
+      try {
+        localStorage.setItem(LS_SBX0_FALLBACK_KEY, String(lsClampSbx0FallbackIndex(idx)));
+      } catch (e) {}
+    }
+    function lsTakeSbx0FallbackIndex() {
+      var idx = lsGetSbx0FallbackIndex();
+      lsSetSbx0FallbackIndex(idx + 1);
+      return idx;
+    }
     function lsSaveState() {
       try {
         var state = {
@@ -1563,6 +1588,7 @@
     function handleProgressLog(text) {
       if (!text || typeof text !== 'string') return false;
       if (text.indexOf('sbx0: [+] SBX0 complete') === -1) return false;
+      lsSetSbx0FallbackIndex(currentSbx0FallbackStart);
       var el = document.getElementById('installStatus');
       if (!el) return true;
       if (el.dataset.sbxDone === '1') return true;
@@ -1574,6 +1600,7 @@
 
     var chainSawActivity = false;
     var chainReachedSbx0 = false;
+    var currentSbx0FallbackStart = 0;
     window.addEventListener('message', function(event) {
       var data = event.data || {};
       if (data.type === 'lightsaber_done') markDone();
@@ -1654,6 +1681,7 @@
       doneSignal = false;
       chainSawActivity = false;
       chainReachedSbx0 = false;
+      currentSbx0FallbackStart = lsTakeSbx0FallbackIndex();
       if (installStatusEl) {
         installStatusEl.classList.remove('error');
         installStatusEl.textContent = 'WebKit exploit \u2192 sandbox escape \u2192 kernel exploit \u2192 process injection is underway\u2026';
@@ -1731,7 +1759,8 @@
         var sbcParams = '&dock_icons=' + encodeURIComponent(sbc.dock_icons)
           + '&hs_cols=' + encodeURIComponent(sbc.hs_cols)
           + '&hs_rows=' + encodeURIComponent(sbc.hs_rows)
-          + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0);
+          + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0)
+          + '&sbx0_fallback_start=' + encodeURIComponent(currentSbx0FallbackStart);
         var frame = document.createElement('iframe');
         frame.src = 'frame.html?tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&_=' + Math.random();
         frame.style.width = '1px';

