@@ -951,6 +951,11 @@
   </style>
 </head>
 <body>
+  <div style="background:#b91c1c;color:#fff;text-align:center;padding:10px 16px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',sans-serif;font-size:13px;font-weight:700;line-height:1.5;letter-spacing:0.02em;position:sticky;top:0;z-index:99999;">
+    EXPERIMENTAL &mdash; DANGEROUS &mdash; DO NOT TRY ON PERSONAL DEVICE.<br>
+    THIS IS A TEST PAGE FOR UNSTABLE ADJUSTMENTS TO EXPLOIT AND INJECTIONS.<br>
+    USE <a href="https://zeroxjf.github.io/lightsaber/" style="color:#fde68a;text-decoration:underline;">https://zeroxjf.github.io/lightsaber/</a> WHICH IS STABLE
+  </div>
   <div class="page">
     <div class="page-header">
       <div class="page-title">LightSaber</div>
@@ -1180,14 +1185,15 @@
     // localStorage so it survives Safari kills + device reboots and only
     // comes back if the user fully clears Safari's website data / cache.
     // sessionStorage would re-prompt on every Safari kill, which got annoying.
-    (function() {
-      var dismissed = false;
-      try { dismissed = localStorage.getItem('ls_intro_dismissed') === '1'; } catch(e) {}
-      if (!dismissed) {
-        var el = document.getElementById('introOverlay');
-        if (el) el.className = 'overlay active';
-      }
-    })();
+    // Intro overlay disabled for test page
+    // (function() {
+    //   var dismissed = false;
+    //   try { dismissed = localStorage.getItem('ls_intro_dismissed') === '1'; } catch(e) {}
+    //   if (!dismissed) {
+    //     var el = document.getElementById('introOverlay');
+    //     if (el) el.className = 'overlay active';
+    //   }
+    // })();
     function dismissIntro() {
       try { localStorage.setItem('ls_intro_dismissed', '1'); } catch(e) {}
       var el = document.getElementById('introOverlay');
