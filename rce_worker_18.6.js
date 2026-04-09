@@ -10214,7 +10214,16 @@ async function main() {
                 log("after get js");
                 eval(sbx0_script);
         } catch (e) {
-            log(btoa(e));
+            try {
+              log("[stage1_rce] sbx0 eval failed: " + e);
+              if (e && e.stack) log("[stage1_rce] sbx0 eval stack: " + e.stack);
+            } catch (_) {}
+            fcall_close();
+            self.postMessage({
+              type: 'stage1_failed',
+              error: e && e.stack ? e.stack.toString() : String(e)
+            });
+            return;
         }
           fcall_close();
           print(`all done`);

