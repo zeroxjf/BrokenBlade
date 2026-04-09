@@ -1,5 +1,7 @@
 # BoringBlade
 
-**EXPERIMENTAL — DANGEROUS — DO NOT TRY ON PERSONAL DEVICE.**
-
-This is a test page for unstable adjustments to exploit and injections. Use the stable version at **[https://zeroxjf.github.io/lightsaber/](https://zeroxjf.github.io/lightsaber/)**.
+> **DO NOT USE THIS PAGE ON YOUR PERSONAL DEVICE.**
+>
+> **THIS IS AN EXPERIMENTAL TEST PAGE CONTAINING UNSTABLE, IN-DEVELOPMENT EXPLOIT CHAINS AND INJECTION PAYLOADS. CODE HERE IS ACTIVELY BEING MODIFIED AND MAY BRICK, CRASH, KERNEL PANIC, OR OTHERWISE DAMAGE YOUR DEVICE. NOTHING HERE IS STABLE. NOTHING HERE IS SAFE. YOU HAVE BEEN WARNED.**
+>
+> **USE THE STABLE VERSION: [https://zeroxjf.github.io/lightsaber/](https://zeroxjf.github.io/lightsaber/)**
