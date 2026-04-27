@@ -438,14 +438,23 @@
     }
     #logBox {
       display: none;
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: max(10px, env(safe-area-inset-bottom));
+      z-index: 40;
       background: #1a1a1c;
       border: 1px solid #2c2c2e;
       border-radius: 12px;
-      margin-top: 14px;
       overflow: hidden;
+      box-shadow: 0 18px 46px rgba(0,0,0,0.35);
     }
     #logBox.active { display: block; }
     #logBox .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       padding: 8px 12px;
       font-size: 11px;
       font-weight: 600;
@@ -453,8 +462,23 @@
       background: #222224;
       border-bottom: 1px solid #2c2c2e;
     }
+    .log-actions {
+      display: inline-flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .log-action {
+      border: 1px solid #3a3a3c;
+      background: #2c2c2e;
+      color: #d1d1d6;
+      border-radius: 7px;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
     #logScroll {
-      height: 200px;
+      height: min(260px, 42dvh);
       overflow-y: scroll;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
@@ -1118,6 +1142,16 @@
         <button id="runBtn" class="btn btn-run" onclick="confirmInstall()">Install Selected</button>
       </div>
       <div id="installStatus" class="install-status"></div>
+      <div id="logBox" aria-live="polite">
+        <div class="log-header">
+          <span>WebContent Process Log</span>
+          <span class="log-actions">
+            <button type="button" class="log-action" onclick="clearLogView()">Clear</button>
+            <button type="button" class="log-action" onclick="hideLogView()">Hide</button>
+          </span>
+        </div>
+        <div id="logScroll"></div>
+      </div>
       <div class="tip">
         <div class="tip-icon">i</div>
         <div class="tip-body">
@@ -1236,7 +1270,6 @@
     var major = iosParts[0], minor = iosParts[1], patch = iosParts[2] || 0;
     var isIphone = /iPhone/.test(ua);
     var doneSignal = false;
-    /* log UI disabled for now
     var syslogPollTimer = null;
     var lastSyslogText = '';
     var seenDeviceLines = {};
@@ -1245,6 +1278,7 @@
 
     function logAppend(text, cls) {
       var el = document.getElementById('logScroll');
+      if (!el) return;
       var line = document.createElement('div');
       line.className = 'log-line' + (cls ? ' ' + cls : '');
       line.textContent = text;
@@ -1330,7 +1364,21 @@
         syslogPollTimer = null;
       }
     }
-    */
+
+    function showLogView() {
+      var lb = document.getElementById('logBox');
+      if (lb) lb.className = 'active';
+    }
+
+    function hideLogView() {
+      var lb = document.getElementById('logBox');
+      if (lb) lb.className = '';
+    }
+
+    function clearLogView() {
+      var el = document.getElementById('logScroll');
+      if (el) el.innerHTML = '';
+    }
 
     var supportMsg = document.getElementById('supportMsg');
     var canRun = false;
@@ -1581,7 +1629,7 @@
     function markDone() {
       if (doneSignal) return;
       doneSignal = true;
-      // stopSyslogPolling();
+      stopSyslogPolling();
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
       var installStatusEl = document.getElementById('installStatus');
       if (installStatusEl) {
@@ -1600,6 +1648,7 @@
       if (doneSignal) return;
       doneSignal = true;
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
+      stopSyslogPolling();
       var installStatusEl = document.getElementById('installStatus');
       if (installStatusEl) {
         installStatusEl.classList.add('error');
@@ -1641,6 +1690,7 @@
       if (data.type === 'lightsaber_error') markFailed(data.text);
       if (data.type === 'lightsaber_log') {
         chainSawActivity = true;
+        logAppend('[' + (data.source || 'webcontent') + '] ' + data.text, data.reportError ? 'err' : classifyLogLine(data.text));
         if (handleProgressLog(data.text)) chainReachedSbx0 = true;
       }
     });
@@ -1739,14 +1789,11 @@
         installStatusEl.dataset.sbxDone = '';
       }
 
-      /* log UI disabled for now
       var lb = document.getElementById('logBox');
-      document.getElementById('logScroll').innerHTML = '';
-      lb.className = 'active';
+      clearLogView();
+      if (lb) lb.className = 'active';
       logAppend('[UI] Worker log bridge armed', 'ok');
-      logAppend('[UI] Polling syslog.txt for device-side kernel / PE logs', 'device');
-      startSyslogPolling();
-      */
+      logAppend('[UI] Starting WebContent iframe with sbx0FallbackStart=' + currentSbx0FallbackStart, 'device');
 
       // Match the upstream DarkSword install button: just a 60-second
       // setTimeout fallback plus a postMessage listener for the iframe's
