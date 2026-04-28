@@ -1275,8 +1275,22 @@
     var seenDeviceLines = {};
     var syslogCandidates = ['syslog.txt', '../syslog.txt', '/syslog.txt', '/BrokenBlade/syslog.txt'];
     var activeSyslogPath = null;
+    var LOG_STORE_KEY = 'bb_last_log_lines_v1';
+    var LOG_ACTIVE_KEY = 'bb_last_run_active_v1';
+    var LOG_STORE_LIMIT = 240;
 
-    function logAppend(text, cls) {
+    function logStoreLine(text, cls) {
+      try {
+        if (localStorage.getItem(LOG_ACTIVE_KEY) !== '1') return;
+        var lines = JSON.parse(localStorage.getItem(LOG_STORE_KEY) || '[]');
+        if (!lines || typeof lines.length !== 'number') lines = [];
+        lines.push({ text: String(text), cls: cls || '' });
+        if (lines.length > LOG_STORE_LIMIT) lines = lines.slice(lines.length - LOG_STORE_LIMIT);
+        localStorage.setItem(LOG_STORE_KEY, JSON.stringify(lines));
+      } catch (e) {}
+    }
+
+    function logAppend(text, cls, skipStore) {
       var el = document.getElementById('logScroll');
       if (!el) return;
       var line = document.createElement('div');
@@ -1284,6 +1298,7 @@
       line.textContent = text;
       el.appendChild(line);
       el.scrollTop = el.scrollHeight;
+      if (!skipStore) logStoreLine(text, cls);
     }
 
     function classifyLogLine(text) {
@@ -1378,7 +1393,25 @@
     function clearLogView() {
       var el = document.getElementById('logScroll');
       if (el) el.innerHTML = '';
+      try {
+        localStorage.removeItem(LOG_STORE_KEY);
+        localStorage.removeItem(LOG_ACTIVE_KEY);
+      } catch (e) {}
     }
+
+    function restorePreviousLogView() {
+      try {
+        if (localStorage.getItem(LOG_ACTIVE_KEY) !== '1') return;
+        var lines = JSON.parse(localStorage.getItem(LOG_STORE_KEY) || '[]');
+        if (!lines || !lines.length) return;
+        showLogView();
+        logAppend('[UI] Previous run was interrupted. Last persisted WebContent log follows:', 'device', true);
+        for (var i = 0; i < lines.length; i++) {
+          logAppend(lines[i].text, lines[i].cls || '', true);
+        }
+      } catch (e) {}
+    }
+    restorePreviousLogView();
 
     var supportMsg = document.getElementById('supportMsg');
     var canRun = false;
@@ -1630,6 +1663,7 @@
       if (doneSignal) return;
       doneSignal = true;
       stopSyslogPolling();
+      try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
       var installStatusEl = document.getElementById('installStatus');
       if (installStatusEl) {
@@ -1648,6 +1682,7 @@
       if (doneSignal) return;
       doneSignal = true;
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
+      try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
       stopSyslogPolling();
       var installStatusEl = document.getElementById('installStatus');
       if (installStatusEl) {
@@ -1662,27 +1697,43 @@
       }
     }
 
-    // Mirrors the sbx0 printf-via-sandbox-deny breadcrumb that fires right
-    // after SBX0 lands (the last log line that reliably makes it out before
-    // Safari freezes during PE / SpringBoard injection). rce_loader.js
-    // forwards every worker 'log' postMessage to this window as
-    // {type:'lightsaber_log', text}, so we just substring match the stage
-    // tag and update the install card.
     function handleProgressLog(text) {
       if (!text || typeof text !== 'string') return false;
-      if (text.indexOf('sbx0: [+] SBX0 complete') === -1) return false;
-      lsSetSbx0FallbackIndex(currentSbx0FallbackStart);
+      var msg = text.toLowerCase();
       var el = document.getElementById('installStatus');
-      if (!el) return true;
-      if (el.dataset.sbxDone === '1') return true;
-      el.dataset.sbxDone = '1';
-      el.classList.remove('error');
-      el.textContent = 'kernel exploit + sandbox escape underway, attempting install. Safari will freeze, wait ~30 more seconds to see if changes took hold';
-      return true;
+      if (msg.indexOf('sbx0: [+] sbx0 complete') !== -1) {
+        chainReachedSbx0 = true;
+        lsSetSbx0FallbackIndex(currentSbx0FallbackStart);
+        if (el && el.dataset.sbxDone !== '1') {
+          el.dataset.sbxDone = '1';
+          el.classList.remove('error');
+          el.textContent = 'SBX0 complete. SBX1/nativefcall is running; Safari may freeze here.';
+        }
+        return true;
+      }
+      if (msg.indexOf('[sbx1] stage 5 started') !== -1 || msg.indexOf('entering sbx1sbx1()') !== -1) {
+        chainReachedSbx1 = true;
+        if (el) {
+          el.classList.remove('error');
+          el.textContent = 'SBX1 started. Waiting for nativefcall bootstrap and PE handoff.';
+        }
+        return true;
+      }
+      if (msg.indexOf('spawning pe') !== -1 || msg.indexOf('pe_main.js execution started') !== -1 || msg.indexOf('[mpd] pe spawned') !== -1) {
+        chainReachedPeHandoff = true;
+        if (el) {
+          el.classList.remove('error');
+          el.textContent = 'PE payload handed off. Wait for SpringBoard / selected tweak effect.';
+        }
+        return true;
+      }
+      return false;
     }
 
     var chainSawActivity = false;
     var chainReachedSbx0 = false;
+    var chainReachedSbx1 = false;
+    var chainReachedPeHandoff = false;
     var currentSbx0FallbackStart = 0;
     window.addEventListener('message', function(event) {
       var data = event.data || {};
@@ -1691,7 +1742,7 @@
       if (data.type === 'lightsaber_log') {
         chainSawActivity = true;
         logAppend('[' + (data.source || 'webcontent') + '] ' + data.text, data.reportError ? 'err' : classifyLogLine(data.text));
-        if (handleProgressLog(data.text)) chainReachedSbx0 = true;
+        handleProgressLog(data.text);
       }
     });
 
@@ -1765,6 +1816,8 @@
       doneSignal = false;
       chainSawActivity = false;
       chainReachedSbx0 = false;
+      chainReachedSbx1 = false;
+      chainReachedPeHandoff = false;
       currentSbx0FallbackStart = lsTakeSbx0FallbackIndex();
       if (installStatusEl) {
         installStatusEl.classList.remove('error');
@@ -1791,6 +1844,7 @@
 
       var lb = document.getElementById('logBox');
       clearLogView();
+      try { localStorage.setItem(LOG_ACTIVE_KEY, '1'); } catch(e) {}
       if (lb) lb.className = 'active';
       logAppend('[UI] Worker log bridge armed', 'ok');
       logAppend('[UI] Starting WebContent iframe with sbx0FallbackStart=' + currentSbx0FallbackStart, 'device');
@@ -1803,8 +1857,16 @@
       // notice that "Safari froze/crashed/reloaded means it worked" anyway.
       setTimeout(function() {
         if (doneSignal) return;
-        if (chainReachedSbx0) {
+        if (chainReachedPeHandoff) {
           markDone();
+          return;
+        }
+        if (chainReachedSbx1) {
+          markFailed('Timed out after SBX1 started, before PE handoff was confirmed. Force-quit Safari and try again.');
+          return;
+        }
+        if (chainReachedSbx0) {
+          markFailed('Timed out after SBX0 completed, before SBX1/PE handoff was confirmed. Force-quit Safari and try again.');
           return;
         }
         if (chainSawActivity) {

