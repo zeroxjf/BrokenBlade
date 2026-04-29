@@ -7153,9 +7153,7 @@
       spray_profiles.compact
     ],
     "6149d995753968891870832e3fec9195": [
-      spray_profiles.compact,
-      spray_profiles.compact_write_soft,
-      spray_profiles.compact_write_min
+      spray_profiles.compact
     ]
   };
   const chipset_inprocess_attempt_budget = {
@@ -7737,6 +7735,7 @@
       return our_GPUConnectionToWebProcess;
     }
     function restoreCoreAnimationHeaders(restoration_count = 4) {
+      LOG(`restoreCoreAnimationHeaders start count=${restoration_count}`);
       let our_GPUConnectionToWebProcess = findGPUConnectionToWebProcess();
       if (our_GPUConnectionToWebProcess) {
         let our_RenderingBackend = NaN;
@@ -7789,6 +7788,7 @@
           }
         }
       }
+      LOG("restoreCoreAnimationHeaders done");
     }
     if (retry_count == 1) {
       crashGPUProcess('process cleanup');
