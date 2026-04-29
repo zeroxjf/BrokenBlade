@@ -218,6 +218,17 @@
       border-color: #30d158;
       pointer-events: none;
     }
+    .btn-soft-reset {
+      background: var(--card-alt);
+      color: var(--muted);
+      border-color: var(--border);
+      padding-left: 22px;
+      padding-right: 22px;
+    }
+    .btn-soft-reset:hover {
+      background: var(--hover);
+      border-color: var(--border);
+    }
     .note {
       font-size: 0.72rem;
       color: var(--subtle);
@@ -227,6 +238,8 @@
     .install-zone {
       display: flex;
       justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
       margin: 18px 0;
     }
     .install-status {
@@ -1140,6 +1153,7 @@
 
       <div class="install-zone">
         <button id="runBtn" class="btn btn-run" onclick="confirmInstall()">Install Selected</button>
+        <button id="softResetBtn" class="btn btn-soft-reset" type="button" onclick="softResetUserlandSession()">Soft Reset</button>
       </div>
       <div id="installStatus" class="install-status"></div>
       <div id="logBox" aria-live="polite">
@@ -1225,6 +1239,7 @@
       <h2 style="color:#b91c1c">Force-close Safari</h2>
       <p id="killSafariMessage">Safari got corrupted during a recent chain run. Reusing the same userland process can make the next attempt much less reproducible. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.</p>
       <div class="dialog-btns">
+        <button class="btn-cancel" onclick="softResetUserlandSession()">Soft Reset</button>
         <button class="btn-confirm" onclick="dismissKillSafari()">Got it</button>
       </div>
     </div>
@@ -1814,6 +1829,38 @@
       document.getElementById('killSafariOverlay').className = 'overlay';
     }
 
+    function removeExploitFrames() {
+      var frames = document.querySelectorAll('iframe');
+      for (var i = 0; i < frames.length; i++) {
+        var frame = frames[i];
+        var src = '';
+        try { src = frame.getAttribute('src') || ''; } catch(e) {}
+        if (src.indexOf('frame.html') === -1 && !(frame.dataset && frame.dataset.bbExploitFrame === '1')) continue;
+        try { frame.src = 'about:blank'; } catch(e) {}
+        try {
+          if (frame.parentNode) frame.parentNode.removeChild(frame);
+        } catch(e) {}
+      }
+    }
+
+    function softResetUserlandSession() {
+      doneSignal = true;
+      stopSyslogPolling();
+      removeExploitFrames();
+      try { window.stop(); } catch(e) {}
+      try {
+        sessionStorage.removeItem('ls_running');
+        sessionStorage.removeItem(USERLAND_DIRTY_KEY);
+      } catch(e) {}
+      try {
+        localStorage.setItem(LOG_ACTIVE_KEY, '0');
+        localStorage.removeItem(LOG_STORE_KEY);
+      } catch(e) {}
+      var url = new URL(window.location.href);
+      url.searchParams.set('soft_reset', String(Date.now()));
+      window.location.replace(url.toString());
+    }
+
     function runExploit(tweaks, level, sbc) {
       if (!canRun) return;
       if (!tweaks || tweaks.length === 0) tweaks = ['fiveicon'];
@@ -1938,6 +1985,7 @@
         frame.style.position = 'absolute';
         frame.style.left = '-9999px';
         frame.style.border = 'none';
+        frame.dataset.bbExploitFrame = '1';
         document.body.appendChild(frame);
       }, 0);
     }
