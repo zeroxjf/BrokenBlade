@@ -6969,15 +6969,20 @@
     let pe_ack_start = Date.now();
     while (Date.now() - pe_ack_start < 1000) {
       pe_ack = uread64(pe_ack_local);
-      if (pe_ack != 0n) {
+      if (pe_ack == 0x1003n || pe_ack == 0x1badn) {
         break;
       }
       usleep(1000n);
     }
-    if (pe_ack != 0n) {
-      LOG(`[MPD] PE ack observed: ${pe_ack.hex()}`);
+    if (pe_ack == 0x1003n) {
+      LOG(`[MPD] PE syslog-entry ack observed: ${pe_ack.hex()}`);
     } else {
-      LOG("[MPD] PE ack timeout after 1000ms; holding bridge for teardown cushion");
+      if (pe_ack != 0n) {
+        LOG(`[MPD] PE partial ack before timeout: ${pe_ack.hex()}`);
+      } else {
+        LOG("[MPD] PE ack timeout after 1000ms");
+      }
+      LOG("[MPD] holding bridge for teardown cushion");
       usleep(250000n);
     }
     LOG("[MPD] pe spawned");
