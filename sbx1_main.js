@@ -6806,6 +6806,11 @@
   }
   function spawn_pe() {
     LOG("Spawning PE....");
+    const PE_ACK_OFFSET = 0x2300n;
+    let pe_ack_local = surface_address + PE_ACK_OFFSET;
+    let pe_ack_remote = surface_address_remote + PE_ACK_OFFSET;
+    uwrite64(pe_ack_local, 0n);
+    LOG(`[MPD] PE ack word: local=${pe_ack_local.hex()} remote=${pe_ack_remote.hex()}`);
     let pe_stage1_js_data = 0n;
     let pe_main_js_data = 0n;
     let pe_post_js_data = 0n;
@@ -6845,7 +6850,8 @@
       if (lsTweakSet.powercuff) lsTweaksOut.push('powercuff');
       if (lsTweakSet.threeapp) lsTweaksOut.push('threeapp');
       const INLINE_PREFETCH_MAX_BYTES = 96 * 1024;
-      let prelude = 'globalThis.__ls_tweaks = "' + lsTweaksOut.join(',') + '";\n';
+      let prelude = 'globalThis.__pe_ack_addr = 0x' + pe_ack_remote.toString(16) + 'n;\n';
+      prelude += 'globalThis.__ls_tweaks = "' + lsTweaksOut.join(',') + '";\n';
       prelude += 'globalThis.__ls_enable_fiveicon = ' + (lsTweakSet.fiveicon ? 'true' : 'false') + ';\n';
       prelude += 'globalThis.__ls_enable_powercuff = ' + (lsTweakSet.powercuff ? 'true' : 'false') + ';\n';
       prelude += 'globalThis.__ls_enable_threeapp = ' + (lsTweakSet.threeapp ? 'true' : 'false') + ';\n';
@@ -6958,7 +6964,22 @@
     idx += 0x1n;
     LOG("Executing pe_main.js...");
     mpd_evaluateScript_nowait_exit(ctx, pe_main_cfstring);
-    LOG("pe_main.js execution started");
+    LOG("[MPD] pe_main.js scheduled; waiting for PE ack");
+    let pe_ack = 0n;
+    let pe_ack_start = Date.now();
+    while (Date.now() - pe_ack_start < 1000) {
+      pe_ack = uread64(pe_ack_local);
+      if (pe_ack != 0n) {
+        break;
+      }
+      usleep(1000n);
+    }
+    if (pe_ack != 0n) {
+      LOG(`[MPD] PE ack observed: ${pe_ack.hex()}`);
+    } else {
+      LOG("[MPD] PE ack timeout after 1000ms; holding bridge for teardown cushion");
+      usleep(250000n);
+    }
     LOG("[MPD] pe spawned");
   }
   sbx1sbx1_interval = Date.now();

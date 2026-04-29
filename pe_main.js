@@ -14,9 +14,19 @@
     LOG = function(msg) { console.log('[PE] ' + msg); };
   }
 
+  function peAck(stage) {
+    try {
+      if (typeof globalThis.__pe_ack_addr === 'bigint' && typeof uwrite64 === 'function') {
+        uwrite64(globalThis.__pe_ack_addr, stage);
+      }
+    } catch (_) {}
+  }
+  peAck(0x1001n);
+
   try {
     fcall_init();
   } catch(e) {
+    peAck(0x1badn);
     // Try to report fcall_init failure via XHR
     try {
       if (PE_ENABLE_DEBUG_NETWORK && typeof XMLHttpRequest !== 'undefined') {
@@ -27,6 +37,7 @@
     } catch(e2) {}
     throw e; // re-throw
   }
+  peAck(0x1002n);
 
   // Beacon after fcall_init succeeds
   try {
@@ -1447,6 +1458,7 @@
     } catch(e) {}
   }
   LOG("[PE-DBG] pe_main entry; debug_network=" + PE_ENABLE_DEBUG_NETWORK);
+  peAck(0x1003n);
   sendBeacon("pe_start");
   try {
     LOG("[PE] Calling pe() - kernel exploit phase...");
