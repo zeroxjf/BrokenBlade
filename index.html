@@ -1223,7 +1223,7 @@
   <div id="killSafariOverlay" class="overlay">
     <div class="dialog">
       <h2 style="color:#b91c1c">Force-close Safari</h2>
-      <p>Safari got corrupted during a recent failed run. Reusing it can kernel-panic the device. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.</p>
+      <p id="killSafariMessage">Safari got corrupted during a recent chain run. Reusing the same userland process can make the next attempt much less reproducible. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.</p>
       <div class="dialog-btns">
         <button class="btn-confirm" onclick="dismissKillSafari()">Got it</button>
       </div>
@@ -1278,6 +1278,7 @@
     var LOG_STORE_KEY = 'bb_last_log_lines_v1';
     var LOG_ACTIVE_KEY = 'bb_last_run_active_v1';
     var LOG_STORE_LIMIT = 240;
+    var USERLAND_DIRTY_KEY = 'bb_userland_dirty_v1';
 
     function logStoreLine(text, cls) {
       try {
@@ -1665,6 +1666,7 @@
       stopSyslogPolling();
       try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
+      try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'success'); } catch(e) {}
       var installStatusEl = document.getElementById('installStatus');
       if (installStatusEl) {
         installStatusEl.textContent = '';
@@ -1682,6 +1684,7 @@
       if (doneSignal) return;
       doneSignal = true;
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
+      try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'failed'); } catch(e) {}
       try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
       stopSyslogPolling();
       var installStatusEl = document.getElementById('installStatus');
@@ -1767,7 +1770,11 @@
       // to the kill-safari prompt - that's the only useful action available.
       try {
         if (sessionStorage.getItem('ls_running')) {
-          showKillSafari();
+          showKillSafari('running');
+          return;
+        }
+        if (sessionStorage.getItem(USERLAND_DIRTY_KEY)) {
+          showKillSafari(sessionStorage.getItem(USERLAND_DIRTY_KEY));
           return;
         }
       } catch(e) {}
@@ -1784,11 +1791,21 @@
       runExploit(sel.tweaks, sel.level, sel.sbc);
     }
 
-    function showKillSafari() {
+    function showKillSafari(reason) {
       var btn = document.getElementById('runBtn');
       if (btn && canRun) {
         btn.className = 'btn btn-run';
         btn.textContent = 'Install Selected';
+      }
+      var message = document.getElementById('killSafariMessage');
+      if (message) {
+        if (reason === 'success') {
+          message.textContent = 'The chain already ran in this Safari/WebContent lifetime. Reusing the same userland process is much less reproducible than a fresh launch. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.';
+        } else if (reason === 'running') {
+          message.textContent = 'Safari still has a chain run marked active from this userland session. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.';
+        } else {
+          message.textContent = 'Safari got corrupted during a recent chain run. Reusing the same userland process can make the next attempt much less reproducible. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.';
+        }
       }
       document.getElementById('killSafariOverlay').className = 'overlay active';
     }
@@ -1809,10 +1826,19 @@
             installStatusEl.classList.remove('error');
             installStatusEl.textContent = '';
           }
-          showKillSafari();
+          showKillSafari('running');
+          return;
+        }
+        if (sessionStorage.getItem(USERLAND_DIRTY_KEY)) {
+          if (installStatusEl) {
+            installStatusEl.classList.remove('error');
+            installStatusEl.textContent = '';
+          }
+          showKillSafari(sessionStorage.getItem(USERLAND_DIRTY_KEY));
           return;
         }
       } catch(e) {}
+      try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'running'); } catch(e) {}
       doneSignal = false;
       chainSawActivity = false;
       chainReachedSbx0 = false;
