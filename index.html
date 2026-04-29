@@ -218,22 +218,6 @@
       border-color: #30d158;
       pointer-events: none;
     }
-    .btn-soft-reset {
-      background: var(--card-alt);
-      color: var(--muted);
-      border-color: var(--border);
-      padding-left: 22px;
-      padding-right: 22px;
-      position: fixed;
-      right: max(14px, env(safe-area-inset-right));
-      bottom: max(14px, env(safe-area-inset-bottom));
-      z-index: 90;
-      box-shadow: var(--shadow-row);
-    }
-    .btn-soft-reset:hover {
-      background: var(--hover);
-      border-color: var(--border);
-    }
     .note {
       font-size: 0.72rem;
       color: var(--subtle);
@@ -243,8 +227,6 @@
     .install-zone {
       display: flex;
       justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
       margin: 18px 0;
     }
     .install-status {
@@ -1158,7 +1140,6 @@
 
       <div class="install-zone">
         <button id="runBtn" class="btn btn-run" onclick="confirmInstall()">Install Selected</button>
-        <button id="softResetBtn" class="btn btn-soft-reset" type="button" onclick="softResetUserlandSession()">Soft Reset</button>
       </div>
       <div id="installStatus" class="install-status"></div>
       <div id="logBox" aria-live="polite">
@@ -1244,7 +1225,6 @@
       <h2 style="color:#b91c1c">Force-close Safari</h2>
       <p id="killSafariMessage">Safari got corrupted during a recent chain run. Reusing the same userland process can make the next attempt much less reproducible. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.</p>
       <div class="dialog-btns">
-        <button class="btn-cancel" onclick="softResetUserlandSession()">Soft Reset</button>
         <button class="btn-confirm" onclick="dismissKillSafari()">Got it</button>
       </div>
     </div>
