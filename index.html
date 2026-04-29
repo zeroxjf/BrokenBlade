@@ -224,6 +224,11 @@
       border-color: var(--border);
       padding-left: 22px;
       padding-right: 22px;
+      position: fixed;
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      z-index: 90;
+      box-shadow: var(--shadow-row);
     }
     .btn-soft-reset:hover {
       background: var(--hover);
