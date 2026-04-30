@@ -8468,6 +8468,8 @@ const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
 const POWERCUFF_TWEAK_LABEL = "Powercuff";
 const ENABLE_THREEAPP = !!globalThis.__ls_enable_threeapp;
+const ENABLE_SAFARI_ORIGIN_AUDIT = true;
+const ENABLE_SAFARI_ORIGIN_DELETE = false;
 // sbcustomizer_light.js dispatches to the SpringBoard main thread
 // asynchronously. When it runs without Powercuff piggybacking on it, keep the
 // chain alive briefly so the dispatched main-thread work has time to run
@@ -8717,6 +8719,219 @@ function runOptionalStage(label, enabled, fn) {
 		LOG("[PE] " + label + " exception: " + String(e));
 		return false;
 	}
+}
+
+function auditSafariOriginData() {
+	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	const Sandbox = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"];
+	const MAX_SCAN_ENTRIES = 2500;
+	const MAX_CANDIDATE_LOGS = 200;
+	const roots = [
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/", depth: 8 },
+		{ path: "/private/var/mobile/Library/Safari/", depth: 5 },
+		{ path: "/private/var/mobile/Library/Caches/com.apple.mobilesafari/", depth: 6 },
+		{ path: "/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
+		{ path: "/private/var/mobile/Library/Caches/WebKit/", depth: 6 },
+		{ path: "/private/var/mobile/Library/Cookies/", depth: 3 }
+	];
+	const recordStores = [
+		"/private/var/mobile/Library/Cookies/Cookies.binarycookies",
+		"/private/var/mobile/Library/WebKit/WebsiteData/ServiceWorkers/ServiceWorkerRegistrations.db",
+		"/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/observations.db",
+		"/private/var/mobile/Library/Safari/History.db"
+	];
+
+	function cleanString(raw, maxLen) {
+		let s = (typeof raw === "string") ? raw : "";
+		s = s.replace(/[\x00-\x1f\x7f]/g, "");
+		if (s.length > maxLen) s = s.slice(0, maxLen);
+		return s;
+	}
+
+	function hostFromOrigin(origin) {
+		let s = cleanString(origin, 256).toLowerCase();
+		s = s.replace(/^[a-z0-9.+-]+:\/\//, "");
+		let slash = s.indexOf("/");
+		if (slash >= 0) s = s.slice(0, slash);
+		let at = s.lastIndexOf("@");
+		if (at >= 0) s = s.slice(at + 1);
+		if (s.charAt(0) === "[") return "";
+		let colon = s.indexOf(":");
+		if (colon >= 0) s = s.slice(0, colon);
+		return s.replace(/[^a-z0-9.-]/g, "");
+	}
+
+	function schemeFromOrigin(origin) {
+		let s = cleanString(origin, 256).toLowerCase();
+		if (s.indexOf("http://") === 0) return "http";
+		if (s.indexOf("https://") === 0) return "https";
+		return "";
+	}
+
+	function pathToken(rawPath) {
+		let p = cleanString(rawPath, 256).toLowerCase();
+		p = p.replace(/^\/+/, "");
+		let slash = p.indexOf("/");
+		if (slash >= 0) p = p.slice(0, slash);
+		return p.replace(/[^a-z0-9._-]/g, "");
+	}
+
+	function addUnique(list, value) {
+		if (!value || list.indexOf(value) >= 0) return;
+		list.push(value);
+	}
+
+	function buildVariants(origin, host) {
+		let variants = [];
+		let scheme = schemeFromOrigin(origin);
+		addUnique(variants, host);
+		addUnique(variants, host.replace(/\./g, "_"));
+		addUnique(variants, host.replace(/\./g, "-"));
+		addUnique(variants, host.replace(/\./g, "%2e"));
+		if (scheme) {
+			addUnique(variants, scheme + "_" + host);
+			addUnique(variants, scheme + "://" + host);
+			try { addUnique(variants, encodeURIComponent(scheme + "://" + host)); } catch (_) {}
+		}
+		return variants;
+	}
+
+	function readDirent(entPtr) {
+		if (!entPtr) return null;
+		let ent = BigInt(entPtr);
+		let entBuf = Native.read(ent, 24);
+		let entView = new DataView(entBuf);
+		let namlen = entView.getUint16(18, true);
+		if (namlen === 0 || namlen > 255) return null;
+		return {
+			type: entView.getUint8(20),
+			name: Native.readString(ent + 21n, namlen + 1).replace(/\0/g, "")
+		};
+	}
+
+	function statMode(path) {
+		let statBuf = Native.callSymbol("malloc", 256n);
+		if (!statBuf || statBuf === 0n) return 0;
+		try {
+			let ret = Native.callSymbol("stat", path, statBuf);
+			if (Number(ret) !== 0) return 0;
+			return Native.read16(BigInt(statBuf) + 0x4n);
+		} finally {
+			Native.callSymbol("free", statBuf);
+		}
+	}
+
+	function fileExists(path) {
+		return Number(Native.callSymbol("access", path, 0n)) === 0;
+	}
+
+	function isDirPath(path, dType) {
+		if (dType === 4) return true;
+		if (dType === 8) return false;
+		let mode = statMode(path);
+		return (mode & 0xf000) === 0x4000;
+	}
+
+	let origin = cleanString(globalThis.__ls_site_origin, 256);
+	let host = hostFromOrigin(globalThis.__ls_site_host || origin);
+	let sitePath = cleanString(globalThis.__ls_site_path || "/", 256);
+	if (!sitePath || sitePath.charAt(0) !== "/") sitePath = "/" + sitePath;
+	let repoToken = pathToken(sitePath);
+
+	if (!host || host.length < 3) {
+		LOG("[SAFARI-CLEAN] audit skipped: missing/invalid host origin=" + origin + " host=" + cleanString(globalThis.__ls_site_host, 128));
+		return false;
+	}
+
+	let hostVariants = buildVariants(origin, host);
+	let pathVariants = [];
+	if (repoToken && repoToken.length >= 4) {
+		addUnique(pathVariants, repoToken);
+		try { addUnique(pathVariants, encodeURIComponent(repoToken)); } catch (_) {}
+	}
+
+	LOG("[SAFARI-CLEAN] audit start delete=" + ENABLE_SAFARI_ORIGIN_DELETE + " origin=" + origin + " host=" + host + " path=" + sitePath + " pathToken=" + (repoToken || "none"));
+	if (sitePath !== "/" && sitePath !== "") {
+		LOG("[SAFARI-CLEAN] note: Safari/WebKit website data is usually origin-scoped; path=" + sitePath + " may share storage with other pages on host=" + host);
+	}
+
+	for (let root of roots) {
+		Sandbox.getTokenForPath(root.path, true);
+	}
+
+	let scanned = 0;
+	let candidates = 0;
+	let candidateLogs = 0;
+	let truncated = false;
+
+	function matchCandidate(path) {
+		let lower = String(path || "").toLowerCase();
+		for (let v of hostVariants) {
+			if (v && lower.indexOf(v.toLowerCase()) >= 0) {
+				return { scope: "origin", token: v };
+			}
+		}
+		for (let v of pathVariants) {
+			if (v && lower.indexOf(v.toLowerCase()) >= 0) {
+				return { scope: "path-token-audit-only", token: v };
+			}
+		}
+		return null;
+	}
+
+	function logCandidate(path, match, isDir) {
+		candidates++;
+		if (candidateLogs >= MAX_CANDIDATE_LOGS) {
+			truncated = true;
+			return;
+		}
+		candidateLogs++;
+		LOG("[SAFARI-CLEAN] candidate scope=" + match.scope + " token=" + match.token + " kind=" + (isDir ? "dir" : "file") + " action=audit path=" + path);
+	}
+
+	function scanDir(dirPath, depth, maxDepth) {
+		if (scanned >= MAX_SCAN_ENTRIES) {
+			truncated = true;
+			return;
+		}
+		let dir = Native.callSymbol("opendir", dirPath);
+		if (!dir) {
+			if (depth === 0) LOG("[SAFARI-CLEAN] root unavailable path=" + dirPath);
+			return;
+		}
+		try {
+			while (scanned < MAX_SCAN_ENTRIES) {
+				let entPtr = Native.callSymbol("readdir", dir);
+				if (!entPtr) break;
+				let ent = readDirent(entPtr);
+				if (!ent || !ent.name || ent.name === "." || ent.name === "..") continue;
+				let fullPath = dirPath;
+				if (fullPath.charAt(fullPath.length - 1) !== "/") fullPath += "/";
+				fullPath += ent.name;
+				scanned++;
+				let dirEntry = isDirPath(fullPath, ent.type);
+				let match = matchCandidate(fullPath);
+				if (match) logCandidate(fullPath, match, dirEntry);
+				if (dirEntry && depth < maxDepth) scanDir(fullPath, depth + 1, maxDepth);
+				if (scanned >= MAX_SCAN_ENTRIES) break;
+			}
+		} finally {
+			Native.callSymbol("closedir", dir);
+		}
+	}
+
+	for (let root of roots) {
+		scanDir(root.path, 0, root.depth);
+	}
+
+	for (let store of recordStores) {
+		if (fileExists(store)) {
+			LOG("[SAFARI-CLEAN] record-store action=audit-row-filter-needed path=" + store + " host=" + host);
+		}
+	}
+
+	LOG("[SAFARI-CLEAN] audit done scanned=" + scanned + " candidates=" + candidates + " logged=" + candidateLogs + " truncated=" + truncated);
+	return true;
 }
 
 function start() { LOG("[+] PE start() called");
@@ -9397,6 +9612,8 @@ function start() { LOG("[+] PE start() called");
 	} else {
 		LOG("[THREEAPP] 3-App Bypass disabled");
 	}
+
+	runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
 	} finally {
 		LOG("[PE] Cleaning up launchdTask...");
 		launchdTask.destroy();

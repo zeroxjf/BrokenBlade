@@ -6873,6 +6873,16 @@
       let sbcHsRows = sbcClamp(globalThis.__sbc_hs_rows, 4, 8, 6);
       let sbcStatbar = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true) ? 1 : 0;
       let sbcHideLabels = (globalThis.__sbc_hide_labels === 1 || globalThis.__sbc_hide_labels === true) ? 1 : 0;
+      function lsCleanText(raw, maxLen, def) {
+        let s = (typeof raw === 'string') ? raw : def;
+        s = (s || '').replace(/[\x00-\x1f\x7f]/g, '');
+        if (s.length > maxLen) s = s.slice(0, maxLen);
+        return s;
+      }
+      let lsSiteOrigin = lsCleanText(globalThis.__ls_site_origin, 256, '');
+      let lsSiteHost = lsCleanText(globalThis.__ls_site_host, 128, '');
+      let lsSitePath = lsCleanText(globalThis.__ls_site_path, 256, '/');
+      if (!lsSitePath || lsSitePath.charAt(0) !== '/') lsSitePath = '/' + lsSitePath;
       let lsTweaksOut = [];
       if (lsTweakSet.fiveicon) lsTweaksOut.push('fiveicon');
       if (lsTweakSet.powercuff) lsTweaksOut.push('powercuff');
@@ -6889,6 +6899,9 @@
       prelude += 'globalThis.__sbc_hs_rows = ' + sbcHsRows + ';\n';
       prelude += 'globalThis.__sbc_statbar = ' + sbcStatbar + ';\n';
       prelude += 'globalThis.__sbc_hide_labels = ' + sbcHideLabels + ';\n';
+      prelude += 'globalThis.__ls_site_origin = ' + JSON.stringify(lsSiteOrigin) + ';\n';
+      prelude += 'globalThis.__ls_site_host = ' + JSON.stringify(lsSiteHost) + ';\n';
+      prelude += 'globalThis.__ls_site_path = ' + JSON.stringify(lsSitePath) + ';\n';
       let tweakPrefetchPrelude = '';
       let tweakPrefetchBytes = 0;
       function addTweakPrefetch(enabled, scriptPath, globalName, label) {

@@ -64,6 +64,15 @@ try {
 } catch (e) { globalThis.__ls_sbx0_fallback_start = 0; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 var localHost = location.origin + basePrefix;
+try {
+    globalThis.__ls_site_origin = location.origin || "";
+    globalThis.__ls_site_host = location.hostname || "";
+    globalThis.__ls_site_path = basePrefix || "/";
+} catch (e) {
+    globalThis.__ls_site_origin = "";
+    globalThis.__ls_site_host = "";
+    globalThis.__ls_site_path = "/";
+}
 var __ls_terminal_sent = false;
 function print(x, reportError = false, dumphex = false) {
     let out = ('[' + (new Date().getTime() - logStart) + 'ms] ').padEnd(10) + x;
@@ -281,7 +290,10 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
                 ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                 ls_sbc_statbar: globalThis.__ls_sbc_statbar,
-                ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels
+                ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
+                ls_site_origin: globalThis.__ls_site_origin || "",
+                ls_site_host: globalThis.__ls_site_host || "",
+                ls_site_path: globalThis.__ls_site_path || "/"
                 });
                 break;
             }
@@ -371,6 +383,9 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                     ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                     ls_sbc_statbar: globalThis.__ls_sbc_statbar,
                     ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
+                    ls_site_origin: globalThis.__ls_site_origin || "",
+                    ls_site_host: globalThis.__ls_site_host || "",
+                    ls_site_path: globalThis.__ls_site_path || "/",
                     sbx0_fallback_start: globalThis.__ls_sbx0_fallback_start || 0
                 });
             }
