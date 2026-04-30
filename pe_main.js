@@ -8987,7 +8987,7 @@ function start() { LOG("[+] PE start() called");
 			const OFF_APFS_FSNODE_UID = 0x80n;
 			const OFF_APFS_FSNODE_GID = 0x84n;
 			const OFF_APFS_FSNODE_MODE = 0x88n;
-			const APP_DIR_MODE = 0x41ed;
+			const DARKPORT_REPAIR_MODE = 0x41f5;
 			const OFF_STAT_MODE = 0x4n;
 			const OFF_STAT_UID = 0x10n;
 			const OFF_STAT_GID = 0x14n;
@@ -9068,7 +9068,35 @@ function start() { LOG("[+] PE start() called");
 				return { present: null, size: -1, errno: eno };
 			}
 
-			function apfsOwnPath(path) {
+			function appDirMode(mode) {
+				let perms = Number(mode || 0) & 0x0fff;
+				if (!perms) perms = 0x1ed;
+				return 0x4000 | perms;
+			}
+
+			function restoreTargetForApp(appName, oldUid, oldGid, oldMode) {
+				let fixedMode = appDirMode(oldMode);
+				if (appName === "DarkPort.app") {
+					return { uid: 33, gid: 33, mode: DARKPORT_REPAIR_MODE, reason: "DarkPort Impactor repair" };
+				}
+				if (oldUid !== 501 || oldGid !== 501 || fixedMode !== oldMode) {
+					return { uid: oldUid, gid: oldGid, mode: fixedMode, reason: "preserve original owner/mode" };
+				}
+				return null;
+			}
+
+			function restoreApfsState(own, path) {
+				if (!own || !own.restore) return;
+				let target = own.restore;
+				ALChain.write32(own.fsNode + OFF_APFS_FSNODE_UID, target.uid);
+				ALChain.write32(own.fsNode + OFF_APFS_FSNODE_GID, target.gid);
+				ALChain.write16(own.fsNode + OFF_APFS_FSNODE_MODE, target.mode);
+				syncApfs();
+				let st = statOwner(path);
+				LOG("[THREEAPP] restored owner/mode uid=" + (st ? st.uid : -1) + " gid=" + (st ? st.gid : -1) + " mode=" + (st ? hex16(st.mode) : "n/a") + " reason=" + target.reason + " path=" + path);
+			}
+
+			function apfsOwnPath(path, appName) {
 				let fd = ALNative.callSymbol("open", path, 0n); // O_RDONLY
 				if (Number(fd) < 0) {
 					LOG("[THREEAPP] open failed errno=" + getErrno() + " path=" + path);
@@ -9089,12 +9117,14 @@ function start() { LOG("[+] PE start() called");
 					let oldGid = ALChain.read32(fsNode + OFF_APFS_FSNODE_GID);
 					let oldMode = ALChain.read16(fsNode + OFF_APFS_FSNODE_MODE);
 					LOG("[THREEAPP] current fsnode owner uid=" + oldUid + " gid=" + oldGid + " mode=" + hex16(oldMode) + " path=" + path);
+					let temporaryMode = appDirMode(oldMode);
+					let restore = restoreTargetForApp(appName, oldUid, oldGid, oldMode);
 
 					ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
 					ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
-					if (oldMode !== APP_DIR_MODE) {
-						LOG("[THREEAPP] repairing app dir mode " + hex16(oldMode) + " -> " + hex16(APP_DIR_MODE) + " path=" + path);
-						ALChain.write16(fsNode + OFF_APFS_FSNODE_MODE, APP_DIR_MODE);
+					if (temporaryMode !== oldMode) {
+						LOG("[THREEAPP] repairing app dir mode " + hex16(oldMode) + " -> " + hex16(temporaryMode) + " path=" + path);
+						ALChain.write16(fsNode + OFF_APFS_FSNODE_MODE, temporaryMode);
 					}
 
 					syncApfs();
@@ -9108,7 +9138,7 @@ function start() { LOG("[+] PE start() called");
 						return false;
 					}
 
-					return true;
+					return { fsNode: fsNode, restore: restore };
 				} finally {
 					ALNative.callSymbol("close", fd);
 				}
@@ -9173,34 +9203,38 @@ function start() { LOG("[+] PE start() called");
 								let provCheck = ALNative.callSymbol("access", appPath + "/embedded.mobileprovision", 0n);
 								if (Number(provCheck) !== 0) continue;
 
-								let own = apfsOwnPath(appPath);
+								let own = apfsOwnPath(appPath, appName);
 								if (!own) {
 									LOG("[THREEAPP] failed to set ownership on: " + appPath);
 								} else {
 									LOG("[THREEAPP] set ownership on: " + appPath);
 								}
 
-								let ret = ALNative.callSymbol("removexattr", appPath, XATTR_NAME, 0n);
-								if (Number(ret) === 0) {
-									LOG("[THREEAPP] removed xattr on: " + appPath);
-									cleared++;
-								} else {
-									let eno = getErrno();
-									if (eno === 93) {
-										LOG("[THREEAPP] xattr already missing: " + appPath);
+								try {
+									let ret = ALNative.callSymbol("removexattr", appPath, XATTR_NAME, 0n);
+									if (Number(ret) === 0) {
+										LOG("[THREEAPP] removed xattr on: " + appPath);
 										cleared++;
 									} else {
-										LOG("[THREEAPP] removexattr failed " + appPath + " | errno=" + eno);
-										skipped++;
+										let eno = getErrno();
+										if (eno === 93) {
+											LOG("[THREEAPP] xattr already missing: " + appPath);
+											cleared++;
+										} else {
+											LOG("[THREEAPP] removexattr failed " + appPath + " | errno=" + eno);
+											skipped++;
+										}
 									}
-								}
 
-								syncApfs();
-								let after = xattrState(appPath);
-								if (after.present === false) {
-									LOG("[THREEAPP] verified removal: " + appPath);
-								} else {
-									LOG("[THREEAPP] xattr still exists on: " + appPath);
+									syncApfs();
+									let after = xattrState(appPath);
+									if (after.present === false) {
+										LOG("[THREEAPP] verified removal: " + appPath);
+									} else {
+										LOG("[THREEAPP] xattr still exists on: " + appPath);
+									}
+								} finally {
+									restoreApfsState(own, appPath);
 								}
 							}
 						} finally {
