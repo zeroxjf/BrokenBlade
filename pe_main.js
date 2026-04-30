@@ -9070,58 +9070,33 @@ function start() { LOG("[+] PE start() called");
 				return { present: null, size: -1, errno: eno };
 			}
 
-			function readSmallText(path, maxLen) {
-				let fd = ALNative.callSymbol("open", path, 0n);
-				if (Number(fd) < 0) return "";
-				let buf = ALNative.callSymbol("malloc", BigInt(maxLen));
-				if (!buf || buf === 0n) {
-					ALNative.callSymbol("close", fd);
-					return "";
-				}
-				try {
-					let n = ALNative.callSymbol("read", fd, buf, maxLen);
-					if (Number(n) <= 0) return "";
-					let raw = ALNative.read(BigInt(buf), Number(n));
-					let bytes = new Uint8Array(raw);
-					let out = "";
-					for (let i = 0; i < bytes.length; i++) {
-						let c = bytes[i];
-						out += (c >= 32 && c <= 126) ? String.fromCharCode(c) : " ";
-					}
-					return out.toLowerCase();
-				} finally {
-					ALNative.callSymbol("free", buf);
-					ALNative.callSymbol("close", fd);
-				}
-			}
-
-			function hasAppRepairHint(text) {
-				return text.indexOf("youtube") !== -1 ||
-					text.indexOf("google.ios.youtube") !== -1 ||
-					text.indexOf("uyou") !== -1 ||
-					text.indexOf("ytlite") !== -1 ||
-					text.indexOf("darkport") !== -1;
-			}
-
-			function isAppRepairCandidate(appPath, appName) {
-				let lowerName = appName.toLowerCase();
-				if (hasAppRepairHint(lowerName)) return true;
-				let infoText = readSmallText(appPath + "/Info.plist", 65536);
-				return hasAppRepairHint(infoText);
-			}
-
 			function appDirMode(mode) {
 				let perms = Number(mode || 0) & 0x0fff;
 				if (!perms) perms = 0x1ed;
 				return 0x4000 | perms;
 			}
 
-			function restoreTargetForApp(appName, oldUid, oldGid, oldMode, forceImpactorRepair) {
+			function repairTargetForApp(appName, oldUid, oldGid, oldMode) {
 				let fixedMode = appDirMode(oldMode);
-				if (forceImpactorRepair) {
-					return { uid: IMPACTOR_REPAIR_UID, gid: IMPACTOR_REPAIR_GID, mode: IMPACTOR_REPAIR_MODE, reason: appName + " Impactor repair" };
+				if (oldUid === IMPACTOR_REPAIR_UID || oldGid === IMPACTOR_REPAIR_GID) {
+					if (oldUid !== IMPACTOR_REPAIR_UID || oldGid !== IMPACTOR_REPAIR_GID || fixedMode !== IMPACTOR_REPAIR_MODE) {
+						return { uid: IMPACTOR_REPAIR_UID, gid: IMPACTOR_REPAIR_GID, mode: IMPACTOR_REPAIR_MODE, reason: appName + " Impactor-style repair" };
+					}
 				}
-				if (oldUid !== 501 || oldGid !== 501 || fixedMode !== oldMode) {
+				if (oldUid !== oldGid && (oldUid === 501 || oldGid === 501)) {
+					return { uid: 501, gid: 501, mode: fixedMode, reason: appName + " mobile owner repair" };
+				}
+				if (fixedMode !== oldMode) {
+					return { uid: oldUid, gid: oldGid, mode: fixedMode, reason: appName + " directory mode repair" };
+				}
+				return null;
+			}
+
+			function restoreTargetForApp(appName, oldUid, oldGid, oldMode) {
+				let target = repairTargetForApp(appName, oldUid, oldGid, oldMode);
+				if (target) return target;
+				let fixedMode = appDirMode(oldMode);
+				if (oldUid !== 501 || oldGid !== 501) {
 					return { uid: oldUid, gid: oldGid, mode: fixedMode, reason: "preserve original owner/mode" };
 				}
 				return null;
@@ -9166,10 +9141,11 @@ function start() { LOG("[+] PE start() called");
 				}
 			}
 
-			function repairApfsStateOnly(path, appName) {
-				let info = getApfsInfo(path);
+			function repairApfsStateOnly(path, appName, info) {
+				if (!info) info = getApfsInfo(path);
 				if (!info) return false;
-				let target = restoreTargetForApp(appName, info.uid, info.gid, info.mode, true);
+				let target = repairTargetForApp(appName, info.uid, info.gid, info.mode);
+				if (!target) return false;
 				ALChain.write32(info.fsNode + OFF_APFS_FSNODE_UID, target.uid);
 				ALChain.write32(info.fsNode + OFF_APFS_FSNODE_GID, target.gid);
 				ALChain.write16(info.fsNode + OFF_APFS_FSNODE_MODE, target.mode);
@@ -9179,7 +9155,7 @@ function start() { LOG("[+] PE start() called");
 				return !!st && st.uid === target.uid && st.gid === target.gid && st.mode === target.mode;
 			}
 
-			function apfsOwnPath(path, appName, forceImpactorRepair) {
+			function apfsOwnPath(path, appName) {
 				let info = getApfsInfo(path);
 				if (!info) return false;
 
@@ -9189,7 +9165,7 @@ function start() { LOG("[+] PE start() called");
 				let oldMode = info.mode;
 				LOG("[THREEAPP] current fsnode owner uid=" + oldUid + " gid=" + oldGid + " mode=" + hex16(oldMode) + " path=" + path);
 				let temporaryMode = appDirMode(oldMode);
-				let restore = restoreTargetForApp(appName, oldUid, oldGid, oldMode, forceImpactorRepair);
+				let restore = restoreTargetForApp(appName, oldUid, oldGid, oldMode);
 
 				ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
 				ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
@@ -9272,21 +9248,17 @@ function start() { LOG("[+] PE start() called");
 
 								let provCheck = ALNative.callSymbol("access", appPath + "/embedded.mobileprovision", 0n);
 								let hasProvision = Number(provCheck) === 0;
-								let auditRepair = isAppRepairCandidate(appPath, appName);
-								let before = null;
-								if (!hasProvision || auditRepair) {
-									before = xattrState(appPath);
-								}
-								if (auditRepair) {
-									audited++;
-									LOG("[THREEAPP-AUDIT] candidate name=" + appName + " hasProvision=" + hasProvision + " xattr=" + JSON.stringify(before) + " path=" + appPath);
-								}
+								let before = xattrState(appPath);
+								let auditInfo = getApfsInfo(appPath);
+								let repairTarget = auditInfo ? repairTargetForApp(appName, auditInfo.uid, auditInfo.gid, auditInfo.mode) : null;
+								audited++;
+								LOG("[THREEAPP-AUDIT] app name=" + appName + " hasProvision=" + hasProvision + " uid=" + (auditInfo ? auditInfo.uid : -1) + " gid=" + (auditInfo ? auditInfo.gid : -1) + " mode=" + (auditInfo ? hex16(auditInfo.mode) : "n/a") + " needsRepair=" + !!repairTarget + " xattr=" + JSON.stringify(before) + " path=" + appPath);
 								if (!hasProvision && !(before && before.present === true)) {
-									if (auditRepair && repairApfsStateOnly(appPath, appName)) repaired++;
+									if (repairTarget && repairApfsStateOnly(appPath, appName, auditInfo)) repaired++;
 									continue;
 								}
 
-								let own = apfsOwnPath(appPath, appName, auditRepair);
+								let own = apfsOwnPath(appPath, appName);
 								if (!own) {
 									LOG("[THREEAPP] failed to set ownership on: " + appPath);
 								} else {
