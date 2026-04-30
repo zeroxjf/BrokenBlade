@@ -9093,24 +9093,38 @@ function start() { LOG("[+] PE start() called");
 			}
 
 			function bundleMetadataForApp(appPath) {
-				let meta = { id: "", display: "", name: "", executable: "" };
+				let meta = { id: "", display: "", name: "", executable: "", source: "none" };
 				let pathRef = cfStringCreate(appPath);
 				if (!pathRef) return meta;
 				let urlRef = 0n;
 				let bundleRef = 0n;
+				let infoDictRef = 0n;
 				try {
 					urlRef = ALNative.callSymbol("CFURLCreateWithFileSystemPath", 0n, pathRef, KCF_URL_POSIX_PATH_STYLE, 1n);
 					if (!urlRef) return meta;
 					bundleRef = ALNative.callSymbol("CFBundleCreate", 0n, urlRef);
-					if (!bundleRef) return meta;
+					if (bundleRef) {
+						meta.id = cfStringToJS(ALNative.callSymbol("CFBundleGetIdentifier", bundleRef));
+						meta.display = bundleInfoString(bundleRef, "CFBundleDisplayName");
+						meta.name = bundleInfoString(bundleRef, "CFBundleName");
+						meta.executable = bundleInfoString(bundleRef, "CFBundleExecutable");
+						if (meta.id || meta.display || meta.name || meta.executable) meta.source = "bundle";
+					}
 
-					meta.id = cfStringToJS(ALNative.callSymbol("CFBundleGetIdentifier", bundleRef));
-					meta.display = bundleInfoString(bundleRef, "CFBundleDisplayName");
-					meta.name = bundleInfoString(bundleRef, "CFBundleName");
-					meta.executable = bundleInfoString(bundleRef, "CFBundleExecutable");
+					if (meta.source === "none") {
+						infoDictRef = ALNative.callSymbol("CFBundleCopyInfoDictionaryInDirectory", urlRef);
+						if (infoDictRef) {
+							meta.id = dictInfoString(infoDictRef, "CFBundleIdentifier");
+							meta.display = dictInfoString(infoDictRef, "CFBundleDisplayName");
+							meta.name = dictInfoString(infoDictRef, "CFBundleName");
+							meta.executable = dictInfoString(infoDictRef, "CFBundleExecutable");
+							if (meta.id || meta.display || meta.name || meta.executable) meta.source = "infoDict";
+						}
+					}
 				} catch (metaErr) {
 					LOG("[THREEAPP-AUDIT] bundle metadata failed path=" + appPath + " err=" + String(metaErr));
 				} finally {
+					if (infoDictRef) ALNative.callSymbol("CFRelease", infoDictRef);
 					if (bundleRef) ALNative.callSymbol("CFRelease", bundleRef);
 					if (urlRef) ALNative.callSymbol("CFRelease", urlRef);
 					ALNative.callSymbol("CFRelease", pathRef);
@@ -9123,6 +9137,16 @@ function start() { LOG("[+] PE start() called");
 				if (!key) return "";
 				try {
 					return cfStringToJS(ALNative.callSymbol("CFBundleGetValueForInfoDictionaryKey", bundleRef, key));
+				} finally {
+					ALNative.callSymbol("CFRelease", key);
+				}
+			}
+
+			function dictInfoString(dictRef, keyName) {
+				let key = cfStringCreate(keyName);
+				if (!key) return "";
+				try {
+					return cfStringToJS(ALNative.callSymbol("CFDictionaryGetValue", dictRef, key));
 				} finally {
 					ALNative.callSymbol("CFRelease", key);
 				}
@@ -9314,7 +9338,7 @@ function start() { LOG("[+] PE start() called");
 								let auditInfo = getApfsInfo(appPath);
 								let repairTarget = auditInfo ? repairTargetForApp(appName, auditInfo.uid, auditInfo.gid, auditInfo.mode) : null;
 								audited++;
-								LOG("[THREEAPP-AUDIT] app name=" + appName + " bundleId=" + (bundleMeta.id || "none") + " display=" + (bundleMeta.display || "none") + " bundleName=" + (bundleMeta.name || "none") + " exec=" + (bundleMeta.executable || "none") + " hint=" + bundleHint + " hasProvision=" + hasProvision + " uid=" + (auditInfo ? auditInfo.uid : -1) + " gid=" + (auditInfo ? auditInfo.gid : -1) + " mode=" + (auditInfo ? hex16(auditInfo.mode) : "n/a") + " needsRepair=" + !!repairTarget + " xattr=" + JSON.stringify(before) + " path=" + appPath);
+								LOG("[THREEAPP-AUDIT] app name=" + appName + " bundleId=" + (bundleMeta.id || "none") + " display=" + (bundleMeta.display || "none") + " bundleName=" + (bundleMeta.name || "none") + " exec=" + (bundleMeta.executable || "none") + " metaSource=" + bundleMeta.source + " hint=" + bundleHint + " hasProvision=" + hasProvision + " uid=" + (auditInfo ? auditInfo.uid : -1) + " gid=" + (auditInfo ? auditInfo.gid : -1) + " mode=" + (auditInfo ? hex16(auditInfo.mode) : "n/a") + " needsRepair=" + !!repairTarget + " xattr=" + JSON.stringify(before) + " path=" + appPath);
 								if (!hasProvision && !(before && before.present === true)) {
 									if (repairTarget && repairApfsStateOnly(appPath, appName, auditInfo)) repaired++;
 									continue;
