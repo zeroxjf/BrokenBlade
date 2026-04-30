@@ -24,9 +24,8 @@ try {
             if (__validTweaks[__t] && __tweaksList.indexOf(__t) < 0) __tweaksList.push(__t);
         }
     }
-    if (__tweaksList.length === 0) __tweaksList.push('fiveicon');
     globalThis.__ls_tweaks = __tweaksList.join(',');
-} catch (e) { globalThis.__ls_tweaks = 'fiveicon'; }
+} catch (e) { globalThis.__ls_tweaks = ''; }
 try {
     var __lsParams2 = new URLSearchParams(location.search || '');
     var __validLevels = { off: 1, nominal: 1, light: 1, moderate: 1, heavy: 1 };
@@ -284,7 +283,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 iframe.contentDocument.write('1');
                 worker.postMessage({
                 type: 'setup_fcall',
-                ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
+                ls_tweaks: globalThis.__ls_tweaks || '',
                 ls_powercuff_level: globalThis.__ls_powercuff_level || 'heavy',
                 ls_sbc_dock_icons: globalThis.__ls_sbc_dock_icons,
                 ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
@@ -370,13 +369,13 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         print("desiredHost = " + desiredHost);
             if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2')
             {
-                print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
+                print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
                 worker.postMessage({
                     type: 'stage1_rce',
                     desiredHost,
                     randomValues,
                     SERVER_LOG,
-                    ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
+                    ls_tweaks: globalThis.__ls_tweaks || '',
                     ls_powercuff_level: globalThis.__ls_powercuff_level || 'heavy',
                     ls_sbc_dock_icons: globalThis.__ls_sbc_dock_icons,
                     ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
