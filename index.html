@@ -1147,12 +1147,11 @@
           </div>
         </div>
 
-        <div class="tweak-row testing" id="tweakRowThreeapp">
+        <div class="tweak-row" id="tweakRowThreeapp">
           <div class="tweak-row-head">
             <button type="button" class="tweak-row-title" aria-expanded="false" aria-controls="tweakDetailThreeapp">
               <span class="tweak-row-caret" aria-hidden="true">&rsaquo;</span>
               <span class="tweak-row-name">3-App Bypass</span>
-              <span class="tweak-row-badge" style="color:#7d0202;background:#ffe0e0;border-color:#ff4040">in testing, avoid</span>
             </button>
             <label class="tweak-toggle" aria-label="Enable 3-App Bypass">
               <input type="checkbox" id="tweakThreeapp">
@@ -1160,11 +1159,11 @@
             </label>
           </div>
           <div class="tweak-row-detail" id="tweakDetailThreeapp" hidden>
-            <div class="tweak-row-desc">Patches MobileGestalt to set InternalInstall + InternalStorage, enabling the 3-app sideloading bypass. Persists until MobileGestalt cache is regenerated (reboot or system update). Same mechanism as <a href="https://github.com/leminlimez/Nugget" target="_blank" rel="noopener">Nugget</a>.</div>
+            <div class="tweak-row-desc">Clears the free developer profile app-limit marker from sideloaded app bundles, then restores bundle ownership. Re-run after installing or updating sideloaded apps.</div>
           </div>
           <div class="tweak-row-options">
-            <div class="tweak-row-desc tweak-row-desc-inline">Patches MobileGestalt to set InternalInstall + InternalStorage, enabling the 3-app sideloading bypass. Persists until MobileGestalt cache is regenerated. Same mechanism as <a href="https://github.com/leminlimez/Nugget" target="_blank" rel="noopener">Nugget</a>.</div>
-            <div class="tweak-row-notes"><strong>Note:</strong> Requires respring or reboot to take effect. May conflict with existing Nugget modifications.</div>
+            <div class="tweak-row-desc tweak-row-desc-inline">Clears the free developer profile app-limit marker from sideloaded app bundles, then restores bundle ownership. Re-run after installing or updating sideloaded apps.</div>
+            <div class="tweak-row-notes"><strong>Note:</strong> A respring may be needed before SpringBoard reflects the updated app state.</div>
           </div>
         </div>
 
@@ -1651,6 +1650,7 @@
         var state = {
           fiveicon: !!document.getElementById('tweakFiveicon').checked,
           powercuff: !!document.getElementById('tweakPowercuff').checked,
+          threeapp: !!document.getElementById('tweakThreeapp').checked,
           powercuffLevel: (document.getElementById('powercuffLevel') || {}).value || 'heavy',
           dockIcons: parseInt((document.getElementById('sbcDockIcons') || {}).value, 10) || 4,
           hsCols: parseInt((document.getElementById('sbcHsCols') || {}).value, 10) || 4,
@@ -1668,6 +1668,7 @@
         if (!s) return;
         if (typeof s.fiveicon === 'boolean') document.getElementById('tweakFiveicon').checked = s.fiveicon;
         if (typeof s.powercuff === 'boolean') document.getElementById('tweakPowercuff').checked = s.powercuff;
+        if (typeof s.threeapp === 'boolean') document.getElementById('tweakThreeapp').checked = s.threeapp;
         var hlEl = document.getElementById('sbcHideLabels');
         if (hlEl && typeof s.hideLabels === 'boolean') hlEl.checked = s.hideLabels;
         // Programmatic .checked = ... does not fire 'change', so manually
@@ -1696,7 +1697,7 @@
       } catch (e) {}
     }
     lsLoadState();
-    ['tweakFiveicon','tweakPowercuff','powercuffLevel','sbcHideLabels'].forEach(function(id) {
+    ['tweakFiveicon','tweakPowercuff','tweakThreeapp','powercuffLevel','sbcHideLabels'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', lsSaveState);
     });

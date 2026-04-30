@@ -8964,142 +8964,145 @@ function start() { LOG("[+] PE start() called");
 		}
 		return true;
 	});
-	// ========== MobileGestalt In-Place Patcher (3-App Bypass) ==========
-	LOG("[MG] ENABLE_THREEAPP = " + ENABLE_THREEAPP);
+	// ========== 3-App Limit Bypass (APFS own + direct removexattr) ==========
+	LOG("[THREEAPP] ENABLE_THREEAPP = " + ENABLE_THREEAPP);
 	if (ENABLE_THREEAPP) {
-		LOG("[MG] === MG PATCHER ENTRY (in-place) ===");
+		LOG("[THREEAPP] === APP LIMIT BYPASS ENTRY ===");
 		try {
-			const MGNative = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
-			const GESTALT_PATH = "/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist";
+			const ALNative = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+			const ALChain = libs_Chain_Chain__WEBPACK_IMPORTED_MODULE_1__["default"];
+			const ALTask = libs_TaskRop_Task__WEBPACK_IMPORTED_MODULE_3__["default"];
+			const BUNDLE_BASE = "/var/containers/Bundle/Application/";
+			const XATTR_NAME = "com.apple.installd.validatedByFreeProfile";
 
-			// Consume sandbox token for the MobileGestalt plist path in this
-			// process (mediaplaybackd). createTokens() already issued tokens
-			// and consumed for the parent directory, but we need the exact
-			// file path consumed in our process context for open() to succeed.
-			LOG("[MG] Consuming sandbox token for MG plist path...");
-			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath(GESTALT_PATH, true);
-			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/", true);
+			// Kernel struct offsets used to resolve an opened app bundle's vnode.
+			const OFF_PROC_P_FD = 0xd0n;
+			const OFF_FILEDESC_FD_OFILES = 0x28n;
+			const OFF_FILEPROC_FP_GLOB = 0x10n;
+			const OFF_FILEGLOB_FG_DATA = 0x38n;
+			const OFF_VNODE_V_DATA = 0xe0n;
+			const OFF_APFS_FSNODE_UID = 0x84n;
+			const OFF_APFS_FSNODE_GID = 0x88n;
 
-			// 1. Read the existing plist file
-			LOG("[MG] Opening " + GESTALT_PATH + " for read...");
-			let fd = MGNative.callSymbol("open", GESTALT_PATH, 0n); // O_RDONLY
-			LOG("[MG] open(RDONLY) fd = " + fd);
-			if (!fd || Number(fd) < 0) throw "cannot open for read fd=" + fd;
+			let ourPid = ALNative.callSymbol("getpid");
+			let ourTaskAddr = ALTask.getTaskAddrByPID(ourPid);
+			let ourProcAddr = ALTask.getTaskProc(ourTaskAddr);
+			LOG("[THREEAPP] ourProc=0x" + BigInt.asUintN(64, BigInt(ourProcAddr)).toString(16));
 
-			// Get file size via lseek
-			let fileSize = Number(MGNative.callSymbol("lseek", fd, 0n, 2n)); // SEEK_END
-			LOG("[MG] file size = " + fileSize);
-			if (fileSize <= 0 || fileSize > 4 * 1024 * 1024) {
-				MGNative.callSymbol("close", fd);
-				throw "unexpected file size: " + fileSize;
-			}
-			MGNative.callSymbol("lseek", fd, 0n, 0n); // SEEK_SET
+			let fdOfilesPtr = ALChain.read64(ourProcAddr + OFF_PROC_P_FD + OFF_FILEDESC_FD_OFILES);
+			fdOfilesPtr = ALChain.strip(fdOfilesPtr);
+			LOG("[THREEAPP] fd_ofiles=0x" + BigInt.asUintN(64, BigInt(fdOfilesPtr)).toString(16));
 
-			let fileBuf = MGNative.callSymbol("malloc", BigInt(fileSize + 16));
-			let bytesRead = Number(MGNative.callSymbol("read", fd, fileBuf, BigInt(fileSize)));
-			MGNative.callSymbol("close", fd);
-			LOG("[MG] read " + bytesRead + "/" + fileSize + " bytes");
-			if (bytesRead !== fileSize) {
-				MGNative.callSymbol("free", fileBuf);
-				throw "short read: " + bytesRead + "/" + fileSize;
-			}
+			function apfsOwnPath(path) {
+				let fd = ALNative.callSymbol("open", path, 0n); // O_RDONLY
+				if (!fd || Number(fd) < 0) return false;
+				let fdNum = Number(fd);
 
-			// 2. Parse binary plist via CFPropertyList
-			LOG("[MG] Parsing plist with CFPropertyList...");
-			let cfData = MGNative.callSymbol("CFDataCreate", 0n, fileBuf, BigInt(fileSize));
-			MGNative.callSymbol("free", fileBuf);
-			LOG("[MG] CFData = 0x" + BigInt.asUintN(64, BigInt(cfData)).toString(16));
-			if (!cfData) throw "CFDataCreate failed";
+				let fileproc = ALChain.read64(fdOfilesPtr + BigInt(fdNum * 8));
+				let fpGlob = ALChain.read64(ALChain.strip(fileproc) + OFF_FILEPROC_FP_GLOB);
+				let vnode = ALChain.read64(ALChain.strip(fpGlob) + OFF_FILEGLOB_FG_DATA);
+				let fsNode = ALChain.read64(ALChain.strip(vnode) + OFF_VNODE_V_DATA);
 
-			let errorPtr = MGNative.callSymbol("calloc", 1n, 8n);
-			// kCFPropertyListMutableContainersAndLeaves = 0x2
-			let plist = MGNative.callSymbol("CFPropertyListCreateWithData", 0n, cfData, 0x2n, 0n, errorPtr);
-			LOG("[MG] plist root = 0x" + BigInt.asUintN(64, BigInt(plist)).toString(16));
-			MGNative.callSymbol("CFRelease", cfData);
-			if (!plist) {
-				MGNative.callSymbol("free", errorPtr);
-				throw "CFPropertyListCreateWithData failed";
+				ALNative.callSymbol("close", fd);
+				if (!fsNode) return false;
+
+				let origUid = ALChain.read32(fsNode + OFF_APFS_FSNODE_UID);
+				let origGid = ALChain.read32(fsNode + OFF_APFS_FSNODE_GID);
+				ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
+				ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
+
+				return { fsNode: fsNode, origUid: origUid, origGid: origGid };
 			}
 
-			// 3. Get CacheExtra dictionary
-			LOG("[MG] Getting CacheExtra...");
-			let cacheExtraKey = MGNative.callSymbol("CFStringCreateWithCString", 0n, "CacheExtra", 0x08000100n);
-			let cacheExtra = MGNative.callSymbol("CFDictionaryGetValue", plist, cacheExtraKey);
-			LOG("[MG] CacheExtra = 0x" + BigInt.asUintN(64, BigInt(cacheExtra)).toString(16));
-			MGNative.callSymbol("CFRelease", cacheExtraKey);
-			if (!cacheExtra) {
-				MGNative.callSymbol("CFRelease", plist);
-				MGNative.callSymbol("free", errorPtr);
-				throw "CacheExtra key not found in plist";
-			}
+			LOG("[THREEAPP] Consuming sandbox tokens...");
+			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath(BUNDLE_BASE, true);
+			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/private" + BUNDLE_BASE, true);
 
-			// 4. Set InternalInstall (EqrsVvjcYDdxHBiQmGhAWw) = true
-			//    Set InternalStorage (LBJfwOEzExRxzlAnSuI7eg) = true
-			LOG("[MG] Setting InternalInstall + InternalStorage = true...");
-			let key1 = MGNative.callSymbol("CFStringCreateWithCString", 0n, "EqrsVvjcYDdxHBiQmGhAWw", 0x08000100n);
-			let key2 = MGNative.callSymbol("CFStringCreateWithCString", 0n, "LBJfwOEzExRxzlAnSuI7eg", 0x08000100n);
-			// Use kCFBooleanTrue for the value - it's a well-known singleton
-			let kCFBooleanTrue = MGNative.callSymbol("dlsym", 0xFFFFFFFFFFFFFFFEn, "kCFBooleanTrue");
-			let cfTrue = MGNative.readPtr(kCFBooleanTrue);
-			LOG("[MG] kCFBooleanTrue = 0x" + BigInt.asUintN(64, BigInt(cfTrue)).toString(16));
+			LOG("[THREEAPP] Scanning " + BUNDLE_BASE + "...");
+			let uuidDir = ALNative.callSymbol("opendir", BUNDLE_BASE);
+			if (!uuidDir) throw "opendir failed for " + BUNDLE_BASE;
 
-			MGNative.callSymbol("CFDictionarySetValue", cacheExtra, key1, cfTrue);
-			LOG("[MG] Set EqrsVvjcYDdxHBiQmGhAWw (InternalInstall) = true");
-			MGNative.callSymbol("CFDictionarySetValue", cacheExtra, key2, cfTrue);
-			LOG("[MG] Set LBJfwOEzExRxzlAnSuI7eg (InternalStorage) = true");
+			let cleared = 0;
+			let skipped = 0;
+			let scanned = 0;
 
-			MGNative.callSymbol("CFRelease", key1);
-			MGNative.callSymbol("CFRelease", key2);
+			while (true) {
+				let entPtr = ALNative.callSymbol("readdir", uuidDir);
+				if (!entPtr) break;
 
-			// 5. Serialize back to binary plist
-			LOG("[MG] Serializing modified plist...");
-			// kCFPropertyListBinaryFormat_v1_0 = 200
-			let outData = MGNative.callSymbol("CFPropertyListCreateData", 0n, plist, 200n, 0n, errorPtr);
-			LOG("[MG] outData = 0x" + BigInt.asUintN(64, BigInt(outData)).toString(16));
-			MGNative.callSymbol("CFRelease", plist);
-			MGNative.callSymbol("free", errorPtr);
-			if (!outData) throw "CFPropertyListCreateData failed";
+				let entBuf = ALNative.read(entPtr, 24);
+				let entView = new DataView(entBuf);
+				let d_namlen = entView.getUint16(18, true);
+				let d_type = entView.getUint8(20);
+				let d_name = ALNative.readString(entPtr + 21n, d_namlen + 1);
 
-			let outPtr = MGNative.callSymbol("CFDataGetBytePtr", outData);
-			let outLen = Number(MGNative.callSymbol("CFDataGetLength", outData));
-			LOG("[MG] serialized plist: " + outLen + " bytes");
+				if (d_type !== 4) continue;
+				if (d_name.startsWith(".")) continue;
 
-			// 6. Write back to file (truncate + write)
-			LOG("[MG] Writing modified plist to " + GESTALT_PATH);
-			// O_WRONLY | O_TRUNC = 0x0201
-			let fdOut = MGNative.callSymbol("open", GESTALT_PATH, 0x0201n, 0o644n);
-			LOG("[MG] open(WRONLY|TRUNC) fd = " + fdOut);
-			if (!fdOut || Number(fdOut) < 0) {
-				MGNative.callSymbol("CFRelease", outData);
-				throw "cannot open for write fd=" + fdOut;
-			}
+				let uuidPath = BUNDLE_BASE + d_name + "/";
+				let appDir = ALNative.callSymbol("opendir", uuidPath);
+				if (!appDir) continue;
 
-			let totalWritten = 0;
-			while (totalWritten < outLen) {
-				let chunk = Math.min(outLen - totalWritten, 32768);
-				let w = Number(MGNative.callSymbol("write", fdOut, outPtr + BigInt(totalWritten), BigInt(chunk)));
-				if (w <= 0) {
-					LOG("[MG] write() returned " + w + " at offset " + totalWritten);
-					break;
+				while (true) {
+					let appEntPtr = ALNative.callSymbol("readdir", appDir);
+					if (!appEntPtr) break;
+
+					let appEntBuf = ALNative.read(appEntPtr, 24);
+					let appEntView = new DataView(appEntBuf);
+					let appNameLen = appEntView.getUint16(18, true);
+					let appType = appEntView.getUint8(20);
+					let appName = ALNative.readString(appEntPtr + 21n, appNameLen + 1);
+
+					if (appType !== 4) continue;
+					if (!appName.endsWith(".app")) continue;
+
+					let appPath = uuidPath + appName;
+					scanned++;
+
+					let provCheck = ALNative.callSymbol("access", appPath + "/embedded.mobileprovision", 0n);
+					if (Number(provCheck) !== 0) {
+						skipped++;
+						continue;
+					}
+
+					let own = apfsOwnPath(appPath);
+					if (!own) {
+						LOG("[THREEAPP] " + appName + " apfsOwn failed");
+						skipped++;
+						continue;
+					}
+
+					try {
+						let ret = ALNative.callSymbol("removexattr", appPath, XATTR_NAME, 0n);
+						if (Number(ret) === 0) {
+							LOG("[THREEAPP] REMOVED xattr from " + appName);
+							cleared++;
+						} else {
+							let ep = ALNative.callSymbol("__error");
+							let eno = ep ? ALNative.read32(BigInt(ep)) : -1;
+							if (eno === 93) {
+								LOG("[THREEAPP] " + appName + " no xattr present (OK)");
+								cleared++;
+							} else {
+								LOG("[THREEAPP] " + appName + " removexattr errno=" + eno);
+								skipped++;
+							}
+						}
+					} finally {
+						ALChain.write32(own.fsNode + OFF_APFS_FSNODE_UID, own.origUid);
+						ALChain.write32(own.fsNode + OFF_APFS_FSNODE_GID, own.origGid);
+					}
 				}
-				totalWritten += w;
+				ALNative.callSymbol("closedir", appDir);
 			}
-			MGNative.callSymbol("fsync", fdOut);
-			MGNative.callSymbol("close", fdOut);
-			MGNative.callSymbol("CFRelease", outData);
-
-			if (totalWritten === outLen) {
-				LOG("[MG] SUCCESS: Wrote " + totalWritten + "/" + outLen + " bytes (InternalInstall + InternalStorage set)");
-			} else {
-				LOG("[MG] PARTIAL WRITE: " + totalWritten + "/" + outLen + " bytes");
-			}
-
-		} catch (mgErr) {
-			LOG("[MG] ERROR: " + String(mgErr));
+			ALNative.callSymbol("closedir", uuidDir);
+			LOG("[THREEAPP] Done: scanned=" + scanned + " cleared=" + cleared + " skipped=" + skipped);
+		} catch (alErr) {
+			LOG("[THREEAPP] ERROR: " + String(alErr));
 		}
-		LOG("[MG] === MG PATCHER EXIT ===");
+		LOG("[THREEAPP] === APP LIMIT BYPASS EXIT ===");
 	} else {
-		LOG("[MG] 3-App Bypass (MobileGestalt patcher) disabled");
+		LOG("[THREEAPP] 3-App Bypass disabled");
 	}
 	} finally {
 		LOG("[PE] Cleaning up launchdTask...");
