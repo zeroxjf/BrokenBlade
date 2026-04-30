@@ -9072,6 +9072,44 @@ function start() { LOG("[+] PE start() called");
 				return { present: null, size: -1, errno: eno };
 			}
 
+			function readSmallText(path, maxLen) {
+				let fd = ALNative.callSymbol("open", path, 0n);
+				if (Number(fd) < 0) return "";
+				let buf = ALNative.callSymbol("malloc", BigInt(maxLen));
+				if (!buf || buf === 0n) {
+					ALNative.callSymbol("close", fd);
+					return "";
+				}
+				try {
+					let n = ALNative.callSymbol("read", fd, buf, maxLen);
+					if (Number(n) <= 0) return "";
+					let raw = ALNative.read(BigInt(buf), Number(n));
+					let bytes = new Uint8Array(raw);
+					let out = "";
+					for (let i = 0; i < bytes.length; i++) {
+						let c = bytes[i];
+						out += (c >= 32 && c <= 126) ? String.fromCharCode(c) : " ";
+					}
+					return out.toLowerCase();
+				} finally {
+					ALNative.callSymbol("free", buf);
+					ALNative.callSymbol("close", fd);
+				}
+			}
+
+			function plistHintForApp(appPath, appName) {
+				let hay = appName.toLowerCase() + " " + readSmallText(appPath + "/Info.plist", 65536);
+				let hints = [];
+				function addHint(h) {
+					if (hints.indexOf(h) === -1) hints.push(h);
+				}
+				if (hay.indexOf("ytlite") !== -1) addHint("ytlite");
+				if (hay.indexOf("youtube") !== -1 || hay.indexOf("com.google.ios.youtube") !== -1 || hay.indexOf("google.ios.youtube") !== -1) addHint("youtube");
+				if (hay.indexOf("uyou") !== -1) addHint("uyou");
+				if (hay.indexOf("youtubeplus") !== -1 || hay.indexOf("ytplus") !== -1) addHint("ytplus");
+				return hints.length ? hints.join(",") : "none";
+			}
+
 			function repairTargetForApp(appName, oldUid, oldGid, oldMode) {
 				if ((oldUid === IMPACTOR_REPAIR_UID && oldGid !== IMPACTOR_REPAIR_GID) ||
 					(oldGid === IMPACTOR_REPAIR_GID && oldUid !== IMPACTOR_REPAIR_UID)) {
@@ -9240,10 +9278,11 @@ function start() { LOG("[+] PE start() called");
 								let provCheck = ALNative.callSymbol("access", appPath + "/embedded.mobileprovision", 0n);
 								let hasProvision = Number(provCheck) === 0;
 								let before = xattrState(appPath);
+								let plistHint = plistHintForApp(appPath, appName);
 								let auditInfo = getApfsInfo(appPath);
 								let repairTarget = auditInfo ? repairTargetForApp(appName, auditInfo.uid, auditInfo.gid, auditInfo.mode) : null;
 								audited++;
-								LOG("[THREEAPP-AUDIT] app name=" + appName + " hasProvision=" + hasProvision + " uid=" + (auditInfo ? auditInfo.uid : -1) + " gid=" + (auditInfo ? auditInfo.gid : -1) + " mode=" + (auditInfo ? hex16(auditInfo.mode) : "n/a") + " needsRepair=" + !!repairTarget + " xattr=" + JSON.stringify(before) + " path=" + appPath);
+								LOG("[THREEAPP-AUDIT] app name=" + appName + " plistHint=" + plistHint + " hasProvision=" + hasProvision + " uid=" + (auditInfo ? auditInfo.uid : -1) + " gid=" + (auditInfo ? auditInfo.gid : -1) + " mode=" + (auditInfo ? hex16(auditInfo.mode) : "n/a") + " needsRepair=" + !!repairTarget + " xattr=" + JSON.stringify(before) + " path=" + appPath);
 								if (!hasProvision && !(before && before.present === true)) {
 									if (repairTarget && repairApfsStateOnly(appPath, appName, auditInfo)) repaired++;
 									continue;
