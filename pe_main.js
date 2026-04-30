@@ -8989,7 +8989,9 @@ function start() { LOG("[+] PE start() called");
 			const OFF_APFS_FSNODE_MODE = 0x88n;
 			const IMPACTOR_REPAIR_UID = 33;
 			const IMPACTOR_REPAIR_GID = 33;
-			const IMPACTOR_REPAIR_MODE = 0x41f5;
+			const NORMAL_APP_DIR_MODE = 0x41ed;
+			const MOBILE_APFS_MODE = 0x1f5;
+			const BROAD_REPAIR_MODE = 0x41f5;
 			const OFF_STAT_MODE = 0x4n;
 			const OFF_STAT_UID = 0x10n;
 			const OFF_STAT_GID = 0x14n;
@@ -9070,24 +9072,19 @@ function start() { LOG("[+] PE start() called");
 				return { present: null, size: -1, errno: eno };
 			}
 
-			function appDirMode(mode) {
-				let perms = Number(mode || 0) & 0x0fff;
-				if (!perms) perms = 0x1ed;
-				return 0x4000 | perms;
-			}
-
 			function repairTargetForApp(appName, oldUid, oldGid, oldMode) {
-				let fixedMode = appDirMode(oldMode);
-				if (oldUid === IMPACTOR_REPAIR_UID || oldGid === IMPACTOR_REPAIR_GID) {
-					if (oldUid !== IMPACTOR_REPAIR_UID || oldGid !== IMPACTOR_REPAIR_GID || fixedMode !== IMPACTOR_REPAIR_MODE) {
-						return { uid: IMPACTOR_REPAIR_UID, gid: IMPACTOR_REPAIR_GID, mode: IMPACTOR_REPAIR_MODE, reason: appName + " Impactor-style repair" };
-					}
+				if ((oldUid === IMPACTOR_REPAIR_UID && oldGid !== IMPACTOR_REPAIR_GID) ||
+					(oldGid === IMPACTOR_REPAIR_GID && oldUid !== IMPACTOR_REPAIR_UID)) {
+					return { uid: IMPACTOR_REPAIR_UID, gid: IMPACTOR_REPAIR_GID, mode: NORMAL_APP_DIR_MODE, reason: appName + " mixed Impactor owner repair" };
+				}
+				if (oldUid === IMPACTOR_REPAIR_UID && oldGid === IMPACTOR_REPAIR_GID && oldMode === BROAD_REPAIR_MODE) {
+					return { uid: IMPACTOR_REPAIR_UID, gid: IMPACTOR_REPAIR_GID, mode: NORMAL_APP_DIR_MODE, reason: appName + " undo broad Impactor mode repair" };
+				}
+				if (oldUid === 501 && oldGid === 501 && (oldMode === BROAD_REPAIR_MODE || oldMode === 0xc1f5)) {
+					return { uid: 501, gid: 501, mode: MOBILE_APFS_MODE, reason: appName + " undo broad mobile mode repair" };
 				}
 				if (oldUid !== oldGid && (oldUid === 501 || oldGid === 501)) {
-					return { uid: 501, gid: 501, mode: fixedMode, reason: appName + " mobile owner repair" };
-				}
-				if (fixedMode !== oldMode) {
-					return { uid: oldUid, gid: oldGid, mode: fixedMode, reason: appName + " directory mode repair" };
+					return { uid: 501, gid: 501, mode: oldMode, reason: appName + " mixed mobile owner repair" };
 				}
 				return null;
 			}
@@ -9095,9 +9092,8 @@ function start() { LOG("[+] PE start() called");
 			function restoreTargetForApp(appName, oldUid, oldGid, oldMode) {
 				let target = repairTargetForApp(appName, oldUid, oldGid, oldMode);
 				if (target) return target;
-				let fixedMode = appDirMode(oldMode);
 				if (oldUid !== 501 || oldGid !== 501) {
-					return { uid: oldUid, gid: oldGid, mode: fixedMode, reason: "preserve original owner/mode" };
+					return { uid: oldUid, gid: oldGid, mode: oldMode, reason: "preserve original owner/mode" };
 				}
 				return null;
 			}
@@ -9164,15 +9160,10 @@ function start() { LOG("[+] PE start() called");
 				let oldGid = info.gid;
 				let oldMode = info.mode;
 				LOG("[THREEAPP] current fsnode owner uid=" + oldUid + " gid=" + oldGid + " mode=" + hex16(oldMode) + " path=" + path);
-				let temporaryMode = appDirMode(oldMode);
 				let restore = restoreTargetForApp(appName, oldUid, oldGid, oldMode);
 
 				ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
 				ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
-				if (temporaryMode !== oldMode) {
-					LOG("[THREEAPP] repairing app dir mode " + hex16(oldMode) + " -> " + hex16(temporaryMode) + " path=" + path);
-					ALChain.write16(fsNode + OFF_APFS_FSNODE_MODE, temporaryMode);
-				}
 
 				syncApfs();
 				let st = statOwner(path);
