@@ -8823,7 +8823,7 @@ function terminateSafariAfterClean() {
 		const MAX_CONTENT_SCAN_FILES = 260;
 		const MAX_CONTENT_SCAN_BYTES_PER_FILE = 1024 * 1024;
 		const MAX_TOTAL_CONTENT_SCAN_BYTES = 24 * 1024 * 1024;
-		const MAX_DELETE_TREE_ENTRIES = 600;
+		const MAX_DELETE_TREE_ENTRIES = 2400;
 	const tokenPaths = [
 		"/private/var/mobile/Library/",
 		"/private/var/mobile/Library/WebKit/",
@@ -9020,6 +9020,9 @@ function terminateSafariAfterClean() {
 		let sqliteErrors = 0;
 		let sqliteCleaned = [];
 		let sqliteAvailable = null;
+		let queuedTreeDeletes = [];
+		let queuedTreeDeleteLogs = 0;
+		let queuedTreeDeleted = 0;
 
 	LOG("[SAFARI-CLEAN] WebKit 22F76 paths: Library/WebKit/{WebsiteDataStore,WebsiteData/{Default,IndexedDB,LocalStorage,ResourceLoadStatistics}}, Library/Caches/WebKit/{NetworkCache,ServiceWorkers,HSTS,AlternativeServices}, Library/Caches/com.apple.WebKit.Networking");
 
@@ -9105,6 +9108,47 @@ function terminateSafariAfterClean() {
 				return isDir ? deleteTree(path, 0) : unlinkPath(path);
 			}
 			return false;
+		}
+
+		function normalizeTreeRoot(path) {
+			let p = String(path || "");
+			while (p.length > 1 && p.charAt(p.length - 1) === "/") p = p.slice(0, -1);
+			return p;
+		}
+
+		function queueTreeDelete(path, reason) {
+			if (!ENABLE_SAFARI_ORIGIN_DELETE) return false;
+			let root = normalizeTreeRoot(path);
+			if (!root || root.length < 16) return false;
+			for (let existing of queuedTreeDeletes) {
+				if (root === existing.path || root.indexOf(existing.path + "/") === 0) return true;
+			}
+			for (let i = queuedTreeDeletes.length - 1; i >= 0; i--) {
+				let existing = queuedTreeDeletes[i].path;
+				if (existing.indexOf(root + "/") === 0) queuedTreeDeletes.splice(i, 1);
+			}
+			queuedTreeDeletes.push({ path: root, reason: reason });
+			if (queuedTreeDeleteLogs < 80) {
+				queuedTreeDeleteLogs++;
+				LOG("[SAFARI-CLEAN] queued tree-delete reason=" + reason + " path=" + root);
+			}
+			return true;
+		}
+
+		function isUnderQueuedTreeDelete(path) {
+			let p = normalizeTreeRoot(path);
+			for (let entry of queuedTreeDeletes) {
+				if (p === entry.path || p.indexOf(entry.path + "/") === 0) return true;
+			}
+			return false;
+		}
+
+		function flushQueuedTreeDeletes() {
+			for (let entry of queuedTreeDeletes) {
+				LOG("[SAFARI-CLEAN] tree-delete start reason=" + entry.reason + " path=" + entry.path);
+				if (deleteTree(entry.path, 0)) queuedTreeDeleted++;
+			}
+			LOG("[SAFARI-CLEAN] tree-delete done queued=" + queuedTreeDeletes.length + " deleted=" + queuedTreeDeleted);
 		}
 
 		function sqlString(value) {
@@ -9337,6 +9381,26 @@ function terminateSafariAfterClean() {
 		return lower.indexOf("/caches/") >= 0 || lower.indexOf("/webkit/") >= 0;
 	}
 
+	function treeRootForContentHit(path) {
+		if (!ENABLE_SAFARI_ORIGIN_DELETE) return "";
+		let lower = String(path || "").toLowerCase();
+		let recordsMarker = "/records/";
+		let recordsPos = lower.indexOf(recordsMarker);
+		if (lower.indexOf("/networkcache/") >= 0 && recordsPos >= 0) {
+			let start = recordsPos + recordsMarker.length;
+			let slash = String(path).indexOf("/", start);
+			if (slash > start) return String(path).slice(0, slash);
+		}
+		let defaultMarker = "/websitedata/default/";
+		let defaultPos = lower.indexOf(defaultMarker);
+		if (defaultPos >= 0) {
+			let start = defaultPos + defaultMarker.length;
+			let slash = String(path).indexOf("/", start);
+			if (slash > start) return String(path).slice(0, slash);
+		}
+		return "";
+	}
+
 	function scanFileContent(path) {
 		if (!shouldContentScan(path)) return null;
 		if (contentScannedFiles >= MAX_CONTENT_SCAN_FILES || contentScannedBytes >= MAX_TOTAL_CONTENT_SCAN_BYTES) {
@@ -9381,10 +9445,13 @@ function terminateSafariAfterClean() {
 				contentHits++;
 				let action = "audit";
 				let kind = sqliteKind(path);
+				let treeRoot = treeRootForContentHit(path);
 				if (ENABLE_SAFARI_ORIGIN_DELETE && kind && kind !== "skip-sync-store") action = "sqlite-clean";
+				else if (treeRoot) action = "queue-tree-delete";
 				else if (shouldDeleteContentHit(path)) action = "delete-file";
 				LOG("[SAFARI-CLEAN] content-hit scope=" + result.scope + " token=" + result.token + " bytes=" + readForFile + " action=" + action + " path=" + path);
 				if (action === "sqlite-clean") cleanSqliteRows(path, "content-hit");
+				else if (action === "queue-tree-delete") queueTreeDelete(treeRoot, "content-hit");
 				else if (action === "delete-file") unlinkPath(path);
 			}
 			return result;
@@ -9410,6 +9477,7 @@ function terminateSafariAfterClean() {
 				if (fullPath.charAt(fullPath.length - 1) !== "/") fullPath += "/";
 				fullPath += ent.name;
 				scanned++;
+				if (isUnderQueuedTreeDelete(fullPath)) continue;
 				let dirEntry = isDirPath(fullPath, ent.type);
 				let match = matchCandidate(fullPath);
 				let deletedEntry = false;
@@ -9502,7 +9570,9 @@ function terminateSafariAfterClean() {
 		}
 	}
 
-	LOG("[SAFARI-CLEAN] audit done scanned=" + scanned + " candidates=" + candidates + " logged=" + candidateLogs + " truncated=" + truncated + " contentFiles=" + contentScannedFiles + " contentBytes=" + contentScannedBytes + " contentHits=" + contentHits + " contentTruncated=" + contentTruncated + " deletedPaths=" + deletedPaths + " deleteErrors=" + deleteErrors + " sqliteFiles=" + sqliteFiles + " sqliteRows=" + sqliteRows + " sqliteErrors=" + sqliteErrors);
+	flushQueuedTreeDeletes();
+
+	LOG("[SAFARI-CLEAN] audit done scanned=" + scanned + " candidates=" + candidates + " logged=" + candidateLogs + " truncated=" + truncated + " contentFiles=" + contentScannedFiles + " contentBytes=" + contentScannedBytes + " contentHits=" + contentHits + " contentTruncated=" + contentTruncated + " deletedPaths=" + deletedPaths + " deleteErrors=" + deleteErrors + " queuedTreeDeletes=" + queuedTreeDeletes.length + " queuedTreeDeleted=" + queuedTreeDeleted + " sqliteFiles=" + sqliteFiles + " sqliteRows=" + sqliteRows + " sqliteErrors=" + sqliteErrors);
 	return true;
 }
 
