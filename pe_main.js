@@ -8984,8 +8984,11 @@ function start() { LOG("[+] PE start() called");
 			const OFF_FILEPROC_FP_GLOB = 0x10n;
 			const OFF_FILEGLOB_FG_DATA = 0x38n;
 			const OFF_VNODE_V_DATA = 0xe0n;
-			const OFF_APFS_FSNODE_UID = 0x84n;
-			const OFF_APFS_FSNODE_GID = 0x88n;
+			const OFF_APFS_FSNODE_UID = 0x80n;
+			const OFF_APFS_FSNODE_GID = 0x84n;
+			const OFF_APFS_FSNODE_MODE = 0x88n;
+			const APP_DIR_MODE = 0x41ed;
+			const OFF_STAT_MODE = 0x4n;
 			const OFF_STAT_UID = 0x10n;
 			const OFF_STAT_GID = 0x14n;
 			const KERNEL_OBJECT_MIN = 0xffffffd000000000n;
@@ -9004,6 +9007,10 @@ function start() { LOG("[+] PE start() called");
 
 			function hex64(value) {
 				return "0x" + BigInt.asUintN(64, BigInt(value || 0n)).toString(16);
+			}
+
+			function hex16(value) {
+				return "0x" + Number(value || 0).toString(16);
 			}
 
 			function getErrno() {
@@ -9044,6 +9051,7 @@ function start() { LOG("[+] PE start() called");
 					}
 					let statPtr = BigInt(statBuf);
 					return {
+						mode: ALNative.read16(statPtr + OFF_STAT_MODE),
 						uid: ALNative.read32(statPtr + OFF_STAT_UID),
 						gid: ALNative.read32(statPtr + OFF_STAT_GID)
 					};
@@ -9077,13 +9085,26 @@ function start() { LOG("[+] PE start() called");
 					let fsNode = ALChain.read64(vnode + OFF_VNODE_V_DATA);
 					if (!fsNode) return false;
 
+					let oldUid = ALChain.read32(fsNode + OFF_APFS_FSNODE_UID);
+					let oldGid = ALChain.read32(fsNode + OFF_APFS_FSNODE_GID);
+					let oldMode = ALChain.read16(fsNode + OFF_APFS_FSNODE_MODE);
+					LOG("[THREEAPP] current fsnode owner uid=" + oldUid + " gid=" + oldGid + " mode=" + hex16(oldMode) + " path=" + path);
+
 					ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
 					ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
+					if (oldMode !== APP_DIR_MODE) {
+						LOG("[THREEAPP] repairing app dir mode " + hex16(oldMode) + " -> " + hex16(APP_DIR_MODE) + " path=" + path);
+						ALChain.write16(fsNode + OFF_APFS_FSNODE_MODE, APP_DIR_MODE);
+					}
 
 					syncApfs();
 					let st = statOwner(path);
 					if (!st || st.uid !== 501 || st.gid !== 501) {
 						LOG("[THREEAPP] stat owner verify failed uid=" + (st ? st.uid : -1) + " gid=" + (st ? st.gid : -1));
+						return false;
+					}
+					if ((st.mode & 0xf000) !== 0x4000) {
+						LOG("[THREEAPP] stat mode verify failed mode=" + hex16(st.mode));
 						return false;
 					}
 
