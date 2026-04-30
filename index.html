@@ -52,6 +52,7 @@
       --accent-dark:   #0b66a8;
       --accent-soft:   #e6f4ff;
       --accent-border: #b7dcff;
+      --version-marker: #2da9ff;
       --hover:    #f0f2f6;
       --code-bg:  #f0f2f6;
       --ease:     cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -503,9 +504,20 @@
       font-family: var(--mono);
       font-size: 0.66rem;
       color: var(--faint);
-      text-align: center;
       margin-top: 16px;
-      letter-spacing: 0.04em;
+      letter-spacing: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+    .version::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--version-marker);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--version-marker) 18%, transparent);
     }
     .overlay {
       display: none;
@@ -1187,7 +1199,7 @@
       <a href="https://github.com/34306">34306</a> &amp; <a href="https://github.com/khanhduytran0">khanhduytran0</a>, whose <a href="http://34306.lol/darksword/">site design</a> helped stabilize payload delivery on this project, <a href="https://twitter.com/cro4js" target="_blank" rel="noopener">@cro4js</a> for UI suggestions, and anonymous contributors for help stabilizing the exploit chain.
     </div>
 
-    <p class="version">v0.0.91</p>
+    <p class="version" id="versionMarker">v0.0.91</p>
   </div>
 
   <div id="introOverlay" class="overlay">
@@ -1279,6 +1291,45 @@
     var LOG_ACTIVE_KEY = 'bb_last_run_active_v1';
     var LOG_STORE_LIMIT = 240;
     var USERLAND_DIRTY_KEY = 'bb_userland_dirty_v1';
+    var BUILD_VERSION_LABEL = 'v0.0.91';
+    var BUILD_COMMIT_API = 'https://api.github.com/repos/zeroxjf/BrokenBlade/commits/main';
+
+    (function applyBuildBackground() {
+      var root = document.documentElement;
+      var versionEl = document.getElementById('versionMarker');
+      function hashString(text) {
+        var hash = 2166136261;
+        text = String(text || BUILD_VERSION_LABEL);
+        for (var i = 0; i < text.length; i++) {
+          hash ^= text.charCodeAt(i);
+          hash = Math.imul(hash, 16777619);
+        }
+        return hash >>> 0;
+      }
+      function setBuildColor(buildId, label) {
+        var hash = hashString(buildId);
+        var hue = hash % 360;
+        var bg = 'hsl(' + hue + ' 78% 92%)';
+        var marker = 'hsl(' + hue + ' 82% 44%)';
+        var grad = 'radial-gradient(1200px 700px at 50% -220px, hsl(' + hue + ' 88% 52% / 0.22), transparent 62%)';
+        root.style.setProperty('--bg', bg);
+        root.style.setProperty('--bg-grad', grad);
+        root.style.setProperty('--version-marker', marker);
+        if (versionEl) versionEl.textContent = label;
+      }
+      setBuildColor(BUILD_VERSION_LABEL, BUILD_VERSION_LABEL);
+      if (!window.fetch) return;
+      fetch(BUILD_COMMIT_API + '?_=' + Date.now(), { cache: 'no-store' })
+        .then(function(response) {
+          if (!response.ok) throw new Error('commit lookup failed');
+          return response.json();
+        })
+        .then(function(data) {
+          if (!data || !data.sha) return;
+          setBuildColor(data.sha, BUILD_VERSION_LABEL + ' · main ' + data.sha.slice(0, 7));
+        })
+        .catch(function() {});
+    })();
 
     function logStoreLine(text, cls) {
       try {
