@@ -53,6 +53,8 @@
       --accent-soft:   #e6f4ff;
       --accent-border: #b7dcff;
       --version-marker: #2da9ff;
+      --build-banner: #b91c1c;
+      --build-banner-link: #fde68a;
       --hover:    #f0f2f6;
       --code-bg:  #f0f2f6;
       --ease:     cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -76,6 +78,24 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
+    }
+    .build-warning-banner {
+      background: var(--build-banner);
+      color: #fff;
+      text-align: center;
+      padding: 10px 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.5;
+      letter-spacing: 0;
+      position: sticky;
+      top: 0;
+      z-index: 99999;
+    }
+    .build-warning-banner a {
+      color: var(--build-banner-link);
+      text-decoration: underline;
     }
     a { color: var(--accent-hover); text-decoration: none; transition: color 0.15s var(--ease); }
     a:hover { color: var(--accent-dark); }
@@ -995,10 +1015,10 @@
   </style>
 </head>
 <body>
-  <div style="background:#b91c1c;color:#fff;text-align:center;padding:10px 16px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',sans-serif;font-size:13px;font-weight:700;line-height:1.5;letter-spacing:0.02em;position:sticky;top:0;z-index:99999;">
+  <div class="build-warning-banner">
     EXPERIMENTAL &mdash; DANGEROUS &mdash; DO NOT TRY ON PERSONAL DEVICE.<br>
     THIS IS A TEST PAGE FOR UNSTABLE ADJUSTMENTS TO EXPLOIT AND INJECTIONS.<br>
-    USE <a href="https://zeroxjf.github.io/lightsaber/" style="color:#fde68a;text-decoration:underline;">https://zeroxjf.github.io/lightsaber/</a> WHICH IS STABLE
+    USE <a href="https://zeroxjf.github.io/lightsaber/">https://zeroxjf.github.io/lightsaber/</a> WHICH IS STABLE
   </div>
   <div class="page">
     <div class="page-header">
@@ -1311,10 +1331,14 @@
         var hue = hash % 360;
         var bg = 'hsl(' + hue + ' 78% 92%)';
         var marker = 'hsl(' + hue + ' 82% 44%)';
+        var banner = 'hsl(' + hue + ' 72% 38%)';
+        var bannerLink = 'hsl(' + ((hue + 55) % 360) + ' 95% 84%)';
         var grad = 'radial-gradient(1200px 700px at 50% -220px, hsl(' + hue + ' 88% 52% / 0.22), transparent 62%)';
         root.style.setProperty('--bg', bg);
         root.style.setProperty('--bg-grad', grad);
         root.style.setProperty('--version-marker', marker);
+        root.style.setProperty('--build-banner', banner);
+        root.style.setProperty('--build-banner-link', bannerLink);
         if (versionEl) versionEl.textContent = label;
       }
       setBuildColor(BUILD_VERSION_LABEL, BUILD_VERSION_LABEL);
