@@ -8987,7 +8987,9 @@ function start() { LOG("[+] PE start() called");
 			const OFF_APFS_FSNODE_UID = 0x80n;
 			const OFF_APFS_FSNODE_GID = 0x84n;
 			const OFF_APFS_FSNODE_MODE = 0x88n;
-			const DARKPORT_REPAIR_MODE = 0x41f5;
+			const IMPACTOR_REPAIR_UID = 33;
+			const IMPACTOR_REPAIR_GID = 33;
+			const IMPACTOR_REPAIR_MODE = 0x41f5;
 			const OFF_STAT_MODE = 0x4n;
 			const OFF_STAT_UID = 0x10n;
 			const OFF_STAT_GID = 0x14n;
@@ -9068,16 +9070,56 @@ function start() { LOG("[+] PE start() called");
 				return { present: null, size: -1, errno: eno };
 			}
 
+			function readSmallText(path, maxLen) {
+				let fd = ALNative.callSymbol("open", path, 0n);
+				if (Number(fd) < 0) return "";
+				let buf = ALNative.callSymbol("malloc", BigInt(maxLen));
+				if (!buf || buf === 0n) {
+					ALNative.callSymbol("close", fd);
+					return "";
+				}
+				try {
+					let n = ALNative.callSymbol("read", fd, buf, maxLen);
+					if (Number(n) <= 0) return "";
+					let raw = ALNative.read(BigInt(buf), Number(n));
+					let bytes = new Uint8Array(raw);
+					let out = "";
+					for (let i = 0; i < bytes.length; i++) {
+						let c = bytes[i];
+						out += (c >= 32 && c <= 126) ? String.fromCharCode(c) : " ";
+					}
+					return out.toLowerCase();
+				} finally {
+					ALNative.callSymbol("free", buf);
+					ALNative.callSymbol("close", fd);
+				}
+			}
+
+			function hasAppRepairHint(text) {
+				return text.indexOf("youtube") !== -1 ||
+					text.indexOf("google.ios.youtube") !== -1 ||
+					text.indexOf("uyou") !== -1 ||
+					text.indexOf("ytlite") !== -1 ||
+					text.indexOf("darkport") !== -1;
+			}
+
+			function isAppRepairCandidate(appPath, appName) {
+				let lowerName = appName.toLowerCase();
+				if (hasAppRepairHint(lowerName)) return true;
+				let infoText = readSmallText(appPath + "/Info.plist", 65536);
+				return hasAppRepairHint(infoText);
+			}
+
 			function appDirMode(mode) {
 				let perms = Number(mode || 0) & 0x0fff;
 				if (!perms) perms = 0x1ed;
 				return 0x4000 | perms;
 			}
 
-			function restoreTargetForApp(appName, oldUid, oldGid, oldMode) {
+			function restoreTargetForApp(appName, oldUid, oldGid, oldMode, forceImpactorRepair) {
 				let fixedMode = appDirMode(oldMode);
-				if (appName === "DarkPort.app") {
-					return { uid: 33, gid: 33, mode: DARKPORT_REPAIR_MODE, reason: "DarkPort Impactor repair" };
+				if (forceImpactorRepair) {
+					return { uid: IMPACTOR_REPAIR_UID, gid: IMPACTOR_REPAIR_GID, mode: IMPACTOR_REPAIR_MODE, reason: appName + " Impactor repair" };
 				}
 				if (oldUid !== 501 || oldGid !== 501 || fixedMode !== oldMode) {
 					return { uid: oldUid, gid: oldGid, mode: fixedMode, reason: "preserve original owner/mode" };
@@ -9096,52 +9138,78 @@ function start() { LOG("[+] PE start() called");
 				LOG("[THREEAPP] restored owner/mode uid=" + (st ? st.uid : -1) + " gid=" + (st ? st.gid : -1) + " mode=" + (st ? hex16(st.mode) : "n/a") + " reason=" + target.reason + " path=" + path);
 			}
 
-			function apfsOwnPath(path, appName) {
+			function getApfsInfo(path) {
 				let fd = ALNative.callSymbol("open", path, 0n); // O_RDONLY
 				if (Number(fd) < 0) {
 					LOG("[THREEAPP] open failed errno=" + getErrno() + " path=" + path);
-					return false;
+					return null;
 				}
 				let fdNum = Number(fd);
 				try {
 					let fileproc = ALChain.read64(fdOfilesPtr + BigInt(fdNum) * 8n);
-					if (!fileproc) return false;
+					if (!fileproc) return null;
 					let fpGlob = checkedKernelPtr(ALChain.read64(fileproc + OFF_FILEPROC_FP_GLOB), "fp_glob");
-					if (!fpGlob) return false;
+					if (!fpGlob) return null;
 					let vnode = checkedKernelPtr(ALChain.read64(fpGlob + OFF_FILEGLOB_FG_DATA), "vnode");
-					if (!vnode) return false;
+					if (!vnode) return null;
 					let fsNode = ALChain.read64(vnode + OFF_VNODE_V_DATA);
-					if (!fsNode) return false;
+					if (!fsNode) return null;
 
-					let oldUid = ALChain.read32(fsNode + OFF_APFS_FSNODE_UID);
-					let oldGid = ALChain.read32(fsNode + OFF_APFS_FSNODE_GID);
-					let oldMode = ALChain.read16(fsNode + OFF_APFS_FSNODE_MODE);
-					LOG("[THREEAPP] current fsnode owner uid=" + oldUid + " gid=" + oldGid + " mode=" + hex16(oldMode) + " path=" + path);
-					let temporaryMode = appDirMode(oldMode);
-					let restore = restoreTargetForApp(appName, oldUid, oldGid, oldMode);
-
-					ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
-					ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
-					if (temporaryMode !== oldMode) {
-						LOG("[THREEAPP] repairing app dir mode " + hex16(oldMode) + " -> " + hex16(temporaryMode) + " path=" + path);
-						ALChain.write16(fsNode + OFF_APFS_FSNODE_MODE, temporaryMode);
-					}
-
-					syncApfs();
-					let st = statOwner(path);
-					if (!st || st.uid !== 501 || st.gid !== 501) {
-						LOG("[THREEAPP] stat owner verify failed uid=" + (st ? st.uid : -1) + " gid=" + (st ? st.gid : -1));
-						return false;
-					}
-					if ((st.mode & 0xf000) !== 0x4000) {
-						LOG("[THREEAPP] stat mode verify failed mode=" + hex16(st.mode));
-						return false;
-					}
-
-					return { fsNode: fsNode, restore: restore };
+					return {
+						fsNode: fsNode,
+						uid: ALChain.read32(fsNode + OFF_APFS_FSNODE_UID),
+						gid: ALChain.read32(fsNode + OFF_APFS_FSNODE_GID),
+						mode: ALChain.read16(fsNode + OFF_APFS_FSNODE_MODE)
+					};
 				} finally {
 					ALNative.callSymbol("close", fd);
 				}
+			}
+
+			function repairApfsStateOnly(path, appName) {
+				let info = getApfsInfo(path);
+				if (!info) return false;
+				let target = restoreTargetForApp(appName, info.uid, info.gid, info.mode, true);
+				ALChain.write32(info.fsNode + OFF_APFS_FSNODE_UID, target.uid);
+				ALChain.write32(info.fsNode + OFF_APFS_FSNODE_GID, target.gid);
+				ALChain.write16(info.fsNode + OFF_APFS_FSNODE_MODE, target.mode);
+				syncApfs();
+				let st = statOwner(path);
+				LOG("[THREEAPP-AUDIT] repair-only owner/mode uid=" + (st ? st.uid : -1) + " gid=" + (st ? st.gid : -1) + " mode=" + (st ? hex16(st.mode) : "n/a") + " reason=" + target.reason + " path=" + path);
+				return !!st && st.uid === target.uid && st.gid === target.gid && st.mode === target.mode;
+			}
+
+			function apfsOwnPath(path, appName, forceImpactorRepair) {
+				let info = getApfsInfo(path);
+				if (!info) return false;
+
+				let fsNode = info.fsNode;
+				let oldUid = info.uid;
+				let oldGid = info.gid;
+				let oldMode = info.mode;
+				LOG("[THREEAPP] current fsnode owner uid=" + oldUid + " gid=" + oldGid + " mode=" + hex16(oldMode) + " path=" + path);
+				let temporaryMode = appDirMode(oldMode);
+				let restore = restoreTargetForApp(appName, oldUid, oldGid, oldMode, forceImpactorRepair);
+
+				ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
+				ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
+				if (temporaryMode !== oldMode) {
+					LOG("[THREEAPP] repairing app dir mode " + hex16(oldMode) + " -> " + hex16(temporaryMode) + " path=" + path);
+					ALChain.write16(fsNode + OFF_APFS_FSNODE_MODE, temporaryMode);
+				}
+
+				syncApfs();
+				let st = statOwner(path);
+				if (!st || st.uid !== 501 || st.gid !== 501) {
+					LOG("[THREEAPP] stat owner verify failed uid=" + (st ? st.uid : -1) + " gid=" + (st ? st.gid : -1));
+					return false;
+				}
+				if ((st.mode & 0xf000) !== 0x4000) {
+					LOG("[THREEAPP] stat mode verify failed mode=" + hex16(st.mode));
+					return false;
+				}
+
+				return { fsNode: fsNode, restore: restore };
 			}
 
 			LOG("[THREEAPP] Consuming sandbox tokens...");
@@ -9150,6 +9218,8 @@ function start() { LOG("[+] PE start() called");
 			}
 
 			let cleared = 0;
+			let repaired = 0;
+			let audited = 0;
 			let skipped = 0;
 			let scanned = 0;
 			let seen = {};
@@ -9201,9 +9271,22 @@ function start() { LOG("[+] PE start() called");
 								scanned++;
 
 								let provCheck = ALNative.callSymbol("access", appPath + "/embedded.mobileprovision", 0n);
-								if (Number(provCheck) !== 0) continue;
+								let hasProvision = Number(provCheck) === 0;
+								let auditRepair = isAppRepairCandidate(appPath, appName);
+								let before = null;
+								if (!hasProvision || auditRepair) {
+									before = xattrState(appPath);
+								}
+								if (auditRepair) {
+									audited++;
+									LOG("[THREEAPP-AUDIT] candidate name=" + appName + " hasProvision=" + hasProvision + " xattr=" + JSON.stringify(before) + " path=" + appPath);
+								}
+								if (!hasProvision && !(before && before.present === true)) {
+									if (auditRepair && repairApfsStateOnly(appPath, appName)) repaired++;
+									continue;
+								}
 
-								let own = apfsOwnPath(appPath, appName);
+								let own = apfsOwnPath(appPath, appName, auditRepair);
 								if (!own) {
 									LOG("[THREEAPP] failed to set ownership on: " + appPath);
 								} else {
@@ -9245,7 +9328,7 @@ function start() { LOG("[+] PE start() called");
 					ALNative.callSymbol("closedir", uuidDir);
 				}
 			}
-			LOG("[THREEAPP] Done: scanned=" + scanned + " cleared=" + cleared + " skipped=" + skipped);
+			LOG("[THREEAPP] Done: scanned=" + scanned + " cleared=" + cleared + " repaired=" + repaired + " audited=" + audited + " skipped=" + skipped);
 			if (cleared === 0) {
 				LOG("[THREEAPP] no eligible app found for xattr test");
 			}
