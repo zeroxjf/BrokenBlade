@@ -364,6 +364,13 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                     desiredHost,
                     randomValues,
                     SERVER_LOG,
+                    ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
+                    ls_powercuff_level: globalThis.__ls_powercuff_level || 'heavy',
+                    ls_sbc_dock_icons: globalThis.__ls_sbc_dock_icons,
+                    ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
+                    ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
+                    ls_sbc_statbar: globalThis.__ls_sbc_statbar,
+                    ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
                     sbx0_fallback_start: globalThis.__ls_sbx0_fallback_start || 0
                 });
             }
