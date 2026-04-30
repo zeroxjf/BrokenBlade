@@ -6269,12 +6269,12 @@
       exp_write_threads[i] = sbx1sbx1_exp_write_thread_setup(sbx1sbx1_ctx, buffer_size, original_buffer, modified_buffer, target_offset);
     }
     let success = false;
-    let services = ["com.apple.coremedia.mediaplaybackd.asset.xpc", "com.apple.coremedia.mediaplaybackd.assetimagegenerator.xpc", "com.apple.coremedia.mediaplaybackd.cpe.xpc", "com.apple.coremedia.mediaplaybackd.cpeprotector.xpc", "com.apple.coremedia.mediaplaybackd.figcontentkeyboss.xpc", "com.apple.coremedia.mediaplaybackd.figcontentkeysession.xpc", "com.apple.coremedia.mediaplaybackd.figcpecryptor.xpc", "com.apple.coremedia.mediaplaybackd.figmetriceventtimeline.xpc", "com.apple.coremedia.mediaplaybackd.formatreader.xpc", "com.apple.coremedia.mediaplaybackd.visualcontext.xpc"];
-    let service_rotation = Date.now() % services.length;
-    if (service_rotation != 0) {
-      services = services.slice(service_rotation).concat(services.slice(0, service_rotation));
-    }
-    LOG(`service rotation start=${service_rotation} service_count=${services.length}`);
+    let services = [
+      "com.apple.coremedia.mediaplaybackd.asset.xpc",
+      "com.apple.coremedia.mediaplaybackd.assetimagegenerator.xpc",
+      "com.apple.coremedia.mediaplaybackd.figcontentkeysession.xpc"
+    ];
+    LOG(`service order: observed-good service_count=${services.length}`);
     let services_idx = 0n;
     let service_attempt_limit = BigInt(services.length * 2);
     set_realtime_priority(gpu_fcall(PTHREAD_SELF), 0, 50, 50);
