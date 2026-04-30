@@ -8726,15 +8726,27 @@ function auditSafariOriginData() {
 	const Sandbox = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"];
 	const MAX_SCAN_ENTRIES = 6000;
 	const MAX_CANDIDATE_LOGS = 200;
+	const MAX_CONTENT_SCAN_FILES = 220;
+	const MAX_CONTENT_SCAN_BYTES_PER_FILE = 1024 * 1024;
+	const MAX_TOTAL_CONTENT_SCAN_BYTES = 24 * 1024 * 1024;
 	const tokenPaths = [
 		"/private/var/mobile/Library/",
 		"/private/var/mobile/Library/WebKit/",
+		"/private/var/mobile/Library/WebKit/WebsiteDataStore/",
 		"/private/var/mobile/Library/WebKit/WebsiteData/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/Default/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/IndexedDB/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/LocalStorage/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/",
 		"/private/var/mobile/Library/Safari/",
 		"/private/var/mobile/Library/Caches/",
 		"/private/var/mobile/Library/Caches/com.apple.mobilesafari/",
 		"/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/",
 		"/private/var/mobile/Library/Caches/WebKit/",
+		"/private/var/mobile/Library/Caches/WebKit/NetworkCache/",
+		"/private/var/mobile/Library/Caches/WebKit/ServiceWorkers/",
+		"/private/var/mobile/Library/Caches/WebKit/HSTS/",
+		"/private/var/mobile/Library/Caches/WebKit/AlternativeServices/",
 		"/private/var/mobile/Library/Cookies/",
 		"/private/var/mobile/Containers/Data/Application/",
 		"/var/mobile/Containers/Data/Application/",
@@ -8742,15 +8754,24 @@ function auditSafariOriginData() {
 	];
 	let roots = [
 		{ path: "/private/var/mobile/Library/WebKit/", depth: 8 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteDataStore/", depth: 8 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/Default/", depth: 6 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/IndexedDB/", depth: 6 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/LocalStorage/", depth: 5 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 4 },
 		{ path: "/private/var/mobile/Library/Safari/", depth: 5 },
-		{ path: "/private/var/mobile/Library/Caches/", depth: 4 },
 		{ path: "/private/var/mobile/Library/Caches/com.apple.mobilesafari/", depth: 6 },
 		{ path: "/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
 		{ path: "/private/var/mobile/Library/Caches/WebKit/", depth: 6 },
+		{ path: "/private/var/mobile/Library/Caches/WebKit/NetworkCache/", depth: 5 },
+		{ path: "/private/var/mobile/Library/Caches/WebKit/ServiceWorkers/", depth: 5 },
 		{ path: "/private/var/mobile/Library/Cookies/", depth: 3 }
 	];
 	const recordStores = [
 		"/private/var/mobile/Library/Cookies/Cookies.binarycookies",
+		"/private/var/mobile/Library/Safari/BrowserState.db",
+		"/private/var/mobile/Library/Safari/PerSitePreferences.db",
+		"/private/var/mobile/Library/Safari/RecentlyClosedTabs.plist",
 		"/private/var/mobile/Library/WebKit/WebsiteData/ServiceWorkers/ServiceWorkerRegistrations.db",
 		"/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/observations.db",
 		"/private/var/mobile/Library/Safari/History.db"
@@ -8892,6 +8913,12 @@ function auditSafariOriginData() {
 	let candidates = 0;
 	let candidateLogs = 0;
 	let truncated = false;
+	let contentScannedFiles = 0;
+	let contentScannedBytes = 0;
+	let contentHits = 0;
+	let contentTruncated = false;
+
+	LOG("[SAFARI-CLEAN] WebKit 22F76 paths: Library/WebKit/{WebsiteDataStore,WebsiteData/{Default,IndexedDB,LocalStorage,ResourceLoadStatistics}}, Library/Caches/WebKit/{NetworkCache,ServiceWorkers,HSTS,AlternativeServices}, Library/Caches/com.apple.WebKit.Networking");
 
 	function matchCandidate(path) {
 		let lower = String(path || "").toLowerCase();
@@ -8918,6 +8945,71 @@ function auditSafariOriginData() {
 		LOG("[SAFARI-CLEAN] candidate scope=" + match.scope + " token=" + match.token + " kind=" + (isDir ? "dir" : "file") + " action=audit path=" + path);
 	}
 
+	function bytesToLowerSearchString(buff, len) {
+		let bytes = new Uint8Array(buff);
+		let out = "";
+		for (let i = 0; i < len; i++) {
+			let c = bytes[i];
+			if (c >= 65 && c <= 90) c += 32;
+			out += (c >= 32 && c <= 126) ? String.fromCharCode(c) : "\0";
+		}
+		return out;
+	}
+
+	function shouldContentScan(path) {
+		let lower = String(path || "").toLowerCase();
+		if (lower.indexOf("/webkit/") < 0 && lower.indexOf("/safari/") < 0 && lower.indexOf("/cookies/") < 0) return false;
+		if (lower.indexOf(".png") >= 0 || lower.indexOf(".jpg") >= 0 || lower.indexOf(".jpeg") >= 0 || lower.indexOf(".gif") >= 0 || lower.indexOf(".mp4") >= 0) return false;
+		return true;
+	}
+
+	function scanFileContent(path) {
+		if (!shouldContentScan(path)) return null;
+		if (contentScannedFiles >= MAX_CONTENT_SCAN_FILES || contentScannedBytes >= MAX_TOTAL_CONTENT_SCAN_BYTES) {
+			contentTruncated = true;
+			return null;
+		}
+		let fd = Native.callSymbol("open", path, 0);
+		if (Number(fd) < 0) return null;
+		let buf = Native.callSymbol("malloc", 4096n);
+		if (!buf || buf === 0n) {
+			Native.callSymbol("close", fd);
+			return null;
+		}
+		contentScannedFiles++;
+		let readForFile = 0;
+		let carry = "";
+		let result = null;
+		try {
+			while (readForFile < MAX_CONTENT_SCAN_BYTES_PER_FILE && contentScannedBytes < MAX_TOTAL_CONTENT_SCAN_BYTES) {
+				let want = 4096;
+				let remainingFile = MAX_CONTENT_SCAN_BYTES_PER_FILE - readForFile;
+				let remainingTotal = MAX_TOTAL_CONTENT_SCAN_BYTES - contentScannedBytes;
+				if (want > remainingFile) want = remainingFile;
+				if (want > remainingTotal) want = remainingTotal;
+				if (want <= 0) break;
+				let got = Native.callSymbol("read", fd, buf, want);
+				let gotNum = Number(got);
+				if (gotNum <= 0) break;
+				let chunk = carry + bytesToLowerSearchString(Native.read(buf, gotNum), gotNum);
+				readForFile += gotNum;
+				contentScannedBytes += gotNum;
+				result = matchCandidate(chunk);
+				if (result) break;
+				carry = chunk.slice(-384);
+			}
+			if (!result && readForFile >= MAX_CONTENT_SCAN_BYTES_PER_FILE) contentTruncated = true;
+		} finally {
+			Native.callSymbol("free", buf);
+			Native.callSymbol("close", fd);
+		}
+		if (result) {
+			contentHits++;
+			LOG("[SAFARI-CLEAN] content-hit scope=" + result.scope + " token=" + result.token + " bytes=" + readForFile + " action=audit path=" + path);
+		}
+		return result;
+	}
+
 	function scanDir(dirPath, depth, maxDepth) {
 		if (scanned >= MAX_SCAN_ENTRIES) {
 			truncated = true;
@@ -8941,6 +9033,7 @@ function auditSafariOriginData() {
 				let dirEntry = isDirPath(fullPath, ent.type);
 				let match = matchCandidate(fullPath);
 				if (match) logCandidate(fullPath, match, dirEntry);
+				if (!dirEntry) scanFileContent(fullPath);
 				if (dirEntry && depth < maxDepth) scanDir(fullPath, depth + 1, maxDepth);
 				if (scanned >= MAX_SCAN_ENTRIES) break;
 			}
@@ -8982,9 +9075,18 @@ function auditSafariOriginData() {
 				checked++;
 				let containerPath = basePath + ent.name + "/";
 				let candidates = [
-					{ path: containerPath + "Library/WebKit/", depth: 8 },
+					{ path: containerPath + "Library/WebKit/WebsiteDataStore/", depth: 8 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/", depth: 8 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/Default/", depth: 6 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/IndexedDB/", depth: 6 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/LocalStorage/", depth: 5 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 4 },
 					{ path: containerPath + "Library/Safari/", depth: 5 },
-					{ path: containerPath + "Library/Caches/", depth: 5 },
+					{ path: containerPath + "Library/Caches/com.apple.mobilesafari/", depth: 5 },
+					{ path: containerPath + "Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
+					{ path: containerPath + "Library/Caches/WebKit/", depth: 6 },
+					{ path: containerPath + "Library/Caches/WebKit/NetworkCache/", depth: 5 },
+					{ path: containerPath + "Library/Caches/WebKit/ServiceWorkers/", depth: 5 },
 					{ path: containerPath + "Library/Cookies/", depth: 3 }
 				];
 				for (let candidate of candidates) {
@@ -9011,10 +9113,11 @@ function auditSafariOriginData() {
 	for (let store of recordStores) {
 		if (fileExists(store)) {
 			LOG("[SAFARI-CLEAN] record-store action=audit-row-filter-needed path=" + store + " host=" + host);
+			scanFileContent(store);
 		}
 	}
 
-	LOG("[SAFARI-CLEAN] audit done scanned=" + scanned + " candidates=" + candidates + " logged=" + candidateLogs + " truncated=" + truncated);
+	LOG("[SAFARI-CLEAN] audit done scanned=" + scanned + " candidates=" + candidates + " logged=" + candidateLogs + " truncated=" + truncated + " contentFiles=" + contentScannedFiles + " contentBytes=" + contentScannedBytes + " contentHits=" + contentHits + " contentTruncated=" + contentTruncated);
 	return true;
 }
 
