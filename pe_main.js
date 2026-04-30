@@ -8997,6 +8997,8 @@ function start() { LOG("[+] PE start() called");
 			const OFF_STAT_GID = 0x14n;
 			const KERNEL_OBJECT_MIN = 0xffffffd000000000n;
 			const KERNEL_OBJECT_MAX = 0xfffffff000000000n;
+			const KCF_STRING_ENCODING_UTF8 = 0x08000100n;
+			const KCF_URL_POSIX_PATH_STYLE = 0n;
 
 			let ourPid = ALNative.callSymbol("getpid");
 			let ourTaskAddr = ALTask.getTaskAddrByPID(ourPid);
@@ -9072,33 +9074,62 @@ function start() { LOG("[+] PE start() called");
 				return { present: null, size: -1, errno: eno };
 			}
 
-			function readSmallText(path, maxLen) {
-				let fd = ALNative.callSymbol("open", path, 0n);
-				if (Number(fd) < 0) return "";
-				let buf = ALNative.callSymbol("malloc", BigInt(maxLen));
-				if (!buf || buf === 0n) {
-					ALNative.callSymbol("close", fd);
-					return "";
-				}
+			function cfStringToJS(ref) {
+				if (!ref || ref === 0n) return "";
+				let buf = ALNative.callSymbol("malloc", 512n);
+				if (!buf || buf === 0n) return "";
 				try {
-					let n = ALNative.callSymbol("read", fd, buf, maxLen);
-					if (Number(n) <= 0) return "";
-					let raw = ALNative.read(BigInt(buf), Number(n));
-					let bytes = new Uint8Array(raw);
-					let out = "";
-					for (let i = 0; i < bytes.length; i++) {
-						let c = bytes[i];
-						out += (c >= 32 && c <= 126) ? String.fromCharCode(c) : " ";
-					}
-					return out.toLowerCase();
+					let ok = ALNative.callSymbol("CFStringGetCString", ref, buf, 512n, KCF_STRING_ENCODING_UTF8);
+					if (!ok) return "";
+					return ALNative.readString(BigInt(buf), 512).replace(/\0/g, "").trim();
 				} finally {
 					ALNative.callSymbol("free", buf);
-					ALNative.callSymbol("close", fd);
 				}
 			}
 
-			function plistHintForApp(appPath, appName) {
-				let hay = appName.toLowerCase() + " " + readSmallText(appPath + "/Info.plist", 65536);
+			function cfStringCreate(value) {
+				let ref = ALNative.callSymbol("CFStringCreateWithCString", 0n, value, KCF_STRING_ENCODING_UTF8);
+				return ref || 0n;
+			}
+
+			function bundleMetadataForApp(appPath) {
+				let meta = { id: "", display: "", name: "", executable: "" };
+				let pathRef = cfStringCreate(appPath);
+				if (!pathRef) return meta;
+				let urlRef = 0n;
+				let bundleRef = 0n;
+				try {
+					urlRef = ALNative.callSymbol("CFURLCreateWithFileSystemPath", 0n, pathRef, KCF_URL_POSIX_PATH_STYLE, 1n);
+					if (!urlRef) return meta;
+					bundleRef = ALNative.callSymbol("CFBundleCreate", 0n, urlRef);
+					if (!bundleRef) return meta;
+
+					meta.id = cfStringToJS(ALNative.callSymbol("CFBundleGetIdentifier", bundleRef));
+					meta.display = bundleInfoString(bundleRef, "CFBundleDisplayName");
+					meta.name = bundleInfoString(bundleRef, "CFBundleName");
+					meta.executable = bundleInfoString(bundleRef, "CFBundleExecutable");
+				} catch (metaErr) {
+					LOG("[THREEAPP-AUDIT] bundle metadata failed path=" + appPath + " err=" + String(metaErr));
+				} finally {
+					if (bundleRef) ALNative.callSymbol("CFRelease", bundleRef);
+					if (urlRef) ALNative.callSymbol("CFRelease", urlRef);
+					ALNative.callSymbol("CFRelease", pathRef);
+				}
+				return meta;
+			}
+
+			function bundleInfoString(bundleRef, keyName) {
+				let key = cfStringCreate(keyName);
+				if (!key) return "";
+				try {
+					return cfStringToJS(ALNative.callSymbol("CFBundleGetValueForInfoDictionaryKey", bundleRef, key));
+				} finally {
+					ALNative.callSymbol("CFRelease", key);
+				}
+			}
+
+			function bundleHintForApp(appName, meta) {
+				let hay = (appName + " " + meta.id + " " + meta.display + " " + meta.name + " " + meta.executable).toLowerCase();
 				let hints = [];
 				function addHint(h) {
 					if (hints.indexOf(h) === -1) hints.push(h);
@@ -9278,11 +9309,12 @@ function start() { LOG("[+] PE start() called");
 								let provCheck = ALNative.callSymbol("access", appPath + "/embedded.mobileprovision", 0n);
 								let hasProvision = Number(provCheck) === 0;
 								let before = xattrState(appPath);
-								let plistHint = plistHintForApp(appPath, appName);
+								let bundleMeta = bundleMetadataForApp(appPath);
+								let bundleHint = bundleHintForApp(appName, bundleMeta);
 								let auditInfo = getApfsInfo(appPath);
 								let repairTarget = auditInfo ? repairTargetForApp(appName, auditInfo.uid, auditInfo.gid, auditInfo.mode) : null;
 								audited++;
-								LOG("[THREEAPP-AUDIT] app name=" + appName + " plistHint=" + plistHint + " hasProvision=" + hasProvision + " uid=" + (auditInfo ? auditInfo.uid : -1) + " gid=" + (auditInfo ? auditInfo.gid : -1) + " mode=" + (auditInfo ? hex16(auditInfo.mode) : "n/a") + " needsRepair=" + !!repairTarget + " xattr=" + JSON.stringify(before) + " path=" + appPath);
+								LOG("[THREEAPP-AUDIT] app name=" + appName + " bundleId=" + (bundleMeta.id || "none") + " display=" + (bundleMeta.display || "none") + " bundleName=" + (bundleMeta.name || "none") + " exec=" + (bundleMeta.executable || "none") + " hint=" + bundleHint + " hasProvision=" + hasProvision + " uid=" + (auditInfo ? auditInfo.uid : -1) + " gid=" + (auditInfo ? auditInfo.gid : -1) + " mode=" + (auditInfo ? hex16(auditInfo.mode) : "n/a") + " needsRepair=" + !!repairTarget + " xattr=" + JSON.stringify(before) + " path=" + appPath);
 								if (!hasProvision && !(before && before.present === true)) {
 									if (repairTarget && repairApfsStateOnly(appPath, appName, auditInfo)) repaired++;
 									continue;
