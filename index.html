@@ -1742,6 +1742,7 @@
       var data = event.data || {};
       if (data.type === 'lightsaber_done') markDone();
       if (data.type === 'lightsaber_error') markFailed(data.text);
+      if (data.type === 'lightsaber_failed') markFailed(data.reason || data.text);
       if (data.type === 'lightsaber_log') {
         chainSawActivity = true;
         logAppend('[' + (data.source || 'webcontent') + '] ' + data.text, data.reportError ? 'err' : classifyLogLine(data.text));
