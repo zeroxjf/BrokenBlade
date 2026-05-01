@@ -39,12 +39,11 @@
   // layoutForIconLocation:], -[SBIconListGridLayoutConfiguration
   // setNumberOfPortraitColumns:] / setNumberOfPortraitRows:).
   const ENABLE_HOMESCREEN_COL_PATCH = true;
-  // StatBar: snapshot overlay window showing battery temp + total RAM.
-  // Ported from Coruna-Tweaks-Collection/StatBar/StatBar.m. Snapshot only
-  // (no NSTimer) because block-based timers need a real ObjC block we
-  // can't synthesize from JS, and -performSelector:...afterDelay: takes
-  // a double which our int-only bridge can't pass.
-  const ENABLE_STATBAR = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true);
+  // StatBar/status-bar UI writes are intentionally hard-disabled in the JS
+  // SpringBoard payload. Crash logs showed JSContext -> NSInvocation -> UIKit
+  // retain/PAC faults in -[UILabel _setText:] and status-bar view walking.
+  // If this comes back, it should move to a compiled arm64e ObjC payload.
+  const ENABLE_STATBAR = false;
   // Hide icon labels - calls -[SBIconListGridLayoutConfiguration setShowsLabels:NO]
   // on the same cfg object we already get in patchHomescreenGrid. BOOL arg,
   // no FP regs, no new class lookups. Verified against 18.6.2 SpringBoardHome
@@ -1312,11 +1311,15 @@
 
     log("about to runOnMainEvaluate (performSelectorOnMainThread) - PAC violation happens here if PAC context is stale");
     runOnMainEvaluate("try{__sbcust_log('main-thread dispatch alive');__sbcust_apply_once('main-pass-1');}catch(e){__sbcust_log('main-pass-1 err: '+e);}");
-    // Bounce statbar through a separate performSelectorOnMainThread so it
-    // lands on a fresh runloop tick rather than piggybacking on the dock
-    // pass, which kicks off async UIKit layout work that can leave the
-    // main thread in a funky state for an immediate follow-up message.
-    runOnMainEvaluate("try{__sbcust_statbar();}catch(e){__sbcust_log('statbar dispatch err: '+e);}");
+    if (ENABLE_STATBAR) {
+      // Bounce statbar through a separate performSelectorOnMainThread so it
+      // lands on a fresh runloop tick rather than piggybacking on the dock
+      // pass, which kicks off async UIKit layout work that can leave the
+      // main thread in a funky state for an immediate follow-up message.
+      runOnMainEvaluate("try{__sbcust_statbar();}catch(e){__sbcust_log('statbar dispatch err: '+e);}");
+    } else {
+      log("statbar/status UI disabled: avoiding JSContext UIKit/PAC crash surface");
+    }
     log("runOnMainEvaluate returned (async dispatch, no crash on injected thread)");
 
     if (ENABLE_SECOND_PASS) {
