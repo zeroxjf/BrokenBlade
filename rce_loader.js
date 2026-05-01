@@ -63,9 +63,9 @@ try {
 } catch (e) { globalThis.__ls_sbx0_fallback_start = 0; }
 try {
     var __lsParams5 = new URLSearchParams(location.search || '');
-    var __overlayParam = __lsParams5.has('chain_overlay') ? __lsParams5.get('chain_overlay') : (__lsParams5.has('sb_overlay') ? __lsParams5.get('sb_overlay') : '1');
+    var __overlayParam = __lsParams5.has('chain_overlay') ? __lsParams5.get('chain_overlay') : (__lsParams5.has('sb_overlay') ? __lsParams5.get('sb_overlay') : '0');
     globalThis.__ls_enable_chain_overlay = (__overlayParam !== '0' && __overlayParam !== 'false');
-} catch (e) { globalThis.__ls_enable_chain_overlay = true; }
+} catch (e) { globalThis.__ls_enable_chain_overlay = false; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 var localHost = location.origin + basePrefix;
 try {
