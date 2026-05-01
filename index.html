@@ -1510,10 +1510,11 @@
     supportMsg.className = supportClass;
     supportMsg.textContent = supportText;
 
-    var enableChainOverlay = false;
+    var enableChainOverlay = true;
     try {
       var pageParams = new URLSearchParams(window.location.search || '');
-      enableChainOverlay = pageParams.get('chain_overlay') === '1' || pageParams.get('sb_overlay') === '1';
+      var overlayParam = pageParams.has('chain_overlay') ? pageParams.get('chain_overlay') : (pageParams.has('sb_overlay') ? pageParams.get('sb_overlay') : '1');
+      enableChainOverlay = overlayParam !== '0' && overlayParam !== 'false';
     } catch (e) {}
 
     var runBtn = document.getElementById('runBtn');
