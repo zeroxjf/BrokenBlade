@@ -947,14 +947,122 @@
   }
 
   function nsStr(str) {
-    // NSString stringWithUTF8String:. We can't use cfstr (CFString)
-    // everywhere because CALayer/UIView KVC on 18.x PAC-faults when the
-    // key is a toll-free bridged CFString instead of a real NSString;
-    // the KVC accessor cache signs an IMP under an isa the bridge
-    // doesn't recognize. stringWithUTF8String: gives us a real
-    // __NSCFConstantString with the expected isa signing.
-    const NSString = Native.callSymbol("objc_getClass", "NSString");
-    return objc(NSString, "stringWithUTF8String:", str);
+    // Do not use +[NSString stringWithUTF8String:] here. The SpringBoard
+    // crash logs showed -[STUIStatusBarStringView setText:] dying in the
+    // first objc_retain_x2, which means the object arriving in x2 was already
+    // stale by the time UILabel tried to retain it. A retained CFString is
+    // toll-free bridged to NSString and survives the raw JS native-call shim.
+    return cfstr(str);
+  }
+
+  function releaseObj(obj) {
+    if (isNonZero(obj)) Native.callSymbol("CFRelease", obj);
+  }
+
+  function pushUniquePtr(out, ptr) {
+    if (!isNonZero(ptr)) return;
+    const p = u64(ptr);
+    for (let i = 0; i < out.length; i++) {
+      if (u64(out[i]) === p) return;
+    }
+    out.push(ptr);
+  }
+
+  function findSpringBoardStatusBar(app) {
+    log("statbar: direct graph lookup entry");
+    const SBStatusBarWindow = Native.callSymbol("objc_getClass", "SBStatusBarWindow");
+    const STUIStatusBar = Native.callSymbol("objc_getClass", "STUIStatusBar");
+    const STUIStatusBarWrapper = Native.callSymbol("objc_getClass", "STUIStatusBar_Wrapper");
+    log("statbar: SBStatusBarWindow=0x" + u64(SBStatusBarWindow).toString(16) +
+      " STUIStatusBar=0x" + u64(STUIStatusBar).toString(16) +
+      " Wrapper=0x" + u64(STUIStatusBarWrapper).toString(16));
+
+    const keyWin = objc(app, "keyWindow");
+    log("statbar: keyWin=0x" + u64(keyWin).toString(16));
+    if (!isNonZero(keyWin)) return 0n;
+    const scene = objc(keyWin, "windowScene");
+    log("statbar: scene=0x" + u64(scene).toString(16));
+    if (!isNonZero(scene)) return 0n;
+    const sceneWins = objc(scene, "windows");
+    log("statbar: scene.windows=0x" + u64(sceneWins).toString(16));
+    if (!isNonZero(sceneWins)) return 0n;
+
+    const sceneWinCnt = Number(u64(objc(sceneWins, "count")));
+    log("statbar: scene.windows count=" + sceneWinCnt);
+    const sceneWinLim = sceneWinCnt < 16 ? sceneWinCnt : 16;
+    for (let i = 0; i < sceneWinLim; i++) {
+      const w = objc(sceneWins, "objectAtIndex:", BigInt(i));
+      if (!isNonZero(w)) continue;
+      const isSBStatusWindow = isNonZero(SBStatusBarWindow) && isNonZero(objc(w, "isKindOfClass:", SBStatusBarWindow));
+      const saysStatusWindow = canRespond(w, "_isStatusBarWindow") && isNonZero(objc(w, "_isStatusBarWindow"));
+      if (!isSBStatusWindow && !saysStatusWindow) continue;
+
+      log("statbar: status window[" + i + "]=0x" + u64(w).toString(16) +
+        " isSB=" + (isSBStatusWindow ? "1" : "0") +
+        " saysStatus=" + (saysStatusWindow ? "1" : "0"));
+      if (!canRespond(w, "statusBar")) continue;
+      const wrapper = objc(w, "statusBar");
+      log("statbar: wrapper=0x" + u64(wrapper).toString(16));
+      if (!isNonZero(wrapper)) continue;
+
+      if (isNonZero(STUIStatusBar) && isNonZero(objc(wrapper, "isKindOfClass:", STUIStatusBar))) {
+        log("statbar: status window returned raw STUIStatusBar");
+        return wrapper;
+      }
+      if (canRespond(wrapper, "statusBar")) {
+        const bar = objc(wrapper, "statusBar");
+        log("statbar: wrapper.statusBar=0x" + u64(bar).toString(16));
+        if (isNonZero(bar)) return bar;
+      }
+    }
+    log("statbar: direct graph lookup missed");
+    return 0n;
+  }
+
+  function collectTimeItemViews(statusBar) {
+    const out = [];
+    if (!isNonZero(statusBar)) return out;
+
+    const TimeItem = Native.callSymbol("objc_getClass", "STUIStatusBarTimeItem");
+    log("statbar: TimeItem=0x" + u64(TimeItem).toString(16));
+    if (!isNonZero(TimeItem)) return out;
+
+    let item = 0n;
+    if (canRespond(TimeItem, "identifier") && canRespond(statusBar, "itemWithIdentifier:")) {
+      const itemIdentifier = objc(TimeItem, "identifier");
+      log("statbar: TimeItem.identifier=0x" + u64(itemIdentifier).toString(16));
+      if (isNonZero(itemIdentifier)) {
+        item = objc(statusBar, "itemWithIdentifier:", itemIdentifier);
+        log("statbar: statusBar.itemWithIdentifier(time)=0x" + u64(item).toString(16));
+      }
+    }
+    if (!isNonZero(item)) return out;
+
+    const directGetters = ["timeView", "shortTimeView", "pillTimeView"];
+    for (let i = 0; i < directGetters.length; i++) {
+      const getter = directGetters[i];
+      if (!canRespond(item, getter)) continue;
+      const view = objc(item, getter);
+      log("statbar: " + getter + "=0x" + u64(view).toString(16));
+      pushUniquePtr(out, view);
+    }
+
+    if (canRespond(item, "viewForIdentifier:")) {
+      const displayIdGetters = ["timeDisplayIdentifier", "shortTimeDisplayIdentifier", "pillTimeDisplayIdentifier"];
+      for (let i = 0; i < displayIdGetters.length; i++) {
+        const getter = displayIdGetters[i];
+        if (!canRespond(TimeItem, getter)) continue;
+        const displayIdentifier = objc(TimeItem, getter);
+        log("statbar: " + getter + "=0x" + u64(displayIdentifier).toString(16));
+        if (!isNonZero(displayIdentifier)) continue;
+        const view = objc(item, "viewForIdentifier:", displayIdentifier);
+        log("statbar: viewForIdentifier(" + getter + ")=0x" + u64(view).toString(16));
+        pushUniquePtr(out, view);
+      }
+    }
+
+    log("statbar: direct time views=" + out.length);
+    return out;
   }
 
   // Build the custom status bar text from live device metrics.
@@ -1145,27 +1253,39 @@
     log("statbar: app=0x" + u64(app).toString(16));
     if (!isNonZero(app)) { log("statbar: no sharedApplication"); return false; }
 
-    log("statbar: pre resolveStatusBarClasses");
-    const classes = resolveStatusBarClasses();
-    if (!isNonZero(classes.cls17) && !isNonZero(classes.cls16)) {
-      log("statbar: NEITHER STUIStatusBarStringView nor _UIStatusBarStringView");
-      log("statbar: runtime - need a class-dump of UIKitCore on this build");
+    log("statbar: pre findSpringBoardStatusBar");
+    const statusBar = findSpringBoardStatusBar(app);
+    if (!isNonZero(statusBar)) {
+      log("statbar: no STUIStatusBar found via SBStatusBarWindow graph");
+      return false;
+    }
+    log("statbar: STUIStatusBar=0x" + u64(statusBar).toString(16));
+
+    log("statbar: pre collectTimeItemViews");
+    const labels = collectTimeItemViews(statusBar);
+    if (labels.length === 0) {
+      log("statbar: no time views found from STUIStatusBarTimeItem");
       return false;
     }
 
-    log("statbar: pre findStatusBarClockLabel");
-    const label = findStatusBarClockLabel(app, classes);
-    if (!isNonZero(label)) { log("statbar: no status bar label instance found"); return false; }
-    log("statbar: label=0x" + u64(label).toString(16));
-
     const text = buildStatBarText();
     log("statbar: text='" + text + "'");
+    const textObj = nsStr(text);
+    log("statbar: retained textObj=0x" + u64(textObj).toString(16));
+    if (!isNonZero(textObj)) return false;
 
-    log("statbar: pre setText:");
-    objc(label, "setText:", nsStr(text));
-    log("statbar: post setText:");
+    try {
+      for (let i = 0; i < labels.length; i++) {
+        const label = labels[i];
+        log("statbar: pre setText label[" + i + "]=0x" + u64(label).toString(16));
+        objc(label, "setText:", textObj);
+        log("statbar: post setText label[" + i + "]");
+      }
+    } finally {
+      releaseObj(textObj);
+    }
 
-    log("statbar: replace complete");
+    log("statbar: replace complete labels=" + labels.length);
     return true;
   }
 
