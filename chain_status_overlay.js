@@ -174,12 +174,6 @@
     return Native.callSymbol("CFStringCreateWithCString", 0n, str, 0x08000100);
   }
 
-  function writeU64(ptr, value) {
-    const buff = new ArrayBuffer(8);
-    new DataView(buff).setBigUint64(0, u64(value), true);
-    Native.write(ptr, buff);
-  }
-
   function log(msg) {
     try {
       const tagged = "[CHAIN-OVL] " + msg;
@@ -189,6 +183,25 @@
       Native.callSymbol("syslog", 5, ptr);
       Native.callSymbol("free", ptr);
     } catch (_) {}
+  }
+
+  function runOnMainEvaluate(script) {
+    const jsctxObj = globalThis.__bb_chain_overlay_jsctx_obj;
+    if (!isNonZero(jsctxObj)) {
+      log("main evaluate skipped: jsctxObj missing");
+      return false;
+    }
+    const s = cfstr(script);
+    if (!isNonZero(s)) {
+      log("main evaluate skipped: script cfstr failed");
+      return false;
+    }
+    try {
+      objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 1n);
+      return true;
+    } finally {
+      Native.callSymbol("CFRelease", s);
+    }
   }
 
   function readStatusFile() {
@@ -265,53 +278,6 @@
     return true;
   }
 
-  function postStatusStringOnMain(server, text) {
-    const selector = sel("postDoubleHeightStatusString:forStyle:");
-    const sig = objc(server, "methodSignatureForSelector:", selector);
-    if (!isNonZero(sig)) {
-      log("status server missing method signature");
-      return false;
-    }
-
-    const NSInvocation = Native.callSymbol("objc_getClass", "NSInvocation");
-    if (!isNonZero(NSInvocation)) {
-      log("NSInvocation missing");
-      return false;
-    }
-
-    const inv = objc(NSInvocation, "invocationWithMethodSignature:", sig);
-    if (!isNonZero(inv)) {
-      log("NSInvocation allocation failed");
-      return false;
-    }
-
-    const textObj = cfstr(text);
-    const textArg = Native.callSymbol("malloc", 8n);
-    const styleArg = Native.callSymbol("malloc", 8n);
-    if (!isNonZero(textObj) || !isNonZero(textArg) || !isNonZero(styleArg)) {
-      if (textObj) Native.callSymbol("CFRelease", textObj);
-      if (textArg) Native.callSymbol("free", textArg);
-      if (styleArg) Native.callSymbol("free", styleArg);
-      log("status invocation arg allocation failed");
-      return false;
-    }
-
-    try {
-      writeU64(textArg, textObj);
-      writeU64(styleArg, 0n);
-      objc(inv, "setTarget:", server);
-      objc(inv, "setSelector:", selector);
-      objc(inv, "setArgument:atIndex:", textArg, 2n);
-      objc(inv, "setArgument:atIndex:", styleArg, 3n);
-      objc(inv, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("invoke"), 0n, 1n);
-      return true;
-    } finally {
-      Native.callSymbol("CFRelease", textObj);
-      Native.callSymbol("free", textArg);
-      Native.callSymbol("free", styleArg);
-    }
-  }
-
   function postOverlayText(text) {
     if (!ensureOverlay()) return false;
     const server = globalThis.__bb_chain_overlay_status_server;
@@ -320,10 +286,10 @@
     if (s.length > 60) s = s.slice(0, 57) + "...";
     const count = Number(globalThis.__bb_chain_overlay_post_count || 0);
     if (count < 3 || globalThis.__bb_chain_overlay_done) log("posting status string: " + s);
-    const ok = postStatusStringOnMain(server, s);
+    objc(server, "postDoubleHeightStatusString:forStyle:", cfstr(s), 0n);
     globalThis.__bb_chain_overlay_post_count = count + 1;
-    if (count < 3 || globalThis.__bb_chain_overlay_done) log("posted status string ok=" + ok);
-    return ok;
+    if (count < 3 || globalThis.__bb_chain_overlay_done) log("posted status string");
+    return true;
   }
 
   function updateOverlay() {
@@ -347,15 +313,16 @@
 
   try {
     Native.init();
+    globalThis.__bb_chain_overlay_jsctx_obj = Native.bridgeInfo().jsContextObj;
     globalThis.__bb_chain_overlay_log = log;
     globalThis.__bb_chain_overlay_update = updateOverlay;
-    log("entry statusPath=" + STATUS_PATH + " mode=main-invocation");
+    log("entry statusPath=" + STATUS_PATH + " mode=main-evaluate-sync");
     let doneIters = 0;
     let exitReason = "max-iters";
     for (let i = 0; i < POLL_MAX_ITERS; i++) {
       globalThis.__bb_chain_overlay_text = buildOverlayText();
       try {
-        updateOverlay();
+        runOnMainEvaluate("try{__bb_chain_overlay_update();}catch(e){__bb_chain_overlay_log('update error '+e);}");
       } catch (e) {
         log("update error " + String(e));
       }
