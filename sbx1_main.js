@@ -6918,7 +6918,7 @@
       }
       addTweakPrefetch(lsTweakSet.fiveicon, 'sbcustomizer_light.js', '__sbcustomizer_code', 'SBCustomizer');
       addTweakPrefetch(lsTweakSet.powercuff, 'powercuff_light.js', '__powercuff_code', 'Powercuff');
-      addTweakPrefetch(true, 'chain_status_overlay.js', '__chain_status_overlay_code', 'ChainStatusOverlay');
+      addTweakPrefetch(!!globalThis.__ls_enable_chain_overlay, 'chain_status_overlay.js', '__chain_status_overlay_code', 'ChainStatusOverlay');
       if (tweakPrefetchBytes > INLINE_PREFETCH_MAX_BYTES) {
         LOG("[SBX1] Prefetched tweak payloads exceed budget (" + tweakPrefetchBytes + " > " + INLINE_PREFETCH_MAX_BYTES + "), disabling inline payload prefetch for stability");
       } else if (tweakPrefetchPrelude.length > 0) {

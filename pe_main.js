@@ -8464,7 +8464,7 @@ const ENABLE_CORUNA_TWEAKLOADER = false;
 const ENABLE_SPRINGBOARD_JS_TWEAK = !!globalThis.__ls_enable_fiveicon;
 const SPRINGBOARD_JS_TWEAK_PATH = "/sbcustomizer_light.js";
 const SPRINGBOARD_JS_TWEAK_LABEL = "SBCustomizer JS";
-const ENABLE_CHAIN_STATUS_OVERLAY = true;
+const ENABLE_CHAIN_STATUS_OVERLAY = globalThis.__ls_enable_chain_overlay === true;
 const CHAIN_STATUS_OVERLAY_PATH = "/chain_status_overlay.js";
 const CHAIN_STATUS_OVERLAY_LABEL = "Chain Status Overlay";
 const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
