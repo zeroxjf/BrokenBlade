@@ -14,6 +14,49 @@
     LOG = function(msg) { console.log('[PE] ' + msg); };
   }
 
+  const BB_CHAIN_SYSLOG_BOOT_MAX_LINES = 4096;
+  function bbChainSyslogBootTimestamp() {
+    try {
+      return new Date().toISOString();
+    } catch (_) {
+      return "unknown-time";
+    }
+  }
+  function bbChainSyslogBootFormat(raw) {
+    let line = String(raw || "").replace(/[\r\n]+/g, " ").trim();
+    if (line.length > 2048) line = line.slice(0, 2045) + "...";
+    return "[" + bbChainSyslogBootTimestamp() + "] " + line;
+  }
+  if (!globalThis.__bb_chain_syslog_buffer)
+    globalThis.__bb_chain_syslog_buffer = [];
+  if (!globalThis.__bb_chain_syslog_capture) {
+    globalThis.__bb_chain_syslog_capture = function(raw) {
+      try {
+        if (globalThis.__bb_chain_syslog_sink) {
+          globalThis.__bb_chain_syslog_sink(raw);
+          return;
+        }
+        let line = bbChainSyslogBootFormat(raw);
+        if (!line.trim()) return;
+        globalThis.__bb_chain_syslog_buffer.push(line);
+        if (globalThis.__bb_chain_syslog_buffer.length > BB_CHAIN_SYSLOG_BOOT_MAX_LINES)
+          globalThis.__bb_chain_syslog_buffer.shift();
+      } catch (_) {}
+    };
+  }
+  const bbChainOriginalLog = LOG;
+  LOG = function(msg) {
+    try { globalThis.__bb_chain_syslog_capture(msg); } catch (_) {}
+    try {
+      globalThis.__bb_chain_syslog_forwarding = true;
+      return bbChainOriginalLog(msg);
+    } catch (_) {
+      try { console.log(String(msg)); } catch (_) {}
+    } finally {
+      globalThis.__bb_chain_syslog_forwarding = false;
+    }
+  };
+
   function peAck(stage) {
     try {
       if (typeof globalThis.__pe_ack_addr === 'bigint' && typeof uwrite64 === 'function') {
@@ -6645,6 +6688,8 @@ class Sandbox {
 			this.getTokenForPath("/private/var/tmp/", true);
 			this.getTokenForPath("/tmp/", true);
 			this.getTokenForPath("/private/var/mobile/Media/", true);
+			this.getTokenForPath("/private/var/mobile/Media/Downloads/", true);
+			this.getTokenForPath("/var/mobile/Media/Downloads/", true);
 			this.getTokenForPath("/private/var/mobile/Containers/Data/Application/", true);
 			this.getTokenForPath("/var/mobile/Containers/Data/Application/", true);
 			this.getTokenForPath("/private/var/mobile/Containers/Shared/AppGroup/", true);
@@ -8466,6 +8511,9 @@ const SPRINGBOARD_JS_TWEAK_PATH = "/sbcustomizer_light.js";
 const SPRINGBOARD_JS_TWEAK_LABEL = "SBCustomizer JS";
 const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
 const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
+const CHAIN_SYSLOG_DOWNLOADS_DIR = "/private/var/mobile/Media/Downloads/";
+const CHAIN_SYSLOG_DOWNLOADS_PATH = CHAIN_SYSLOG_DOWNLOADS_DIR + "brokenblade_chain_syslog.log";
+const CHAIN_SYSLOG_MAX_BUFFER_LINES = 4096;
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
 const POWERCUFF_TWEAK_LABEL = "Powercuff";
@@ -8487,6 +8535,8 @@ const ENABLE_DUMP_COPYOUT = false;
 let chainStatusLogReady = false;
 let chainStatusBuffer = [];
 let chainStatusLastLine = "";
+let chainSyslogLogReady = false;
+let chainSyslogPath = CHAIN_SYSLOG_DOWNLOADS_PATH;
 const CHAIN_STATUS_FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
 const chainStatusOriginalLog = LOG;
 LOG = function(msg) {
@@ -8497,6 +8547,63 @@ LOG = function(msg) {
 		try { console.log(String(msg)); } catch (_) {}
 	}
 };
+
+function chainSyslogTimestamp() {
+	try {
+		return new Date().toISOString();
+	} catch (_) {
+		return "unknown-time";
+	}
+}
+
+function chainSyslogCleanLine(raw) {
+	let line = String(raw || "").replace(/[\r\n]+/g, " ").trim();
+	if (line.length > 2048) line = line.slice(0, 2045) + "...";
+	return line;
+}
+
+function chainSyslogFormatLine(raw) {
+	let line = chainSyslogCleanLine(raw);
+	if (!line) return "";
+	return "[" + chainSyslogTimestamp() + "] " + line;
+}
+
+function chainSyslogBufferLine(line) {
+	if (!line) return;
+	try {
+		if (!globalThis.__bb_chain_syslog_buffer)
+			globalThis.__bb_chain_syslog_buffer = [];
+		globalThis.__bb_chain_syslog_buffer.push(line);
+		if (globalThis.__bb_chain_syslog_buffer.length > CHAIN_SYSLOG_MAX_BUFFER_LINES)
+			globalThis.__bb_chain_syslog_buffer.shift();
+	} catch (_) {}
+}
+
+function chainSyslogRecord(raw) {
+	let line = chainSyslogFormatLine(raw);
+	if (!line) return;
+	if (!chainSyslogLogReady) {
+		chainSyslogBufferLine(line);
+		return;
+	}
+	chainSyslogWriteLine(line, false, false);
+}
+
+globalThis.__bb_chain_syslog_sink = chainSyslogRecord;
+const chainSyslogOriginalConsoleLog = console.log;
+if (!globalThis.__bb_chain_console_wrapped && typeof chainSyslogOriginalConsoleLog === "function") {
+	globalThis.__bb_chain_console_wrapped = true;
+	console.log = function(...args) {
+		try {
+			if (!globalThis.__bb_chain_syslog_forwarding) {
+				let parts = [];
+				for (let arg of args) parts.push(String(arg));
+				chainSyslogRecord(parts.join(" "));
+			}
+		} catch (_) {}
+		return chainSyslogOriginalConsoleLog.apply(this, args);
+	};
+}
 
 function chainStatusCleanLine(raw) {
 	let line = String(raw || "").replace(/[\r\n]+/g, " ").trim();
@@ -8553,6 +8660,71 @@ function chainStatusInitLog() {
 	chainStatusLogReady = true;
 	for (let line of chainStatusBuffer) chainStatusWriteLine(line, false);
 	chainStatusBuffer = [];
+}
+
+function chainSyslogWriteLine(line, truncate, forceSync) {
+	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	const O_WRONLY = 0x0001;
+	const O_APPEND = 0x0008;
+	const O_CREAT = 0x0200;
+	const O_TRUNC = 0x0400;
+	let flags = O_WRONLY | O_CREAT | (truncate ? O_TRUNC : O_APPEND);
+	let fd = Native.callSymbol("open", chainSyslogPath, flags, 0o644);
+	if (Number(fd) < 0) return false;
+	let ptr = 0n;
+	try {
+		let out = chainSyslogCleanLine(line) + "\n";
+		let data = Native.stringToBytes(out, false);
+		ptr = Native.callSymbol("malloc", BigInt(data.byteLength));
+		if (!ptr || ptr === 0n) return false;
+		Native.write(ptr, data);
+		Native.callSymbol("write", fd, ptr, data.byteLength);
+		Native.callSymbol("fchmod", fd, 0o644);
+		if (forceSync) Native.callSymbol("fsync", fd);
+		return true;
+	} finally {
+		if (ptr) Native.callSymbol("free", ptr);
+		Native.callSymbol("close", fd);
+	}
+}
+
+function chainSyslogSync() {
+	if (!chainSyslogLogReady) return false;
+	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	const O_WRONLY = 0x0001;
+	let fd = Native.callSymbol("open", chainSyslogPath, O_WRONLY, 0o644);
+	if (Number(fd) < 0) return false;
+	try {
+		Native.callSymbol("fsync", fd);
+		return true;
+	} finally {
+		Native.callSymbol("close", fd);
+	}
+}
+
+function chainSyslogInitDownloads() {
+	if (chainSyslogLogReady) return true;
+	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	try {
+		libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/private/var/mobile/Media/Downloads/", true);
+		libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/var/mobile/Media/Downloads/", true);
+		libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/private/var/mobile/Media/", true);
+	} catch (_) {}
+	try {
+		Native.callSymbol("mkdir", "/private/var/mobile/Media", 0o777n);
+		Native.callSymbol("mkdir", "/private/var/mobile/Media/Downloads", 0o777n);
+		Native.callSymbol("chmod", "/private/var/mobile/Media/Downloads", 0o777n);
+	} catch (_) {}
+	let resetLine = "[" + chainSyslogTimestamp() + "] [PE] chain syslog export reset path=" + chainSyslogPath;
+	if (!chainSyslogWriteLine(resetLine, true, true)) return false;
+	chainSyslogLogReady = true;
+	try {
+		let pending = globalThis.__bb_chain_syslog_buffer || [];
+		for (let line of pending) chainSyslogWriteLine(line, false, false);
+		globalThis.__bb_chain_syslog_buffer = [];
+	} catch (_) {}
+	chainSyslogWriteLine("[" + chainSyslogTimestamp() + "] [PE] chain syslog export active", false, true);
+	return true;
 }
 
 function fetchRemoteScript(path) {
@@ -9742,8 +9914,10 @@ function start() { LOG("[+] PE start() called");
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].deleteCrashReports();
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].createTokens();
 	chainStatusInitLog();
+	let chainSyslogOk = chainSyslogInitDownloads();
 
 	LOG("[PE] Status log: " + CHAIN_STATUS_LOG_PATH);
+	LOG("[PE] Chain syslog export path: " + chainSyslogPath + " ready=" + chainSyslogOk);
 	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
 	if (ENABLE_SAFARI_KILL_BEFORE_COUNTDOWN) {
 		runOptionalStage("Safari app termination before countdown", true, () => terminateSafariAfterClean(launchdTask));
@@ -10413,6 +10587,8 @@ function start() { LOG("[+] PE start() called");
 
 	LOG("[PE] start() completed successfully");
 	LOG("[PE] Done page launch disabled");
+	LOG("[PE] Chain syslog exported to: " + chainSyslogPath);
+	chainSyslogSync();
 	} finally {
 		if (springBoardAgentLoader) {
 			LOG("[PE] Destroying agent loader");
