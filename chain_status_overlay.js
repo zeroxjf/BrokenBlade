@@ -254,110 +254,34 @@
     return out;
   }
 
-  function findWindowScene() {
-    const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
-    if (!isNonZero(UIApplication)) {
-      log("UIApplication missing");
-      return 0n;
+  function ensureOverlay() {
+    if (isNonZero(globalThis.__bb_chain_overlay_status_server)) return true;
+    const UIStatusBarServer = Native.callSymbol("objc_getClass", "UIStatusBarServer");
+    if (!isNonZero(UIStatusBarServer)) {
+      log("UIStatusBarServer missing");
+      return false;
     }
-    const app = objc(UIApplication, "sharedApplication");
-    if (!isNonZero(app)) {
-      log("sharedApplication missing");
-      return 0n;
-    }
-    const keyWin = objc(app, "keyWindow");
-    if (!isNonZero(keyWin)) {
-      log("keyWindow missing");
-      return 0n;
-    }
-    const scene = objc(keyWin, "windowScene");
-    if (!isNonZero(scene)) log("windowScene missing");
-    return scene;
+    globalThis.__bb_chain_overlay_status_server = UIStatusBarServer;
+    log("status bar server ready cls=0x" + u64(UIStatusBarServer).toString(16));
+    return true;
   }
 
-  function ensureOverlay() {
-    if (isNonZero(globalThis.__bb_chain_overlay_window) && isNonZero(globalThis.__bb_chain_overlay_label)) return true;
-
-    log("ensureOverlay start");
-    const scene = findWindowScene();
-    if (!isNonZero(scene)) return false;
-    log("scene=0x" + u64(scene).toString(16));
-
-    const UIWindow = Native.callSymbol("objc_getClass", "UIWindow");
-    const UIViewController = Native.callSymbol("objc_getClass", "UIViewController");
-    const UILabel = Native.callSymbol("objc_getClass", "UILabel");
-    const UIColor = Native.callSymbol("objc_getClass", "UIColor");
-    if (!isNonZero(UIWindow) || !isNonZero(UIViewController) || !isNonZero(UILabel) || !isNonZero(UIColor)) {
-      log("UIKit classes missing");
-      return false;
-    }
-
-    log("creating UIWindow");
-    let win = objc(objc(UIWindow, "alloc"), "initWithWindowScene:", scene);
-    if (!isNonZero(win)) {
-      log("initWithWindowScene failed, trying init + setWindowScene");
-      win = objc(objc(UIWindow, "alloc"), "init");
-      if (isNonZero(win)) objc(win, "setWindowScene:", scene);
-    }
-    if (!isNonZero(win)) {
-      log("UIWindow init failed");
-      return false;
-    }
-    log("win=0x" + u64(win).toString(16));
-
-    log("creating vc/root/label");
-    const vc = objc(objc(UIViewController, "alloc"), "init");
-    const rootView = isNonZero(vc) ? objc(vc, "view") : 0n;
-    const label = objc(objc(UILabel, "alloc"), "init");
-    if (!isNonZero(vc) || !isNonZero(rootView) || !isNonZero(label)) {
-      log("overlay object init failed vc=0x" + u64(vc).toString(16) + " view=0x" + u64(rootView).toString(16) + " label=0x" + u64(label).toString(16));
-      return false;
-    }
-    log("vc=0x" + u64(vc).toString(16) + " root=0x" + u64(rootView).toString(16) + " label=0x" + u64(label).toString(16));
-
-    const clear = objc(UIColor, "clearColor");
-    const black = objc(UIColor, "blackColor");
-    const white = objc(UIColor, "whiteColor");
-
-    log("configuring window/view");
-    objc(win, "setUserInteractionEnabled:", 0);
-    objc(rootView, "setUserInteractionEnabled:", 0);
-    objc(win, "setOpaque:", 0);
-    objc(rootView, "setOpaque:", 0);
-    if (isNonZero(clear)) {
-      objc(win, "setBackgroundColor:", clear);
-      objc(rootView, "setBackgroundColor:", clear);
-    }
-    if (isNonZero(black)) {
-      objc(label, "setBackgroundColor:", black);
-    }
-    if (isNonZero(white)) objc(label, "setTextColor:", white);
-    log("configuring label");
-    objc(label, "setNumberOfLines:", 2n);
-    objc(label, "setTextAlignment:", 1n);
-    objc(label, "setLineBreakMode:", 4n);
-    objc(label, "setAdjustsFontSizeToFitWidth:", 1);
-    objc(label, "setText:", cfstr("BrokenBlade: waiting for PE"));
-    objc(label, "sizeToFit");
-    log("attaching overlay");
-    objc(rootView, "addSubview:", label);
-    objc(win, "setRootViewController:", vc);
-    objc(win, "setHidden:", 0);
-
-    globalThis.__bb_chain_overlay_window = win;
-    globalThis.__bb_chain_overlay_vc = vc;
-    globalThis.__bb_chain_overlay_label = label;
-    log("owned UIWindow overlay ready win=0x" + u64(win).toString(16) + " label=0x" + u64(label).toString(16));
+  function postOverlayText(text) {
+    if (!ensureOverlay()) return false;
+    const server = globalThis.__bb_chain_overlay_status_server;
+    if (!isNonZero(server)) return false;
+    let s = String(text || "BrokenBlade: waiting");
+    if (s.length > 60) s = s.slice(0, 57) + "...";
+    const count = Number(globalThis.__bb_chain_overlay_post_count || 0);
+    if (count < 3 || globalThis.__bb_chain_overlay_done) log("posting status string: " + s);
+    objc(server, "postDoubleHeightStatusString:forStyle:", cfstr(s), 0n);
+    globalThis.__bb_chain_overlay_post_count = count + 1;
+    if (count < 3 || globalThis.__bb_chain_overlay_done) log("posted status string");
     return true;
   }
 
   function updateOverlay() {
-    if (!ensureOverlay()) return false;
-    const target = globalThis.__bb_chain_overlay_label;
-    if (!isNonZero(target)) return false;
-    objc(target, "setText:", cfstr(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting"));
-    objc(target, "sizeToFit");
-    return true;
+    return postOverlayText(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting");
   }
 
   try {
