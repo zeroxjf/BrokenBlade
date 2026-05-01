@@ -8885,7 +8885,7 @@ function injectLightweightSpringBoardPayload(existingTask, migFilterBypass, agen
 	const sbcDockIcons = sbcSafeInt(globalThis.__sbc_dock_icons, 4, 7, 4);
 	const sbcHsCols = sbcSafeInt(globalThis.__sbc_hs_cols, 3, 7, 4);
 	const sbcHsRows = sbcSafeInt(globalThis.__sbc_hs_rows, 4, 8, 6);
-	const sbcStatbar = 0; // JS status-bar UI path is disabled; use compiled ObjC if revived.
+	const sbcStatbar = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true) ? 1 : 0;
 	const sbcHideLabels = (globalThis.__sbc_hide_labels === 1 || globalThis.__sbc_hide_labels === true) ? 1 : 0;
 	const sbcPrelude =
 		'globalThis.__sbc_dock_icons = ' + sbcDockIcons + ';\n' +

@@ -9931,7 +9931,7 @@ async function main() {
           try { globalThis.__sbc_dock_icons = (typeof data.ls_sbc_dock_icons === 'number') ? data.ls_sbc_dock_icons : 4; } catch (e) { globalThis.__sbc_dock_icons = 4; }
           try { globalThis.__sbc_hs_cols = (typeof data.ls_sbc_hs_cols === 'number') ? data.ls_sbc_hs_cols : 4; } catch (e) { globalThis.__sbc_hs_cols = 4; }
           try { globalThis.__sbc_hs_rows = (typeof data.ls_sbc_hs_rows === 'number') ? data.ls_sbc_hs_rows : 6; } catch (e) { globalThis.__sbc_hs_rows = 6; }
-          globalThis.__sbc_statbar = 0;
+          try { globalThis.__sbc_statbar = (data.ls_sbc_statbar === 1 || data.ls_sbc_statbar === true) ? 1 : 0; } catch (e) { globalThis.__sbc_statbar = 0; }
           try { globalThis.__sbc_hide_labels = (data.ls_sbc_hide_labels === 1 || data.ls_sbc_hide_labels === true) ? 1 : 0; } catch (e) { globalThis.__sbc_hide_labels = 0; }
           try { globalThis.__ls_site_origin = (typeof data.ls_site_origin === 'string') ? data.ls_site_origin : ''; } catch (e) { globalThis.__ls_site_origin = ''; }
           try { globalThis.__ls_site_host = (typeof data.ls_site_host === 'string') ? data.ls_site_host : ''; } catch (e) { globalThis.__ls_site_host = ''; }
@@ -10261,7 +10261,7 @@ async function main() {
             try { globalThis.__sbc_dock_icons = (typeof data.ls_sbc_dock_icons === 'number') ? data.ls_sbc_dock_icons : 4; } catch (e) { globalThis.__sbc_dock_icons = 4; }
             try { globalThis.__sbc_hs_cols = (typeof data.ls_sbc_hs_cols === 'number') ? data.ls_sbc_hs_cols : 4; } catch (e) { globalThis.__sbc_hs_cols = 4; }
             try { globalThis.__sbc_hs_rows = (typeof data.ls_sbc_hs_rows === 'number') ? data.ls_sbc_hs_rows : 6; } catch (e) { globalThis.__sbc_hs_rows = 6; }
-            globalThis.__sbc_statbar = 0;
+            try { globalThis.__sbc_statbar = (data.ls_sbc_statbar === 1 || data.ls_sbc_statbar === true) ? 1 : 0; } catch (e) { globalThis.__sbc_statbar = 0; }
             try { globalThis.__sbc_hide_labels = (data.ls_sbc_hide_labels === 1 || data.ls_sbc_hide_labels === true) ? 1 : 0; } catch (e) { globalThis.__sbc_hide_labels = 0; }
             try { globalThis.__ls_site_origin = (typeof data.ls_site_origin === 'string') ? data.ls_site_origin : ''; } catch (e) { globalThis.__ls_site_origin = ''; }
             try { globalThis.__ls_site_host = (typeof data.ls_site_host === 'string') ? data.ls_site_host : ''; } catch (e) { globalThis.__ls_site_host = ''; }
