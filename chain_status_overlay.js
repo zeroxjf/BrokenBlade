@@ -259,50 +259,6 @@
     return out;
   }
 
-  function f64Bytes(values) {
-    const buf = new ArrayBuffer(values.length * 8);
-    const dv = new DataView(buf);
-    for (let i = 0; i < values.length; i++) dv.setFloat64(i * 8, Number(values[i]), true);
-    return buf;
-  }
-
-  function invokeRawArg(obj, selectorName, bytesBuf) {
-    if (!isNonZero(obj)) return false;
-    const s = sel(selectorName);
-    if (!isNonZero(s)) return false;
-    const sig = objc(obj, "methodSignatureForSelector:", s);
-    if (!isNonZero(sig)) {
-      log("no method signature for " + selectorName);
-      return false;
-    }
-    const NSInvocation = Native.callSymbol("objc_getClass", "NSInvocation");
-    const inv = objc(NSInvocation, "invocationWithMethodSignature:", sig);
-    if (!isNonZero(inv)) {
-      log("no invocation for " + selectorName);
-      return false;
-    }
-    const mem = Native.callSymbol("malloc", BigInt(bytesBuf.byteLength));
-    if (!isNonZero(mem)) return false;
-    try {
-      Native.write(mem, bytesBuf);
-      objc(inv, "setTarget:", obj);
-      objc(inv, "setSelector:", s);
-      objc(inv, "setArgument:atIndex:", mem, 2n);
-      objc(inv, "invoke");
-      return true;
-    } finally {
-      Native.callSymbol("free", mem);
-    }
-  }
-
-  function setFrame(obj, x, y, w, h) {
-    return invokeRawArg(obj, "setFrame:", f64Bytes([x, y, w, h]));
-  }
-
-  function setWindowLevel(win, level) {
-    return invokeRawArg(win, "setWindowLevel:", f64Bytes([level]));
-  }
-
   function findWindowScene() {
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
     if (!isNonZero(UIApplication)) {
@@ -327,8 +283,10 @@
   function ensureOverlay() {
     if (isNonZero(globalThis.__bb_chain_overlay_window) && isNonZero(globalThis.__bb_chain_overlay_label)) return true;
 
+    log("ensureOverlay start");
     const scene = findWindowScene();
     if (!isNonZero(scene)) return false;
+    log("scene=0x" + u64(scene).toString(16));
 
     const UIWindow = Native.callSymbol("objc_getClass", "UIWindow");
     const UIViewController = Native.callSymbol("objc_getClass", "UIViewController");
@@ -339,8 +297,10 @@
       return false;
     }
 
+    log("creating UIWindow");
     let win = objc(objc(UIWindow, "alloc"), "initWithWindowScene:", scene);
     if (!isNonZero(win)) {
+      log("initWithWindowScene failed, trying init + setWindowScene");
       win = objc(objc(UIWindow, "alloc"), "init");
       if (isNonZero(win)) objc(win, "setWindowScene:", scene);
     }
@@ -348,7 +308,9 @@
       log("UIWindow init failed");
       return false;
     }
+    log("win=0x" + u64(win).toString(16));
 
+    log("creating vc/root/label");
     const vc = objc(objc(UIViewController, "alloc"), "init");
     const rootView = isNonZero(vc) ? objc(vc, "view") : 0n;
     const label = objc(objc(UILabel, "alloc"), "init");
@@ -356,15 +318,13 @@
       log("overlay object init failed vc=0x" + u64(vc).toString(16) + " view=0x" + u64(rootView).toString(16) + " label=0x" + u64(label).toString(16));
       return false;
     }
+    log("vc=0x" + u64(vc).toString(16) + " root=0x" + u64(rootView).toString(16) + " label=0x" + u64(label).toString(16));
 
     const clear = objc(UIColor, "clearColor");
     const black = objc(UIColor, "blackColor");
     const white = objc(UIColor, "whiteColor");
-    setFrame(win, 8, 54, 386, 64);
-    setFrame(rootView, 0, 0, 386, 64);
-    setFrame(label, 0, 0, 386, 64);
-    setWindowLevel(win, 2200);
 
+    log("configuring window/view");
     objc(win, "setUserInteractionEnabled:", 0);
     objc(rootView, "setUserInteractionEnabled:", 0);
     objc(win, "setOpaque:", 0);
@@ -377,11 +337,14 @@
       objc(label, "setBackgroundColor:", black);
     }
     if (isNonZero(white)) objc(label, "setTextColor:", white);
+    log("configuring label");
     objc(label, "setNumberOfLines:", 2n);
     objc(label, "setTextAlignment:", 1n);
     objc(label, "setLineBreakMode:", 4n);
     objc(label, "setAdjustsFontSizeToFitWidth:", 1);
     objc(label, "setText:", nsStr("BrokenBlade: waiting for PE"));
+    objc(label, "sizeToFit");
+    log("attaching overlay");
     objc(rootView, "addSubview:", label);
     objc(win, "setRootViewController:", vc);
     objc(win, "setHidden:", 0);
@@ -398,6 +361,7 @@
     const target = globalThis.__bb_chain_overlay_label;
     if (!isNonZero(target)) return false;
     objc(target, "setText:", nsStr(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting"));
+    objc(target, "sizeToFit");
     return true;
   }
 
