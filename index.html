@@ -873,6 +873,10 @@
       border-bottom: 1px solid var(--border-soft);
       gap: 12px;
     }
+    .sbc-row.in-development {
+      background: #fff8ee;
+      opacity: 0.76;
+    }
     .sbc-row:last-child { border-bottom: none; }
     .sbc-row-meta { min-width: 0; flex: 1; }
     .sbc-row-label {
@@ -1105,6 +1109,19 @@
                 </div>
                 <label class="tweak-toggle" aria-label="Hide icon labels">
                   <input type="checkbox" id="sbcHideLabels">
+                  <span class="tweak-toggle-track" aria-hidden="true"></span>
+                </label>
+              </div>
+              <div class="sbc-row in-development">
+                <div class="sbc-row-meta">
+                  <div class="sbc-row-label-wrap">
+                    <div class="sbc-row-label">StatBar</div>
+                    <span class="sbc-row-badge">in development</span>
+                  </div>
+                  <div class="sbc-row-sub">Experimental status bar metrics overlay</div>
+                </div>
+                <label class="tweak-toggle" aria-label="Enable StatBar">
+                  <input type="checkbox" id="sbcStatbar">
                   <span class="tweak-toggle-track" aria-hidden="true"></span>
                 </label>
               </div>
@@ -1635,6 +1652,8 @@
         });
         var hideLabelsEl = document.getElementById('sbcHideLabels');
         if (hideLabelsEl) hideLabelsEl.checked = false;
+        var statbarEl = document.getElementById('sbcStatbar');
+        if (statbarEl) statbarEl.checked = false;
         lsSaveState();
       });
     }
@@ -1677,7 +1696,8 @@
           dockIcons: parseInt((document.getElementById('sbcDockIcons') || {}).value, 10) || 4,
           hsCols: parseInt((document.getElementById('sbcHsCols') || {}).value, 10) || 4,
           hsRows: parseInt((document.getElementById('sbcHsRows') || {}).value, 10) || 6,
-          hideLabels: !!(document.getElementById('sbcHideLabels') || {}).checked
+          hideLabels: !!(document.getElementById('sbcHideLabels') || {}).checked,
+          statbar: !!(document.getElementById('sbcStatbar') || {}).checked
         };
         localStorage.setItem(LS_STATE_KEY, JSON.stringify(state));
       } catch (e) {}
@@ -1693,6 +1713,8 @@
         if (typeof s.threeapp === 'boolean') document.getElementById('tweakThreeapp').checked = s.threeapp;
         var hlEl = document.getElementById('sbcHideLabels');
         if (hlEl && typeof s.hideLabels === 'boolean') hlEl.checked = s.hideLabels;
+        var statbarEl = document.getElementById('sbcStatbar');
+        if (statbarEl && typeof s.statbar === 'boolean') statbarEl.checked = s.statbar;
         // Programmatic .checked = ... does not fire 'change', so manually
         // re-run the same row-sync logic that runs on a real toggle so the
         // tweak row visually matches its checked state (options panel
@@ -1719,7 +1741,7 @@
       } catch (e) {}
     }
     lsLoadState();
-    ['tweakFiveicon','tweakPowercuff','tweakThreeapp','powercuffLevel','sbcHideLabels'].forEach(function(id) {
+    ['tweakFiveicon','tweakPowercuff','tweakThreeapp','powercuffLevel','sbcHideLabels','sbcStatbar'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', lsSaveState);
     });
@@ -1753,7 +1775,8 @@
         dock_icons: sbcClampInput('sbcDockIcons', 4, 7, 4),
         hs_cols: sbcClampInput('sbcHsCols', 3, 7, 4),
         hs_rows: sbcClampInput('sbcHsRows', 4, 8, 6),
-        hide_labels: !!(document.getElementById('sbcHideLabels') || {}).checked ? 1 : 0
+        hide_labels: !!(document.getElementById('sbcHideLabels') || {}).checked ? 1 : 0,
+        statbar: !!(document.getElementById('sbcStatbar') || {}).checked ? 1 : 0
       };
       return { tweaks: tweaks, level: level, sbc: sbc };
     }
@@ -2060,6 +2083,7 @@
           + '&hs_cols=' + encodeURIComponent(sbc.hs_cols)
           + '&hs_rows=' + encodeURIComponent(sbc.hs_rows)
           + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0)
+          + '&statbar=' + encodeURIComponent(sbc.statbar || 0)
           + '&sbx0_fallback_start=' + encodeURIComponent(currentSbx0FallbackStart);
         var frame = document.createElement('iframe');
         frame.src = 'frame.html?tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&_=' + Math.random();
