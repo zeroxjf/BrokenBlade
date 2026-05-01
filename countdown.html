@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>LightSaber Finishing</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --ink: #111827;
+      --muted: #5f6876;
+      --accent: #1769e0;
+      --border: rgba(17,24,39,0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(900px 540px at 50% -160px, rgba(23,105,224,0.18), transparent 62%),
+        var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    }
+    main {
+      width: min(420px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 22px 60px rgba(15,23,42,0.14);
+      padding: 28px 22px;
+      text-align: center;
+    }
+    .ring {
+      width: 78px;
+      height: 78px;
+      margin: 0 auto 18px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(var(--accent) var(--progress), rgba(23,105,224,0.12) 0);
+      position: relative;
+    }
+    .ring::after {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border-radius: inherit;
+      background: var(--card);
+    }
+    #count {
+      position: relative;
+      z-index: 1;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: 0;
+    }
+    h1 {
+      font-size: 1.34rem;
+      line-height: 1.15;
+      letter-spacing: 0;
+      margin-bottom: 10px;
+    }
+    p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+    .note {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="ring" id="ring" style="--progress: 0deg"><span id="count">90</span></div>
+    <h1>LightSaber Is Finishing</h1>
+    <p>Safari was relaunched into this clean page while the post-exploit work continues in the background.</p>
+    <p class="note" id="note">Leave this page open. It should switch to the finished page automatically.</p>
+  </main>
+  <script>
+    (function() {
+      var total = 90;
+      var left = total;
+      var count = document.getElementById('count');
+      var ring = document.getElementById('ring');
+      var note = document.getElementById('note');
+      function paint() {
+        if (count) count.textContent = String(left);
+        if (ring) ring.style.setProperty('--progress', String(Math.round(((total - left) / total) * 360)) + 'deg');
+        if (left <= 0 && note) note.textContent = 'Still finishing. Keep this page open; the final page will replace it when PE is done.';
+      }
+      paint();
+      setInterval(function() {
+        if (left > 0) left--;
+        paint();
+      }, 1000);
+    })();
+  </script>
+</body>
+</html>
