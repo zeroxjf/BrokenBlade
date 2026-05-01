@@ -1,6 +1,7 @@
 (() => {
   const STATUS_PATH = globalThis.__bb_chain_status_path || "/private/var/tmp/brokenblade_chain_status.log";
   const COMPLETE_MARKER = globalThis.__bb_chain_status_complete_marker || "[PE] start() completed successfully";
+  const ALERT_TITLE = globalThis.__bb_chain_alert_title || "LightSaber";
   const PROGRESS_TEXT = globalThis.__bb_chain_progress_text || "LS chain in progress";
   const COMPLETE_TEXT = globalThis.__bb_chain_complete_text || "LS chain complete";
   const POLL_INTERVAL_US = 1500000;
@@ -300,40 +301,110 @@
     return readStatusFileFrom(startOffset).indexOf(COMPLETE_MARKER) >= 0;
   }
 
-  function ensureOverlay() {
-    if (isNonZero(globalThis.__bb_chain_overlay_status_server)) return true;
-    const UIStatusBarServer = Native.callSymbol("objc_getClass", "UIStatusBarServer");
-    if (!isNonZero(UIStatusBarServer)) {
-      log("UIStatusBarServer missing");
-      return false;
+  function topPresenter() {
+    const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
+    if (!isNonZero(UIApplication)) {
+      log("UIApplication missing");
+      return 0n;
     }
-    globalThis.__bb_chain_overlay_status_server = UIStatusBarServer;
-    log("status bar server ready cls=0x" + u64(UIStatusBarServer).toString(16));
-    return true;
+    const app = objc(UIApplication, "sharedApplication");
+    if (!isNonZero(app)) {
+      log("sharedApplication missing");
+      return 0n;
+    }
+    let win = objc(app, "keyWindow");
+    if (!isNonZero(win)) {
+      const windows = objc(app, "windows");
+      if (isNonZero(windows)) win = objc(windows, "lastObject");
+    }
+    if (!isNonZero(win)) {
+      log("presenter window missing");
+      return 0n;
+    }
+    let vc = objc(win, "rootViewController");
+    if (!isNonZero(vc)) {
+      log("rootViewController missing");
+      return 0n;
+    }
+    for (let i = 0; i < 8; i++) {
+      const next = objc(vc, "presentedViewController");
+      if (!isNonZero(next)) break;
+      vc = next;
+    }
+    return vc;
   }
 
-  function postOverlayText(text) {
-    if (!ensureOverlay()) return false;
-    const server = globalThis.__bb_chain_overlay_status_server;
-    if (!isNonZero(server)) return false;
-    let s = String(text || "BrokenBlade: waiting");
-    if (s.length > 60) s = s.slice(0, 57) + "...";
+  function ensureAlert(text) {
+    const existing = globalThis.__bb_chain_overlay_alert_controller;
+    if (isNonZero(existing)) return existing;
+
+    const UIAlertController = Native.callSymbol("objc_getClass", "UIAlertController");
+    const UIAlertAction = Native.callSymbol("objc_getClass", "UIAlertAction");
+    if (!isNonZero(UIAlertController) || !isNonZero(UIAlertAction)) {
+      log("UIAlertController/UIAlertAction missing");
+      return 0n;
+    }
+
+    const titleRef = cfstr(ALERT_TITLE);
+    const msgRef = cfstr(text || PROGRESS_TEXT);
+    const okRef = cfstr("OK");
+    if (!isNonZero(titleRef) || !isNonZero(msgRef) || !isNonZero(okRef)) {
+      if (isNonZero(titleRef)) Native.callSymbol("CFRelease", titleRef);
+      if (isNonZero(msgRef)) Native.callSymbol("CFRelease", msgRef);
+      if (isNonZero(okRef)) Native.callSymbol("CFRelease", okRef);
+      return 0n;
+    }
+
+    const alert = objc(UIAlertController, "alertControllerWithTitle:message:preferredStyle:", titleRef, msgRef, 1n);
+    const action = isNonZero(alert) ? objc(UIAlertAction, "actionWithTitle:style:handler:", okRef, 0n, 0n) : 0n;
+    Native.callSymbol("CFRelease", titleRef);
+    Native.callSymbol("CFRelease", msgRef);
+    Native.callSymbol("CFRelease", okRef);
+    if (!isNonZero(alert) || !isNonZero(action)) return 0n;
+
+    objc(alert, "addAction:", action);
+    objc(alert, "retain");
+
+    globalThis.__bb_chain_overlay_alert_controller = alert;
+    log("UIAlertController ready ptr=0x" + u64(alert).toString(16));
+    return alert;
+  }
+
+  function showAlertText(text) {
+    let s = String(text || PROGRESS_TEXT);
+    if (s.length > 120) s = s.slice(0, 117) + "...";
     const count = Number(globalThis.__bb_chain_overlay_post_count || 0);
-    if (count < 3 || globalThis.__bb_chain_overlay_done) log("posting status string: " + s);
-    const textRef = cfstr(s);
-    if (!isNonZero(textRef)) return false;
+    if (count < 3 || globalThis.__bb_chain_overlay_done) log("showing alert text: " + s);
+    const alert = ensureAlert(s);
+    if (!isNonZero(alert)) return false;
+
+    const titleRef = cfstr(ALERT_TITLE);
+    const msgRef = cfstr(s);
+    if (!isNonZero(titleRef) || !isNonZero(msgRef)) {
+      if (isNonZero(titleRef)) Native.callSymbol("CFRelease", titleRef);
+      if (isNonZero(msgRef)) Native.callSymbol("CFRelease", msgRef);
+      return false;
+    }
+
     try {
-      objc(server, "postDoubleHeightStatusString:forStyle:", textRef, 0n);
+      objc(alert, "setTitle:", titleRef);
+      objc(alert, "setMessage:", msgRef);
+      if (!isNonZero(objc(alert, "presentingViewController")) && !isNonZero(objc(alert, "isBeingPresented"))) {
+        const presenter = topPresenter();
+        if (!isNonZero(presenter)) return false;
+        objc(presenter, "presentViewController:animated:completion:", alert, 1n, 0n);
+      }
       globalThis.__bb_chain_overlay_post_count = count + 1;
-      if (count < 3 || globalThis.__bb_chain_overlay_done) log("posted status string");
+      if (count < 3 || globalThis.__bb_chain_overlay_done) log("alert text posted");
       return true;
     } finally {
-      Native.callSymbol("CFRelease", textRef);
+      Native.callSymbol("CFRelease", titleRef);
+      Native.callSymbol("CFRelease", msgRef);
     }
   }
 
   function updateOverlay() {
-    return postOverlayText(globalThis.__bb_chain_overlay_text || PROGRESS_TEXT);
+    return showAlertText(globalThis.__bb_chain_overlay_text || PROGRESS_TEXT);
   }
 
   function dispatchOverlayText(text, ticket) {
@@ -363,7 +434,7 @@
     globalThis.__bb_chain_overlay_update = updateOverlay;
     globalThis.__bb_chain_overlay_main_update = mainUpdateOverlay;
     const statusStartOffset = getStatusFileEnd();
-    log("entry statusPath=" + STATUS_PATH + " mode=two-state startOffset=" + statusStartOffset);
+    log("entry statusPath=" + STATUS_PATH + " mode=native-alert startOffset=" + statusStartOffset);
     let doneIters = 0;
     let exitReason = "max-iters";
     let ticket = 1;
