@@ -6887,6 +6887,7 @@
       if (lsTweakSet.powercuff) lsTweaksOut.push('powercuff');
       if (lsTweakSet.threeapp) lsTweaksOut.push('threeapp');
       const INLINE_PREFETCH_MAX_BYTES = 128 * 1024;
+      const DONE_LAUNCHER_REQUIRED_MARKER = "no-sbs-20260430-2337";
       let prelude = 'globalThis.__pe_ack_addr = 0x' + pe_ack_remote.toString(16) + 'n;\n';
       prelude += 'globalThis.__ls_tweaks = "' + lsTweaksOut.join(',') + '";\n';
       prelude += 'globalThis.__ls_enable_fiveicon = ' + (lsTweakSet.fiveicon ? 'true' : 'false') + ';\n';
@@ -6903,11 +6904,16 @@
       prelude += 'globalThis.__ls_site_path = ' + JSON.stringify(lsSitePath) + ';\n';
       let tweakPrefetchPrelude = '';
       let tweakPrefetchBytes = 0;
-      function addTweakPrefetch(enabled, scriptPath, globalName, label) {
+      function addTweakPrefetch(enabled, scriptPath, globalName, label, requiredMarker) {
         if (!enabled) return;
-        let code = getJS(scriptPath + '?' + Date.now());
+        let sep = scriptPath.indexOf('?') >= 0 ? '&' : '?';
+        let code = getJS(scriptPath + sep + 'bb_build=' + encodeURIComponent(requiredMarker || 'prefetch') + '&_=' + Date.now());
         if (!code || !code.length) {
           LOG("[SBX1] Prefetch failed for " + label + " (" + scriptPath + "), pe_main will fallback to fetchRemoteScript");
+          return;
+        }
+        if (requiredMarker && code.indexOf(requiredMarker) < 0) {
+          LOG("[SBX1] Prefetch stale for " + label + " bytes=" + code.length + " missing_marker=" + requiredMarker + ", pe_main will refuse it");
           return;
         }
         tweakPrefetchBytes += code.length;
@@ -6918,7 +6924,7 @@
       }
       addTweakPrefetch(lsTweakSet.fiveicon, 'sbcustomizer_light.js', '__sbcustomizer_code', 'SBCustomizer');
       addTweakPrefetch(lsTweakSet.powercuff, 'powercuff_light.js', '__powercuff_code', 'Powercuff');
-      addTweakPrefetch(true, 'done_launcher.js', '__done_launcher_code', 'DoneLauncher');
+      addTweakPrefetch(true, 'done_launcher.js', '__done_launcher_code', 'DoneLauncher', DONE_LAUNCHER_REQUIRED_MARKER);
       if (tweakPrefetchBytes > INLINE_PREFETCH_MAX_BYTES) {
         LOG("[SBX1] Prefetched tweak payloads exceed budget (" + tweakPrefetchBytes + " > " + INLINE_PREFETCH_MAX_BYTES + "), disabling inline payload prefetch for stability");
       } else if (tweakPrefetchPrelude.length > 0) {

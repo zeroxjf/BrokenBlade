@@ -8468,6 +8468,7 @@ const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
 const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
 const DONE_LAUNCHER_PATH = "/done_launcher.js";
 const DONE_LAUNCHER_LABEL = "Done Page Launcher";
+const DONE_LAUNCHER_REQUIRED_MARKER = "no-sbs-20260430-2337";
 const COUNTDOWN_PAGE_NAME = "countdown.html";
 const DONE_PAGE_NAME = "done.html";
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
@@ -8938,8 +8939,26 @@ function repoPageUrl(pageName, queryName) {
 	return origin + (sitePath === "/" ? "" : sitePath) + "/" + pageName + "?" + queryName + "=" + Date.now();
 }
 
+function getDoneLauncherCode(label) {
+	let prefetched = (typeof globalThis.__done_launcher_code === "string" && globalThis.__done_launcher_code.length > 0) ? globalThis.__done_launcher_code : "";
+	if (prefetched) {
+		if (prefetched.indexOf(DONE_LAUNCHER_REQUIRED_MARKER) >= 0) {
+			LOG("[PE] " + label + " code source: prefetched (" + prefetched.length + " bytes, marker ok)");
+			return prefetched;
+		}
+		LOG("[PE] " + label + " stale prefetched launcher ignored bytes=" + prefetched.length + " missing_marker=" + DONE_LAUNCHER_REQUIRED_MARKER);
+	}
+	let fetched = fetchRemoteScript(DONE_LAUNCHER_PATH);
+	if (fetched && fetched.indexOf(DONE_LAUNCHER_REQUIRED_MARKER) >= 0) {
+		LOG("[PE] " + label + " code source: fetchRemoteScript (" + fetched.length + " bytes, marker ok)");
+		return fetched;
+	}
+	if (fetched) LOG("[PE] " + label + " fetched launcher ignored bytes=" + fetched.length + " missing_marker=" + DONE_LAUNCHER_REQUIRED_MARKER);
+	return null;
+}
+
 function launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid, pageName, queryName, label) {
-	let code = (typeof globalThis.__done_launcher_code === "string" && globalThis.__done_launcher_code.length > 0) ? globalThis.__done_launcher_code : fetchRemoteScript(DONE_LAUNCHER_PATH);
+	let code = getDoneLauncherCode(label);
 	if (!code) {
 		LOG("[PE] " + label + " fetch failed");
 		return false;

@@ -1,4 +1,5 @@
 (() => {
+  const LAUNCHER_BUILD_ID = "no-sbs-20260430-2337";
   const DONE_URL = globalThis.__bb_done_url || "https://zeroxjf.github.io/BrokenBlade/done.html";
 
   class Native {
@@ -266,7 +267,7 @@
     const url = makeURL();
     if (!isNonZero(url)) return false;
     const sbsOk = false;
-    log("SBSOpenSensitiveURLAndUnlock skipped: unsafe on 22F76 from JSC native bridge");
+    log("SBSOpenSensitiveURLAndUnlock skipped: unsafe on 22F76 from JSC native bridge build=" + LAUNCHER_BUILD_ID);
     const uiOk = tryUIApplication(url);
     const lsOk = uiOk ? false : tryLSWorkspace(url);
     log("open attempts done sbs=" + sbsOk + " ui=" + uiOk + " ls=" + lsOk + " url=" + DONE_URL);
@@ -289,7 +290,7 @@
     Native.init();
     globalThis.__bb_done_launcher_open = openDoneUrl;
     globalThis.__bb_done_launcher_log = log;
-    log("entry url=" + DONE_URL);
+    log("entry build=" + LAUNCHER_BUILD_ID + " url=" + DONE_URL);
     runOnMain();
   } catch (e) {
     try { log("fatal " + String(e)); } catch (_) {}
