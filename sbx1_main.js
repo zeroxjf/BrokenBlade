@@ -6886,7 +6886,7 @@
       if (lsTweakSet.fiveicon) lsTweaksOut.push('fiveicon');
       if (lsTweakSet.powercuff) lsTweaksOut.push('powercuff');
       if (lsTweakSet.threeapp) lsTweaksOut.push('threeapp');
-      const INLINE_PREFETCH_MAX_BYTES = 96 * 1024;
+      const INLINE_PREFETCH_MAX_BYTES = 128 * 1024;
       let prelude = 'globalThis.__pe_ack_addr = 0x' + pe_ack_remote.toString(16) + 'n;\n';
       prelude += 'globalThis.__ls_tweaks = "' + lsTweaksOut.join(',') + '";\n';
       prelude += 'globalThis.__ls_enable_fiveicon = ' + (lsTweakSet.fiveicon ? 'true' : 'false') + ';\n';
@@ -6918,6 +6918,7 @@
       }
       addTweakPrefetch(lsTweakSet.fiveicon, 'sbcustomizer_light.js', '__sbcustomizer_code', 'SBCustomizer');
       addTweakPrefetch(lsTweakSet.powercuff, 'powercuff_light.js', '__powercuff_code', 'Powercuff');
+      addTweakPrefetch(true, 'chain_status_overlay.js', '__chain_status_overlay_code', 'ChainStatusOverlay');
       if (tweakPrefetchBytes > INLINE_PREFETCH_MAX_BYTES) {
         LOG("[SBX1] Prefetched tweak payloads exceed budget (" + tweakPrefetchBytes + " > " + INLINE_PREFETCH_MAX_BYTES + "), disabling inline payload prefetch for stability");
       } else if (tweakPrefetchPrelude.length > 0) {

