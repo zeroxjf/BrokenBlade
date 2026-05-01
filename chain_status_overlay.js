@@ -173,11 +173,6 @@
     return Native.callSymbol("CFStringCreateWithCString", 0n, str, 0x08000100);
   }
 
-  function nsStr(str) {
-    const NSString = Native.callSymbol("objc_getClass", "NSString");
-    return objc(NSString, "stringWithUTF8String:", str);
-  }
-
   function log(msg) {
     try {
       const tagged = "[CHAIN-OVL] " + msg;
@@ -342,7 +337,7 @@
     objc(label, "setTextAlignment:", 1n);
     objc(label, "setLineBreakMode:", 4n);
     objc(label, "setAdjustsFontSizeToFitWidth:", 1);
-    objc(label, "setText:", nsStr("BrokenBlade: waiting for PE"));
+    objc(label, "setText:", cfstr("BrokenBlade: waiting for PE"));
     objc(label, "sizeToFit");
     log("attaching overlay");
     objc(rootView, "addSubview:", label);
@@ -360,7 +355,7 @@
     if (!ensureOverlay()) return false;
     const target = globalThis.__bb_chain_overlay_label;
     if (!isNonZero(target)) return false;
-    objc(target, "setText:", nsStr(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting"));
+    objc(target, "setText:", cfstr(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting"));
     objc(target, "sizeToFit");
     return true;
   }
