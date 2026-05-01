@@ -1,14 +1,15 @@
 (() => {
   const STATUS_PATH = globalThis.__bb_chain_status_path || "/private/var/tmp/brokenblade_chain_status.log";
   const COMPLETE_MARKER = globalThis.__bb_chain_status_complete_marker || "[PE] start() completed successfully";
+  const PROGRESS_TEXT = globalThis.__bb_chain_progress_text || "LS chain in progress";
+  const COMPLETE_TEXT = globalThis.__bb_chain_complete_text || "LS chain complete";
   const POLL_INTERVAL_US = 1500000;
   const POLL_MAX_ITERS = 2400;
   const DONE_POST_ITERS = 3;
+  const PROGRESS_REFRESH_ITERS = 4;
   const MAX_READ_BYTES = 16384;
-  const MAX_LINES = 8;
   const MAIN_DISPATCH_TIMEOUT_MS = 3500;
   const MAIN_DISPATCH_CANCEL_GRACE_MS = 500;
-  const FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|\[CHAIN-OVL\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
 
   class Native {
     static #baseAddr;
@@ -259,7 +260,19 @@
     }
   }
 
-  function readStatusFile() {
+  function getStatusFileEnd() {
+    const fd = Native.callSymbol("open", STATUS_PATH, 0);
+    if (Number(fd) < 0) return 0;
+    try {
+      const endRaw = Native.callSymbol("lseek", fd, 0n, 2n);
+      const end = Number(endRaw);
+      return end > 0 ? end : 0;
+    } finally {
+      Native.callSymbol("close", fd);
+    }
+  }
+
+  function readStatusFileFrom(startOffset) {
     const fd = Native.callSymbol("open", STATUS_PATH, 0);
     if (Number(fd) < 0) return "";
     let buf = 0n;
@@ -267,7 +280,9 @@
       const endRaw = Native.callSymbol("lseek", fd, 0n, 2n);
       const end = Number(endRaw);
       if (!end || end < 0) return "";
-      const start = end > MAX_READ_BYTES ? end - MAX_READ_BYTES : 0;
+      let start = startOffset > 0 && end >= startOffset ? startOffset : 0;
+      if (end <= start) return "";
+      if (end - start > MAX_READ_BYTES) start = end - MAX_READ_BYTES;
       Native.callSymbol("lseek", fd, BigInt(start), 0n);
       const want = end - start;
       buf = Native.callSymbol("malloc", BigInt(want + 1));
@@ -281,44 +296,8 @@
     }
   }
 
-  function compactLine(line) {
-    let s = String(line || "").replace(/\s+/g, " ").trim();
-    if (s.length > 92) s = s.slice(0, 89) + "...";
-    return s;
-  }
-
-  function filteredLines(text) {
-    const out = [];
-    const seen = {};
-    const raw = String(text || "").split(/\n/);
-    for (let i = 0; i < raw.length; i++) {
-      let line = raw[i].replace(/\r/g, "").trim();
-      if (!line || !FILTER_RE.test(line)) continue;
-      line = compactLine(line);
-      if (!line || seen[line]) continue;
-      seen[line] = true;
-      out.push(line);
-    }
-    return out;
-  }
-
-  function buildOverlayText() {
-    const lines = filteredLines(readStatusFile());
-    let done = false;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].indexOf(COMPLETE_MARKER) >= 0) done = true;
-    }
-    const tail = lines.slice(lines.length > MAX_LINES ? lines.length - MAX_LINES : 0);
-    globalThis.__bb_chain_overlay_done = done;
-    if (done) return "BB COMPLETE: [PE] start() completed successfully";
-    if (!tail.length) return "BB waiting for chain status";
-    let tick = Number(globalThis.__bb_chain_overlay_tick || 0);
-    globalThis.__bb_chain_overlay_tick = tick + 1;
-    let line = tail[tick % tail.length];
-    line = line.replace(/^.*?(\[PE\]|\[PE-DBG\]|\[SBX1\]|\[MPD\]|\[SAFARI-CLEAN\]|\[THREEAPP\]|\[CHAIN-OVL\])/, "$1");
-    let out = "BB " + line;
-    if (out.length > 64) out = out.slice(0, 61) + "...";
-    return out;
+  function hasCompletionMarker(startOffset) {
+    return readStatusFileFrom(startOffset).indexOf(COMPLETE_MARKER) >= 0;
   }
 
   function ensureOverlay() {
@@ -354,7 +333,12 @@
   }
 
   function updateOverlay() {
-    return postOverlayText(globalThis.__bb_chain_overlay_text || "BrokenBlade: waiting");
+    return postOverlayText(globalThis.__bb_chain_overlay_text || PROGRESS_TEXT);
+  }
+
+  function dispatchOverlayText(text, ticket) {
+    globalThis.__bb_chain_overlay_text = text;
+    return runOnMainEvaluate("try{__bb_chain_overlay_main_update(" + ticket + ");}catch(e){try{__bb_chain_overlay_log('main dispatch err '+e);}catch(_){ }finally{__bb_chain_overlay_main_done_ticket=" + ticket + ";}}", ticket);
   }
 
   function exitWorkerThread(reason) {
@@ -378,14 +362,25 @@
     globalThis.__bb_chain_overlay_log = log;
     globalThis.__bb_chain_overlay_update = updateOverlay;
     globalThis.__bb_chain_overlay_main_update = mainUpdateOverlay;
-    log("entry statusPath=" + STATUS_PATH + " mode=main-evaluate-serialized");
+    const statusStartOffset = getStatusFileEnd();
+    log("entry statusPath=" + STATUS_PATH + " mode=two-state startOffset=" + statusStartOffset);
     let doneIters = 0;
     let exitReason = "max-iters";
     let ticket = 1;
+    let mainStatus = dispatchOverlayText(PROGRESS_TEXT, ticket++);
+    if (mainStatus !== "done") {
+      exitReason = mainStatus;
+      if (mainStatus === "main-update-timeout") {
+        while (true) sleepWithoutNative(60000);
+      }
+    }
     for (let i = 0; i < POLL_MAX_ITERS; i++) {
-      globalThis.__bb_chain_overlay_text = buildOverlayText();
-      try {
-        const mainStatus = runOnMainEvaluate("try{__bb_chain_overlay_main_update(" + ticket + ");}catch(e){try{__bb_chain_overlay_log('main dispatch err '+e);}catch(_){ }finally{__bb_chain_overlay_main_done_ticket=" + ticket + ";}}", ticket);
+      if (exitReason !== "max-iters") break;
+      globalThis.__bb_chain_overlay_done = hasCompletionMarker(statusStartOffset);
+      if (globalThis.__bb_chain_overlay_done) {
+        doneIters++;
+        if (doneIters === 1) log("completion marker observed");
+        mainStatus = dispatchOverlayText(COMPLETE_TEXT, ticket++);
         if (mainStatus !== "done") {
           exitReason = mainStatus;
           if (mainStatus === "main-update-timeout") {
@@ -393,19 +388,19 @@
           }
           break;
         }
-      } catch (e) {
-        log("update error " + String(e));
-      }
-      ticket++;
-      if (globalThis.__bb_chain_overlay_done) {
-        doneIters++;
-        if (doneIters === 1) log("completion marker observed");
         if (doneIters >= DONE_POST_ITERS) {
           exitReason = "complete";
           break;
         }
-      } else {
-        doneIters = 0;
+      } else if ((i + 1) % PROGRESS_REFRESH_ITERS === 0) {
+        mainStatus = dispatchOverlayText(PROGRESS_TEXT, ticket++);
+        if (mainStatus !== "done") {
+          exitReason = mainStatus;
+          if (mainStatus === "main-update-timeout") {
+            while (true) sleepWithoutNative(60000);
+          }
+          break;
+        }
       }
       Native.callSymbol("usleep", POLL_INTERVAL_US);
     }
