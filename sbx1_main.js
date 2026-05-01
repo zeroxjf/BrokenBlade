@@ -6887,7 +6887,7 @@
       if (lsTweakSet.powercuff) lsTweaksOut.push('powercuff');
       if (lsTweakSet.threeapp) lsTweaksOut.push('threeapp');
       const INLINE_PREFETCH_MAX_BYTES = 128 * 1024;
-      const DONE_LAUNCHER_REQUIRED_MARKER = "no-sbs-20260430-2337";
+      const DONE_LAUNCHER_REQUIRED_MARKER = "url-no-probe-20260430-2352";
       let prelude = 'globalThis.__pe_ack_addr = 0x' + pe_ack_remote.toString(16) + 'n;\n';
       prelude += 'globalThis.__ls_tweaks = "' + lsTweaksOut.join(',') + '";\n';
       prelude += 'globalThis.__ls_enable_fiveicon = ' + (lsTweakSet.fiveicon ? 'true' : 'false') + ';\n';

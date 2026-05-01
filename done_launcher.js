@@ -1,5 +1,5 @@
 (() => {
-  const LAUNCHER_BUILD_ID = "no-sbs-20260430-2337";
+  const LAUNCHER_BUILD_ID = "url-no-probe-20260430-2352";
   const DONE_URL = globalThis.__bb_done_url || "https://zeroxjf.github.io/BrokenBlade/done.html";
 
   class Native {
@@ -172,9 +172,10 @@
       return 0n;
     }
     const urlString = cfstr(DONE_URL);
-    const url = isNonZero(urlString) ? objc(NSURL, "URLWithString:", urlString) : 0n;
-    if (isNonZero(urlString)) Native.callSymbol("CFRelease", urlString);
-    if (!isNonZero(url)) log("URLWithString failed url=" + DONE_URL);
+    const urlAlloc = isNonZero(urlString) ? objc(NSURL, "alloc") : 0n;
+    const url = isNonZero(urlAlloc) ? objc(urlAlloc, "initWithString:", urlString) : 0n;
+    if (!isNonZero(url)) log("NSURL init failed url=" + DONE_URL);
+    else log("NSURL init ok urlPtr=" + url + " strPtr=" + urlString);
     return url;
   }
 
@@ -196,19 +197,16 @@
         return false;
       }
       let attempted = false;
-      if (selectorSupported(app, "canOpenURL:")) {
-        const canOpen = objc(app, "canOpenURL:", url);
-        log("UIApplication canOpenURL=" + canOpen);
+      log("UIApplication canOpenURL skipped");
+      if (selectorSupported(app, "openURL:")) {
+        objc(app, "openURL:", url);
+        log("UIApplication openURL: called");
+        return true;
       }
       if (selectorSupported(app, "openURL:options:completionHandler:")) {
         const options = emptyOptions();
         objc(app, "openURL:options:completionHandler:", url, options, 0n);
         log("UIApplication openURL:options:completionHandler: called options=" + options);
-        attempted = true;
-      }
-      if (selectorSupported(app, "openURL:")) {
-        objc(app, "openURL:", url);
-        log("UIApplication openURL: called");
         attempted = true;
       }
       if (!attempted) log("UIApplication has no usable openURL selector");
@@ -269,7 +267,8 @@
     const sbsOk = false;
     log("SBSOpenSensitiveURLAndUnlock skipped: unsafe on 22F76 from JSC native bridge build=" + LAUNCHER_BUILD_ID);
     const uiOk = tryUIApplication(url);
-    const lsOk = uiOk ? false : tryLSWorkspace(url);
+    const lsOk = false;
+    if (!uiOk) log("LSApplicationWorkspace fallback skipped");
     log("open attempts done sbs=" + sbsOk + " ui=" + uiOk + " ls=" + lsOk + " url=" + DONE_URL);
     return sbsOk || uiOk || lsOk;
   }
