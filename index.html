@@ -520,61 +520,6 @@
     .log-line.kernel { color: #ff9f0a; }
     .log-line.springboard { color: #bf5af2; }
     .log-line.pe { color: #30d158; }
-    #chainStageOverlay {
-      display: none;
-      position: fixed;
-      left: 12px;
-      right: 12px;
-      top: max(12px, env(safe-area-inset-top));
-      z-index: 90;
-      pointer-events: none;
-      justify-content: center;
-    }
-    #chainStageOverlay.active { display: flex; }
-    .chain-stage-card {
-      width: min(380px, calc(100vw - 24px));
-      border: 1px solid rgba(255,255,255,0.16);
-      border-radius: 8px;
-      background: rgba(15,23,42,0.94);
-      color: #fff;
-      box-shadow: 0 18px 46px rgba(0,0,0,0.34);
-      padding: 12px 14px;
-      text-align: left;
-    }
-    .chain-stage-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.72rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0;
-      color: rgba(255,255,255,0.72);
-      margin-bottom: 5px;
-    }
-    .chain-stage-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #30d158;
-      box-shadow: 0 0 0 4px rgba(48,209,88,0.18);
-      flex: 0 0 auto;
-    }
-    .chain-stage-card.error .chain-stage-dot {
-      background: #ff453a;
-      box-shadow: 0 0 0 4px rgba(255,69,58,0.18);
-    }
-    .chain-stage-card.complete .chain-stage-dot {
-      background: var(--version-marker);
-      box-shadow: 0 0 0 4px color-mix(in srgb, var(--version-marker) 22%, transparent);
-    }
-    #chainStageText {
-      font-size: 0.92rem;
-      line-height: 1.35;
-      font-weight: 700;
-      color: #fff;
-      overflow-wrap: anywhere;
-    }
     .version {
       font-family: var(--mono);
       font-size: 0.66rem;
@@ -1316,13 +1261,6 @@
     </div>
   </div>
 
-  <div id="chainStageOverlay" aria-live="polite" aria-atomic="true">
-    <div class="chain-stage-card" id="chainStageCard">
-      <div class="chain-stage-title"><span class="chain-stage-dot"></span><span>LightSaber</span></div>
-      <div id="chainStageText">LS chain starting</div>
-    </div>
-  </div>
-
   <script>
     // Force the page to start at the top on every load, even if Safari
     // tries to restore the previous scroll position from cache. iOS Safari
@@ -1517,21 +1455,6 @@
       }
     }
 
-    function setChainStage(text, state) {
-      var overlay = document.getElementById('chainStageOverlay');
-      var card = document.getElementById('chainStageCard');
-      var label = document.getElementById('chainStageText');
-      if (!overlay || !card || !label) return;
-      label.textContent = text || 'LS chain in progress';
-      card.className = 'chain-stage-card' + (state ? ' ' + state : '');
-      overlay.className = 'active';
-    }
-
-    function hideChainStage() {
-      var overlay = document.getElementById('chainStageOverlay');
-      if (overlay) overlay.className = '';
-    }
-
     function showLogView() {
       var lb = document.getElementById('logBox');
       if (lb) lb.className = 'active';
@@ -1586,13 +1509,6 @@
     }
     supportMsg.className = supportClass;
     supportMsg.textContent = supportText;
-
-    var enableChainOverlay = true;
-    try {
-      var pageParams = new URLSearchParams(window.location.search || '');
-      var overlayParam = pageParams.has('chain_overlay') ? pageParams.get('chain_overlay') : (pageParams.has('sb_overlay') ? pageParams.get('sb_overlay') : '1');
-      enableChainOverlay = overlayParam !== '0' && overlayParam !== 'false';
-    } catch (e) {}
 
     var runBtn = document.getElementById('runBtn');
     if (!canRun) {
@@ -1824,7 +1740,6 @@
       if (doneSignal) return;
       doneSignal = true;
       stopSyslogPolling();
-      setChainStage('LS chain complete', 'complete');
       try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
       try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'success'); } catch(e) {}
@@ -1844,7 +1759,6 @@
     function markFailed(message) {
       if (doneSignal) return;
       doneSignal = true;
-      setChainStage('LS chain failed', 'error');
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
       try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'failed'); } catch(e) {}
       try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
@@ -1866,46 +1780,9 @@
       if (!text || typeof text !== 'string') return false;
       var msg = text.toLowerCase();
       var el = document.getElementById('installStatus');
-      if (msg.indexOf('loading worker code') !== -1) {
-        setChainStage('LS loading WebKit worker');
-        return true;
-      }
-      if (msg.indexOf('worker created') !== -1 || msg.indexOf('worker code loaded') !== -1) {
-        setChainStage('LS WebKit worker ready');
-        return true;
-      }
-      if (msg.indexOf('loading rce module') !== -1 || msg.indexOf('evaluating rce module') !== -1) {
-        setChainStage('LS loading WebKit exploit');
-        return true;
-      }
-      if (msg.indexOf('rce module eval completed') !== -1) {
-        setChainStage('LS WebKit exploit ready');
-        return true;
-      }
-      if (msg.indexOf('starting check_attempt') !== -1 || msg.indexOf('sending stage1_rce') !== -1 || msg.indexOf('inside stage1') !== -1 || msg.indexOf('try aar/w') !== -1) {
-        setChainStage('LS WebKit stage running');
-        return true;
-      }
-      if (msg.indexOf('finished prims') !== -1 || msg.indexOf('finished stage') !== -1 || msg.indexOf('rce done') !== -1) {
-        setChainStage('LS WebKit primitives ready');
-        return true;
-      }
-      if (msg.indexOf('prepare_dlopen_workers') !== -1 || msg.indexOf('dlopen workers') !== -1) {
-        setChainStage('LS preparing native loader');
-        return true;
-      }
-      if (msg.indexOf('sign_pointers') !== -1 || msg.indexOf('inside setup_fcall') !== -1) {
-        setChainStage('LS native bridge setup');
-        return true;
-      }
-      if (msg.indexOf('slow_fcall') !== -1 || msg.indexOf('webcontent fcall thread has been spawned') !== -1) {
-        setChainStage('LS native fcall running');
-        return true;
-      }
       if (msg.indexOf('sbx0: [+] sbx0 complete') !== -1) {
         chainReachedSbx0 = true;
         lsSetSbx0FallbackIndex(currentSbx0FallbackStart);
-        setChainStage('LS sandbox escape stage 0 complete');
         if (el && el.dataset.sbxDone !== '1') {
           el.dataset.sbxDone = '1';
           el.classList.remove('error');
@@ -1915,7 +1792,6 @@
       }
       if (msg.indexOf('[sbx1] stage 5 started') !== -1 || msg.indexOf('entering sbx1sbx1()') !== -1) {
         chainReachedSbx1 = true;
-        setChainStage('LS sandbox escape stage 1 running');
         if (el) {
           el.classList.remove('error');
           el.textContent = 'SBX1 started. Waiting for nativefcall bootstrap and PE handoff.';
@@ -1924,7 +1800,6 @@
       }
       if (msg.indexOf('spawning pe') !== -1 || msg.indexOf('pe_main.js execution started') !== -1 || msg.indexOf('[mpd] pe spawned') !== -1) {
         chainReachedPeHandoff = true;
-        setChainStage('LS PE handoff started');
         if (el) {
           el.classList.remove('error');
           el.textContent = 'PE payload handed off. Wait for SpringBoard / selected tweak effect.';
@@ -1944,10 +1819,6 @@
       if (data.type === 'lightsaber_done') markDone();
       if (data.type === 'lightsaber_error') markFailed(data.text);
       if (data.type === 'lightsaber_failed') markFailed(data.reason || data.text);
-      if (data.type === 'lightsaber_stage') {
-        chainSawActivity = true;
-        setChainStage(data.text || 'LS chain in progress', data.state || '');
-      }
       if (data.type === 'lightsaber_log') {
         chainSawActivity = true;
         logAppend('[' + (data.source || 'webcontent') + '] ' + data.text, data.reportError ? 'err' : classifyLogLine(data.text));
@@ -1959,7 +1830,7 @@
       if (!canRun) return;
       var sel = gatherSelection();
       var statusEl = document.getElementById('installStatus');
-      if (sel.tweaks.length === 0 && !enableChainOverlay) {
+      if (sel.tweaks.length === 0) {
         if (statusEl) {
           statusEl.classList.add('error');
           statusEl.textContent = 'Select at least one tweak to install.';
@@ -2077,7 +1948,6 @@
         }
       } catch(e) {}
       try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'running'); } catch(e) {}
-      setChainStage('LS chain starting');
       doneSignal = false;
       chainSawActivity = false;
       chainReachedSbx0 = false;
@@ -2113,8 +1983,6 @@
       if (lb) lb.className = 'active';
       logAppend('[UI] Worker log bridge armed', 'ok');
       logAppend('[UI] Starting WebContent iframe with sbx0FallbackStart=' + currentSbx0FallbackStart, 'device');
-      if (enableChainOverlay) logAppend('[UI] SpringBoard chain overlay requested', 'device');
-      setChainStage('LS preparing WebKit entry');
 
       // Match the upstream DarkSword install button: just a 60-second
       // setTimeout fallback plus a postMessage listener for the iframe's
@@ -2161,7 +2029,6 @@
       // screen. The setTimeout(0) yields just long enough for the browser
       // to flush one paint before we hand control over to the exploit.
       setTimeout(function() {
-        setChainStage('LS WebKit exploit running');
         // Encode each tweak name individually so the comma between names stays
         // a literal "," in the URL instead of becoming "%2C". rce_loader.js's
         // URLSearchParams parser handles either form, but a literal comma is
@@ -2171,8 +2038,7 @@
           + '&hs_cols=' + encodeURIComponent(sbc.hs_cols)
           + '&hs_rows=' + encodeURIComponent(sbc.hs_rows)
           + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0)
-          + '&sbx0_fallback_start=' + encodeURIComponent(currentSbx0FallbackStart)
-          + '&chain_overlay=' + (enableChainOverlay ? '1' : '0');
+          + '&sbx0_fallback_start=' + encodeURIComponent(currentSbx0FallbackStart);
         var frame = document.createElement('iframe');
         frame.src = 'frame.html?tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&_=' + Math.random();
         frame.style.width = '1px';
