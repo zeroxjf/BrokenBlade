@@ -109,23 +109,6 @@
       return buff[200];
     }
 
-    static callAddress(addr, x0, x1, x2, x3, x4, x5, x6, x7) {
-      this.#argPtr = this.#argMem;
-      x0 = this.#toNative(x0);
-      x1 = this.#toNative(x1);
-      x2 = this.#toNative(x2);
-      x3 = this.#toNative(x3);
-      x4 = this.#toNative(x4);
-      x5 = this.#toNative(x5);
-      x6 = this.#toNative(x6);
-      x7 = this.#toNative(x7);
-      const ret64 = this.#nativeCallAddr(BigInt(addr || 0n), x0, x1, x2, x3, x4, x5, x6, x7);
-      this.#argPtr = this.#argMem;
-      if (ret64 === 0xffffffffffffffffn) return -1;
-      if (ret64 < 0xffffffffn && ret64 > -0xffffffffn) return Number(ret64);
-      return ret64;
-    }
-
     static callSymbol(name, x0, x1, x2, x3, x4, x5, x6, x7) {
       this.#argPtr = this.#argMem;
       x0 = this.#toNative(x0);
@@ -199,25 +182,6 @@
     return Number(objc(obj, "respondsToSelector:", sel(selectorName))) !== 0;
   }
 
-  function trySBS(url) {
-    try {
-      const RTLD_DEFAULT = 0xfffffffffffffffen;
-      const handle = Native.callSymbol("dlopen", "/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", 1);
-      let openFn = isNonZero(handle) ? Native.callSymbol("dlsym", handle, "SBSOpenSensitiveURLAndUnlock") : 0n;
-      if (!isNonZero(openFn)) openFn = Native.callSymbol("dlsym", RTLD_DEFAULT, "SBSOpenSensitiveURLAndUnlock");
-      if (!isNonZero(openFn)) {
-        log("SBSOpenSensitiveURLAndUnlock unavailable handle=" + handle);
-        return false;
-      }
-      const ret = Native.callAddress(openFn, url, 1n);
-      log("SBSOpenSensitiveURLAndUnlock called ret=" + ret + " handle=" + handle);
-      return true;
-    } catch (e) {
-      log("SBS exception " + String(e));
-      return false;
-    }
-  }
-
   function tryUIApplication(url) {
     try {
       const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
@@ -269,6 +233,11 @@
         return false;
       }
       const options = emptyOptions();
+      if (selectorSupported(workspace, "openSensitiveURL:withOptions:error:")) {
+        const ret = objc(workspace, "openSensitiveURL:withOptions:error:", url, options, 0n);
+        log("LSApplicationWorkspace openSensitiveURL:error ret=" + ret + " options=" + options);
+        return true;
+      }
       if (selectorSupported(workspace, "openSensitiveURL:withOptions:")) {
         const ret = objc(workspace, "openSensitiveURL:withOptions:", url, options);
         log("LSApplicationWorkspace openSensitiveURL ret=" + ret + " options=" + options);
@@ -296,9 +265,10 @@
     log("openDoneUrl start");
     const url = makeURL();
     if (!isNonZero(url)) return false;
-    const sbsOk = trySBS(url);
+    const sbsOk = false;
+    log("SBSOpenSensitiveURLAndUnlock skipped: unsafe on 22F76 from JSC native bridge");
     const uiOk = tryUIApplication(url);
-    const lsOk = tryLSWorkspace(url);
+    const lsOk = uiOk ? false : tryLSWorkspace(url);
     log("open attempts done sbs=" + sbsOk + " ui=" + uiOk + " ls=" + lsOk + " url=" + DONE_URL);
     return sbsOk || uiOk || lsOk;
   }
