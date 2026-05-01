@@ -293,6 +293,7 @@
   }
 
   function openDoneUrl() {
+    log("openDoneUrl start");
     const url = makeURL();
     if (!isNonZero(url)) return false;
     const sbsOk = trySBS(url);
@@ -308,12 +309,10 @@
     const script = "try{__bb_done_launcher_open();}catch(e){try{__bb_done_launcher_log('main error '+e);}catch(_){}}";
     const scriptRef = cfstr(script);
     if (!isNonZero(scriptRef)) return false;
-    try {
-      objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), scriptRef, 1n);
-      return true;
-    } finally {
-      Native.callSymbol("CFRelease", scriptRef);
-    }
+    log("dispatching open to SpringBoard main thread scriptRef=" + scriptRef);
+    objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), scriptRef, 0n);
+    log("main-thread dispatch returned");
+    return true;
   }
 
   try {

