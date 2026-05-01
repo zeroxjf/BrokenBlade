@@ -83,19 +83,19 @@
       background: var(--build-banner);
       color: #fff;
       text-align: center;
-      padding: 10px 16px;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1.5;
+      padding: 12px 16px 13px;
+      font-family: var(--mono);
+      font-size: clamp(28px, 9vw, 52px);
+      font-weight: 800;
+      line-height: 1;
       letter-spacing: 0;
       position: sticky;
       top: 0;
       z-index: 99999;
     }
-    .build-warning-banner a {
-      color: var(--build-banner-link);
-      text-decoration: underline;
+    .build-warning-banner time {
+      display: block;
+      color: #fff;
     }
     a { color: var(--accent-hover); text-decoration: none; transition: color 0.15s var(--ease); }
     a:hover { color: var(--accent-dark); }
@@ -1016,9 +1016,7 @@
 </head>
 <body>
   <div class="build-warning-banner">
-    EXPERIMENTAL &mdash; DANGEROUS &mdash; DO NOT TRY ON PERSONAL DEVICE.<br>
-    THIS IS A TEST PAGE FOR UNSTABLE ADJUSTMENTS TO EXPLOIT AND INJECTIONS.<br>
-    USE <a href="https://zeroxjf.github.io/lightsaber/">https://zeroxjf.github.io/lightsaber/</a> WHICH IS STABLE
+    <time id="buildTimestamp" datetime="2026-04-30T23:24:54-04:00">2026-04-30 23:24 EDT</time>
   </div>
   <div class="page">
     <div class="page-header">
@@ -1218,7 +1216,7 @@
       <a href="https://github.com/34306">34306</a> &amp; <a href="https://github.com/khanhduytran0">khanhduytran0</a>, whose <a href="http://34306.lol/darksword/">site design</a> helped stabilize payload delivery on this project, <a href="https://twitter.com/cro4js" target="_blank" rel="noopener">@cro4js</a> for UI suggestions, and anonymous contributors for help stabilizing the exploit chain.
     </div>
 
-    <p class="version" id="versionMarker">v0.0.94</p>
+    <p class="version" id="versionMarker">v0.0.95</p>
   </div>
 
   <div id="introOverlay" class="overlay">
@@ -1310,12 +1308,14 @@
     var LOG_ACTIVE_KEY = 'bb_last_run_active_v1';
     var LOG_STORE_LIMIT = 240;
     var USERLAND_DIRTY_KEY = 'bb_userland_dirty_v1';
-    var BUILD_VERSION_LABEL = 'v0.0.91';
+    var BUILD_VERSION_LABEL = 'v0.0.95';
+    var BUILD_TIMESTAMP_LABEL = '2026-04-30 23:24 EDT';
     var BUILD_COMMIT_API = 'https://api.github.com/repos/zeroxjf/BrokenBlade/commits/main';
 
     (function applyBuildBackground() {
       var root = document.documentElement;
       var versionEl = document.getElementById('versionMarker');
+      var timestampEl = document.getElementById('buildTimestamp');
       function hashString(text) {
         var hash = 2166136261;
         text = String(text || BUILD_VERSION_LABEL);
@@ -1325,7 +1325,24 @@
         }
         return hash >>> 0;
       }
-      function setBuildColor(buildId, label) {
+      function formatBuildTimestamp(value) {
+        var d = value ? new Date(value) : null;
+        if (!d || isNaN(d.getTime())) return BUILD_TIMESTAMP_LABEL;
+        try {
+          return d.toLocaleString(undefined, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZoneName: 'short'
+          });
+        } catch (e) {
+          return BUILD_TIMESTAMP_LABEL;
+        }
+      }
+      function setBuildColor(buildId, label, timestampLabel, timestampDate) {
         var hash = hashString(buildId);
         var hue = hash % 360;
         var bg = 'hsl(' + hue + ' 78% 92%)';
@@ -1339,8 +1356,12 @@
         root.style.setProperty('--build-banner', banner);
         root.style.setProperty('--build-banner-link', bannerLink);
         if (versionEl) versionEl.textContent = label;
+        if (timestampEl) {
+          timestampEl.textContent = timestampLabel || BUILD_TIMESTAMP_LABEL;
+          if (timestampDate) timestampEl.setAttribute('datetime', timestampDate);
+        }
       }
-      setBuildColor(BUILD_VERSION_LABEL, BUILD_VERSION_LABEL);
+      setBuildColor(BUILD_VERSION_LABEL, BUILD_VERSION_LABEL, BUILD_TIMESTAMP_LABEL, '2026-04-30T23:24:54-04:00');
       if (!window.fetch) return;
       fetch(BUILD_COMMIT_API + '?_=' + Date.now(), { cache: 'no-store' })
         .then(function(response) {
@@ -1349,7 +1370,8 @@
         })
         .then(function(data) {
           if (!data || !data.sha) return;
-          setBuildColor(data.sha, BUILD_VERSION_LABEL + ' · main ' + data.sha.slice(0, 7));
+          var commitDate = data.commit && data.commit.committer && data.commit.committer.date;
+          setBuildColor(data.sha, BUILD_VERSION_LABEL + ' · main ' + data.sha.slice(0, 7), formatBuildTimestamp(commitDate), commitDate);
         })
         .catch(function() {});
     })();
