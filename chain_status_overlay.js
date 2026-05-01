@@ -185,14 +185,6 @@
     } catch (_) {}
   }
 
-  function runOnMainEvaluate(script) {
-    const jsctxObj = globalThis.__bb_chain_overlay_jsctx_obj;
-    if (!isNonZero(jsctxObj)) return false;
-    const s = cfstr(script);
-    objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 0);
-    return true;
-  }
-
   function readStatusFile() {
     const fd = Native.callSymbol("open", STATUS_PATH, 0);
     if (Number(fd) < 0) return "";
@@ -302,15 +294,18 @@
 
   try {
     Native.init();
-    globalThis.__bb_chain_overlay_jsctx_obj = Native.bridgeInfo().jsContextObj;
     globalThis.__bb_chain_overlay_log = log;
     globalThis.__bb_chain_overlay_update = updateOverlay;
-    log("entry statusPath=" + STATUS_PATH);
+    log("entry statusPath=" + STATUS_PATH + " mode=worker-direct");
     let doneIters = 0;
     let exitReason = "max-iters";
     for (let i = 0; i < POLL_MAX_ITERS; i++) {
       globalThis.__bb_chain_overlay_text = buildOverlayText();
-      runOnMainEvaluate("try{__bb_chain_overlay_update();}catch(e){__bb_chain_overlay_log('update error '+e);}");
+      try {
+        updateOverlay();
+      } catch (e) {
+        log("update error " + String(e));
+      }
       if (globalThis.__bb_chain_overlay_done) {
         doneIters++;
         if (doneIters === 1) log("completion marker observed");
