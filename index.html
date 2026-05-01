@@ -1510,6 +1510,12 @@
     supportMsg.className = supportClass;
     supportMsg.textContent = supportText;
 
+    var enableChainOverlay = false;
+    try {
+      var pageParams = new URLSearchParams(window.location.search || '');
+      enableChainOverlay = pageParams.get('chain_overlay') === '1' || pageParams.get('sb_overlay') === '1';
+    } catch (e) {}
+
     var runBtn = document.getElementById('runBtn');
     if (!canRun) {
       runBtn.className = 'btn btn-disabled';
@@ -1830,7 +1836,7 @@
       if (!canRun) return;
       var sel = gatherSelection();
       var statusEl = document.getElementById('installStatus');
-      if (sel.tweaks.length === 0) {
+      if (sel.tweaks.length === 0 && !enableChainOverlay) {
         if (statusEl) {
           statusEl.classList.add('error');
           statusEl.textContent = 'Select at least one tweak to install.';
@@ -1983,6 +1989,7 @@
       if (lb) lb.className = 'active';
       logAppend('[UI] Worker log bridge armed', 'ok');
       logAppend('[UI] Starting WebContent iframe with sbx0FallbackStart=' + currentSbx0FallbackStart, 'device');
+      if (enableChainOverlay) logAppend('[UI] SpringBoard chain overlay requested', 'device');
 
       // Match the upstream DarkSword install button: just a 60-second
       // setTimeout fallback plus a postMessage listener for the iframe's
@@ -2038,7 +2045,8 @@
           + '&hs_cols=' + encodeURIComponent(sbc.hs_cols)
           + '&hs_rows=' + encodeURIComponent(sbc.hs_rows)
           + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0)
-          + '&sbx0_fallback_start=' + encodeURIComponent(currentSbx0FallbackStart);
+          + '&sbx0_fallback_start=' + encodeURIComponent(currentSbx0FallbackStart)
+          + '&chain_overlay=' + (enableChainOverlay ? '1' : '0');
         var frame = document.createElement('iframe');
         frame.src = 'frame.html?tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&_=' + Math.random();
         frame.style.width = '1px';

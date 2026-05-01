@@ -6882,6 +6882,7 @@
       let lsSiteHost = lsCleanText(globalThis.__ls_site_host, 128, '');
       let lsSitePath = lsCleanText(globalThis.__ls_site_path, 256, '/');
       if (!lsSitePath || lsSitePath.charAt(0) !== '/') lsSitePath = '/' + lsSitePath;
+      let lsEnableChainOverlay = globalThis.__ls_enable_chain_overlay === true;
       let lsTweaksOut = [];
       if (lsTweakSet.fiveicon) lsTweaksOut.push('fiveicon');
       if (lsTweakSet.powercuff) lsTweaksOut.push('powercuff');
@@ -6901,6 +6902,7 @@
       prelude += 'globalThis.__ls_site_origin = ' + JSON.stringify(lsSiteOrigin) + ';\n';
       prelude += 'globalThis.__ls_site_host = ' + JSON.stringify(lsSiteHost) + ';\n';
       prelude += 'globalThis.__ls_site_path = ' + JSON.stringify(lsSitePath) + ';\n';
+      prelude += 'globalThis.__ls_enable_chain_overlay = ' + (lsEnableChainOverlay ? 'true' : 'false') + ';\n';
       let tweakPrefetchPrelude = '';
       let tweakPrefetchBytes = 0;
       function addTweakPrefetch(enabled, scriptPath, globalName, label) {
@@ -6918,7 +6920,7 @@
       }
       addTweakPrefetch(lsTweakSet.fiveicon, 'sbcustomizer_light.js', '__sbcustomizer_code', 'SBCustomizer');
       addTweakPrefetch(lsTweakSet.powercuff, 'powercuff_light.js', '__powercuff_code', 'Powercuff');
-      addTweakPrefetch(!!globalThis.__ls_enable_chain_overlay, 'chain_status_overlay.js', '__chain_status_overlay_code', 'ChainStatusOverlay');
+      addTweakPrefetch(lsEnableChainOverlay, 'chain_status_overlay.js', '__chain_status_overlay_code', 'ChainStatusOverlay');
       if (tweakPrefetchBytes > INLINE_PREFETCH_MAX_BYTES) {
         LOG("[SBX1] Prefetched tweak payloads exceed budget (" + tweakPrefetchBytes + " > " + INLINE_PREFETCH_MAX_BYTES + "), disabling inline payload prefetch for stability");
       } else if (tweakPrefetchPrelude.length > 0) {

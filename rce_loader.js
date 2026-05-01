@@ -61,6 +61,10 @@ try {
     if (__sbx0FallbackStart < 0) __sbx0FallbackStart += 4;
     globalThis.__ls_sbx0_fallback_start = __sbx0FallbackStart;
 } catch (e) { globalThis.__ls_sbx0_fallback_start = 0; }
+try {
+    var __lsParams5 = new URLSearchParams(location.search || '');
+    globalThis.__ls_enable_chain_overlay = (__lsParams5.get('chain_overlay') === '1' || __lsParams5.get('sb_overlay') === '1');
+} catch (e) { globalThis.__ls_enable_chain_overlay = false; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 var localHost = location.origin + basePrefix;
 try {
@@ -180,7 +184,7 @@ const ios_version = (function() {
     print("WARNING: Could not detect iOS version from UA!");
     return null;
 })();
-print("Tweak selection: tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
+print("Tweak selection: tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " chainOverlay=" + globalThis.__ls_enable_chain_overlay + " rawSearch=" + (location.search || '(empty)'));
 print("Loading worker code...");
 let workerCode = "";
 if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2') {
@@ -290,6 +294,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                 ls_sbc_statbar: globalThis.__ls_sbc_statbar,
                 ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
+                ls_enable_chain_overlay: globalThis.__ls_enable_chain_overlay === true,
                 ls_site_origin: globalThis.__ls_site_origin || "",
                 ls_site_host: globalThis.__ls_site_host || "",
                 ls_site_path: globalThis.__ls_site_path || "/"
@@ -382,6 +387,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                     ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                     ls_sbc_statbar: globalThis.__ls_sbc_statbar,
                     ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
+                    ls_enable_chain_overlay: globalThis.__ls_enable_chain_overlay === true,
                     ls_site_origin: globalThis.__ls_site_origin || "",
                     ls_site_host: globalThis.__ls_site_host || "",
                     ls_site_path: globalThis.__ls_site_path || "/",

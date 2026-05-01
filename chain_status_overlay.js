@@ -259,47 +259,54 @@
     return out;
   }
 
-  function resolveStatusBarClasses() {
-    return {
-      cls17: Native.callSymbol("objc_getClass", "STUIStatusBarStringView"),
-      cls16: Native.callSymbol("objc_getClass", "_UIStatusBarStringView")
-    };
+  function f64Bytes(values) {
+    const buf = new ArrayBuffer(values.length * 8);
+    const dv = new DataView(buf);
+    for (let i = 0; i < values.length; i++) dv.setFloat64(i * 8, Number(values[i]), true);
+    return buf;
   }
 
-  function walkFindStatusBarLabels(view, cls1, cls2, out, depth, visited) {
-    if (depth > 10 || out.length >= 8) return;
-    if (!isNonZero(view)) return;
-    visited[0] = visited[0] + 1;
-    if (isNonZero(cls1) && isNonZero(objc(view, "isKindOfClass:", cls1))) {
-      out.push(view);
-      return;
+  function invokeRawArg(obj, selectorName, bytesBuf) {
+    if (!isNonZero(obj)) return false;
+    const s = sel(selectorName);
+    if (!isNonZero(s)) return false;
+    const sig = objc(obj, "methodSignatureForSelector:", s);
+    if (!isNonZero(sig)) {
+      log("no method signature for " + selectorName);
+      return false;
     }
-    if (isNonZero(cls2) && isNonZero(objc(view, "isKindOfClass:", cls2))) {
-      out.push(view);
-      return;
+    const NSInvocation = Native.callSymbol("objc_getClass", "NSInvocation");
+    const inv = objc(NSInvocation, "invocationWithMethodSignature:", sig);
+    if (!isNonZero(inv)) {
+      log("no invocation for " + selectorName);
+      return false;
     }
-    const subs = objc(view, "subviews");
-    if (!isNonZero(subs)) return;
-    let cnt = Number(u64(objc(subs, "count")));
-    if (cnt > 48) cnt = 48;
-    for (let i = 0; i < cnt; i++) {
-      const sub = objc(subs, "objectAtIndex:", BigInt(i));
-      walkFindStatusBarLabels(sub, cls1, cls2, out, depth + 1, visited);
-      if (out.length >= 8) break;
+    const mem = Native.callSymbol("malloc", BigInt(bytesBuf.byteLength));
+    if (!isNonZero(mem)) return false;
+    try {
+      Native.write(mem, bytesBuf);
+      objc(inv, "setTarget:", obj);
+      objc(inv, "setSelector:", s);
+      objc(inv, "setArgument:atIndex:", mem, 2n);
+      objc(inv, "invoke");
+      return true;
+    } finally {
+      Native.callSymbol("free", mem);
     }
   }
 
-  function findStatusBarLabel() {
-    const cached = globalThis.__bb_chain_overlay_label;
-    if (isNonZero(cached)) return cached;
+  function setFrame(obj, x, y, w, h) {
+    return invokeRawArg(obj, "setFrame:", f64Bytes([x, y, w, h]));
+  }
+
+  function setWindowLevel(win, level) {
+    return invokeRawArg(win, "setWindowLevel:", f64Bytes([level]));
+  }
+
+  function findWindowScene() {
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
     if (!isNonZero(UIApplication)) {
       log("UIApplication missing");
-      return 0n;
-    }
-    const classes = resolveStatusBarClasses();
-    if (!isNonZero(classes.cls17) && !isNonZero(classes.cls16)) {
-      log("status bar string classes missing");
       return 0n;
     }
     const app = objc(UIApplication, "sharedApplication");
@@ -313,44 +320,77 @@
       return 0n;
     }
     const scene = objc(keyWin, "windowScene");
-    if (!isNonZero(scene)) {
-      log("windowScene missing");
-      return 0n;
-    }
-    const sceneWins = objc(scene, "windows");
-    if (!isNonZero(sceneWins)) {
-      log("scene.windows missing");
-      return 0n;
-    }
-    let winCount = Number(u64(objc(sceneWins, "count")));
-    if (winCount > 16) winCount = 16;
-    const candidates = [];
-    const visited = [0];
-    for (let i = 0; i < winCount; i++) {
-      const win = objc(sceneWins, "objectAtIndex:", BigInt(i));
-      walkFindStatusBarLabels(win, classes.cls17, classes.cls16, candidates, 0, visited);
-      if (candidates.length >= 8) break;
-    }
-    if (!candidates.length) {
-      log("no status bar labels visited=" + visited[0]);
-      return 0n;
-    }
-    const colon = nsStr(":");
-    for (let i = 0; i < candidates.length; i++) {
-      const txt = objc(candidates[i], "text");
-      if (isNonZero(txt) && isNonZero(objc(txt, "containsString:", colon))) {
-        globalThis.__bb_chain_overlay_label = candidates[i];
-        log("using clock status label candidate=" + i);
-        return candidates[i];
-      }
-    }
-    globalThis.__bb_chain_overlay_label = candidates[0];
-    log("using status label candidate=0");
-    return candidates[0];
+    if (!isNonZero(scene)) log("windowScene missing");
+    return scene;
   }
 
   function ensureOverlay() {
-    return isNonZero(findStatusBarLabel());
+    if (isNonZero(globalThis.__bb_chain_overlay_window) && isNonZero(globalThis.__bb_chain_overlay_label)) return true;
+
+    const scene = findWindowScene();
+    if (!isNonZero(scene)) return false;
+
+    const UIWindow = Native.callSymbol("objc_getClass", "UIWindow");
+    const UIViewController = Native.callSymbol("objc_getClass", "UIViewController");
+    const UILabel = Native.callSymbol("objc_getClass", "UILabel");
+    const UIColor = Native.callSymbol("objc_getClass", "UIColor");
+    if (!isNonZero(UIWindow) || !isNonZero(UIViewController) || !isNonZero(UILabel) || !isNonZero(UIColor)) {
+      log("UIKit classes missing");
+      return false;
+    }
+
+    let win = objc(objc(UIWindow, "alloc"), "initWithWindowScene:", scene);
+    if (!isNonZero(win)) {
+      win = objc(objc(UIWindow, "alloc"), "init");
+      if (isNonZero(win)) objc(win, "setWindowScene:", scene);
+    }
+    if (!isNonZero(win)) {
+      log("UIWindow init failed");
+      return false;
+    }
+
+    const vc = objc(objc(UIViewController, "alloc"), "init");
+    const rootView = isNonZero(vc) ? objc(vc, "view") : 0n;
+    const label = objc(objc(UILabel, "alloc"), "init");
+    if (!isNonZero(vc) || !isNonZero(rootView) || !isNonZero(label)) {
+      log("overlay object init failed vc=0x" + u64(vc).toString(16) + " view=0x" + u64(rootView).toString(16) + " label=0x" + u64(label).toString(16));
+      return false;
+    }
+
+    const clear = objc(UIColor, "clearColor");
+    const black = objc(UIColor, "blackColor");
+    const white = objc(UIColor, "whiteColor");
+    setFrame(win, 8, 54, 386, 64);
+    setFrame(rootView, 0, 0, 386, 64);
+    setFrame(label, 0, 0, 386, 64);
+    setWindowLevel(win, 2200);
+
+    objc(win, "setUserInteractionEnabled:", 0);
+    objc(rootView, "setUserInteractionEnabled:", 0);
+    objc(win, "setOpaque:", 0);
+    objc(rootView, "setOpaque:", 0);
+    if (isNonZero(clear)) {
+      objc(win, "setBackgroundColor:", clear);
+      objc(rootView, "setBackgroundColor:", clear);
+    }
+    if (isNonZero(black)) {
+      objc(label, "setBackgroundColor:", black);
+    }
+    if (isNonZero(white)) objc(label, "setTextColor:", white);
+    objc(label, "setNumberOfLines:", 2n);
+    objc(label, "setTextAlignment:", 1n);
+    objc(label, "setLineBreakMode:", 4n);
+    objc(label, "setAdjustsFontSizeToFitWidth:", 1);
+    objc(label, "setText:", nsStr("BrokenBlade: waiting for PE"));
+    objc(rootView, "addSubview:", label);
+    objc(win, "setRootViewController:", vc);
+    objc(win, "setHidden:", 0);
+
+    globalThis.__bb_chain_overlay_window = win;
+    globalThis.__bb_chain_overlay_vc = vc;
+    globalThis.__bb_chain_overlay_label = label;
+    log("owned UIWindow overlay ready win=0x" + u64(win).toString(16) + " label=0x" + u64(label).toString(16));
+    return true;
   }
 
   function updateOverlay() {
