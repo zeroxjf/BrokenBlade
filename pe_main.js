@@ -14,6 +14,7 @@
     LOG = function(msg) { console.log('[PE] ' + msg); };
   }
 
+  const ENABLE_CHAIN_SYSLOG_EXPORT = false;
   const BB_CHAIN_SYSLOG_BOOT_MAX_LINES = 4096;
   function bbChainSyslogBootTimestamp() {
     try {
@@ -32,6 +33,7 @@
   if (!globalThis.__bb_chain_syslog_capture) {
     globalThis.__bb_chain_syslog_capture = function(raw) {
       try {
+        if (!ENABLE_CHAIN_SYSLOG_EXPORT) return;
         if (globalThis.__bb_chain_syslog_sink) {
           globalThis.__bb_chain_syslog_sink(raw);
           return;
@@ -8580,6 +8582,7 @@ function chainSyslogBufferLine(line) {
 }
 
 function chainSyslogRecord(raw) {
+	if (!ENABLE_CHAIN_SYSLOG_EXPORT) return;
 	let line = chainSyslogFormatLine(raw);
 	if (!line) return;
 	if (!chainSyslogLogReady) {
@@ -8589,9 +8592,9 @@ function chainSyslogRecord(raw) {
 	chainSyslogWriteLine(line, false, false);
 }
 
-globalThis.__bb_chain_syslog_sink = chainSyslogRecord;
+globalThis.__bb_chain_syslog_sink = ENABLE_CHAIN_SYSLOG_EXPORT ? chainSyslogRecord : null;
 const chainSyslogOriginalConsoleLog = console.log;
-if (!globalThis.__bb_chain_console_wrapped && typeof chainSyslogOriginalConsoleLog === "function") {
+if (ENABLE_CHAIN_SYSLOG_EXPORT && !globalThis.__bb_chain_console_wrapped && typeof chainSyslogOriginalConsoleLog === "function") {
 	globalThis.__bb_chain_console_wrapped = true;
 	console.log = function(...args) {
 		try {
@@ -8663,6 +8666,7 @@ function chainStatusInitLog() {
 }
 
 function chainSyslogWriteLine(line, truncate, forceSync) {
+	if (!ENABLE_CHAIN_SYSLOG_EXPORT) return false;
 	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
 	const O_WRONLY = 0x0001;
 	const O_APPEND = 0x0008;
@@ -8689,6 +8693,7 @@ function chainSyslogWriteLine(line, truncate, forceSync) {
 }
 
 function chainSyslogSync() {
+	if (!ENABLE_CHAIN_SYSLOG_EXPORT) return false;
 	if (!chainSyslogLogReady) return false;
 	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
 	const O_WRONLY = 0x0001;
@@ -8703,6 +8708,10 @@ function chainSyslogSync() {
 }
 
 function chainSyslogInitDownloads() {
+	if (!ENABLE_CHAIN_SYSLOG_EXPORT) {
+		try { globalThis.__bb_chain_syslog_buffer = []; } catch (_) {}
+		return false;
+	}
 	if (chainSyslogLogReady) return true;
 	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
 	try {
@@ -9917,7 +9926,11 @@ function start() { LOG("[+] PE start() called");
 	let chainSyslogOk = chainSyslogInitDownloads();
 
 	LOG("[PE] Status log: " + CHAIN_STATUS_LOG_PATH);
-	LOG("[PE] Chain syslog export path: " + chainSyslogPath + " ready=" + chainSyslogOk);
+	if (ENABLE_CHAIN_SYSLOG_EXPORT) {
+		LOG("[PE] Chain syslog export path: " + chainSyslogPath + " ready=" + chainSyslogOk);
+	} else {
+		LOG("[PE] Chain syslog export disabled");
+	}
 	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
 	if (ENABLE_SAFARI_KILL_AFTER_CLEAN && safariCleanOk) {
 		runOptionalStage("Safari app termination after cleanup", true, () => terminateSafariAfterClean(launchdTask));
@@ -10589,8 +10602,12 @@ function start() { LOG("[+] PE start() called");
 
 	LOG("[PE] start() completed successfully");
 	LOG("[PE] Done page launch disabled");
-	LOG("[PE] Chain syslog exported to: " + chainSyslogPath);
-	chainSyslogSync();
+	if (ENABLE_CHAIN_SYSLOG_EXPORT) {
+		LOG("[PE] Chain syslog exported to: " + chainSyslogPath);
+		chainSyslogSync();
+	} else {
+		LOG("[PE] Chain syslog export disabled");
+	}
 	} finally {
 		if (springBoardAgentLoader) {
 			LOG("[PE] Destroying agent loader");
