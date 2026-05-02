@@ -888,35 +888,35 @@
   function invokeStructSetter(obj, selectorName, bytesBuf) {
     log("iss[" + selectorName + "]: entry obj=0x" + u64(obj).toString(16));
     if (!isNonZero(obj)) return false;
-    log("iss: pre sel");
     const s = sel(selectorName);
-    log("iss: sel=0x" + u64(s).toString(16));
     if (!isNonZero(s)) return false;
-    log("iss: pre methodSignatureForSelector");
     const sig = Native.callSymbol("objc_msgSend", obj,
       sel("methodSignatureForSelector:"), s);
-    log("iss: sig=0x" + u64(sig).toString(16));
     if (!isNonZero(sig)) { log("iss: nil sig for " + selectorName); return false; }
-    log("iss: pre objc_getClass NSInvocation");
     const NSInvocation = Native.callSymbol("objc_getClass", "NSInvocation");
-    log("iss: NSInvocation=0x" + u64(NSInvocation).toString(16));
-    log("iss: pre invocationWithMethodSignature:");
-    const inv = objc(NSInvocation, "invocationWithMethodSignature:", sig);
+    if (!isNonZero(NSInvocation)) { log("iss: NSInvocation class missing"); return false; }
+    // +invocationWithMethodSignature: returns AUTORELEASED. JSC's
+    // ObjCCallbackFunctionImpl::call wraps each bridge call in its own
+    // @autoreleasepool {} that drains when the call returns - the inv
+    // dies before our next bridge call (setTarget:) dispatches on it,
+    // and we PAC-faulted there at 165909.ips. Use alloc + private
+    // _initWithMethodSignature: instead: alloc returns +1 retained,
+    // _initWithMethodSignature: preserves the +1, no autorelease
+    // balance for JSC to drain. _initWithMethodSignature: is the
+    // underlying initializer that the public class method calls into;
+    // it's been a Foundation private since iOS 10 and is callable via
+    // objc_msgSend with no special handling.
+    const allocated = objc(NSInvocation, "alloc");
+    if (!isNonZero(allocated)) { log("iss: NSInvocation alloc failed"); return false; }
+    const inv = objc(allocated, "_initWithMethodSignature:", sig);
+    if (!isNonZero(inv)) { log("iss: _initWithMethodSignature: returned nil"); return false; }
     log("iss: inv=0x" + u64(inv).toString(16));
-    if (!isNonZero(inv)) { log("iss: nil inv for " + selectorName); return false; }
-    log("iss: pre setTarget:");
     objc(inv, "setTarget:", obj);
-    log("iss: pre setSelector:");
     objc(inv, "setSelector:", s);
-    log("iss: pre malloc/write " + bytesBuf.byteLength);
     const mem = Native.callSymbol("malloc", BigInt(bytesBuf.byteLength));
     Native.write(mem, bytesBuf);
-    log("iss: mem=0x" + u64(mem).toString(16));
-    log("iss: pre setArgument:atIndex:2");
     objc(inv, "setArgument:atIndex:", mem, 2n);
-    log("iss: pre invoke");
     objc(inv, "invoke");
-    log("iss: post invoke");
     Native.callSymbol("free", mem);
     log("iss: done " + selectorName);
     return true;
@@ -964,7 +964,13 @@
 
   function nsNumberLL(val) {
     const NSNumber = Native.callSymbol("objc_getClass", "NSNumber");
-    return objc(NSNumber, "numberWithLongLong:", BigInt(val));
+    if (!isNonZero(NSNumber)) return 0n;
+    // +numberWithLongLong: returns autoreleased and dies on JSC's
+    // per-call pool drain (175118.ips: same class of crash as v6's
+    // NSInvocation). Use alloc + initWithLongLong: for +1 retained.
+    const allocated = objc(NSNumber, "alloc");
+    if (!isNonZero(allocated)) return 0n;
+    return objc(allocated, "initWithLongLong:", BigInt(val));
   }
 
   function readScreenBounds() {
@@ -1282,7 +1288,7 @@
   const STATBAR_WIN_LEVEL = 999999;
 
   function createStatBarOverlay() {
-    log("statbar: entry (KVC overlay window v7)");
+    log("statbar: entry (overlay window v8 - alloc+_initWithMethodSignature)");
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
     if (!isObjcReceiver(UIApplication)) { log("statbar: no UIApplication class"); return false; }
     const sharedSel = sel("sharedApplication");
@@ -1352,16 +1358,13 @@
 
     // Build the dedicated UIWindow.
     //   - alloc/initWithWindowScene: returns +1 retained.
-    //   - setFrame: / setWindowLevel: are routed through KVC
-    //     (setValue:forKey:) since the bridge is x0..x7 only and CGRect
-    //     / CGFloat would require d0..d3 / d0. v6 routed these through
-    //     invokeStructSetter (NSInvocation), but +invocationWithMethodSignature:
-    //     returns autoreleased and JSC drains the pool between bridge
-    //     calls - the inv died before setTarget: ran (165909.ips:
-    //     PAC fault on objc_msgSend sel=setTarget:, x0=dead). KVC
-    //     unboxes NSValue<CGRect> / NSNumber natively inside its
-    //     implementation, so the FP regs get populated correctly with
-    //     no NSInvocation involved.
+    //   - setFrame: / setWindowLevel: routed through invokeStructSetter
+    //     (now using alloc + private _initWithMethodSignature: so the
+    //     NSInvocation survives JSC's pool drain - the v6 165909.ips
+    //     crash and v7 175118.ips crash were both autoreleased-return
+    //     -dies-on-drain bugs in the wrappers).
+    //   - userInteractionEnabled / hidden / backgroundColor are
+    //     pointer-or-int args, fine on the x-only bridge.
     const UIWindow = Native.callSymbol("objc_getClass", "UIWindow");
     if (!isObjcReceiver(UIWindow)) { log("statbar: no UIWindow class"); return false; }
     const winAlloc = objc(UIWindow, "alloc");
@@ -1370,21 +1373,17 @@
     if (!isObjcReceiver(win)) { log("statbar: UIWindow initWithWindowScene: failed"); return false; }
     log("statbar: window=0x" + u64(win).toString(16));
 
-    const frameKey = nsStrRetained("frame");
-    const winFrameVal = nsValueFromCGRect(STATBAR_WIN_X, STATBAR_WIN_Y, STATBAR_WIN_W, STATBAR_WIN_H);
-    if (isObjcReceiver(frameKey) && isObjcReceiver(winFrameVal)) {
-      objc(win, "setValue:forKey:", winFrameVal, frameKey);
-      log("statbar: window frame set via KVC");
-    } else {
-      log("statbar: failed to build frame KVC inputs (frameKey=" + u64(frameKey).toString(16) + " winFrameVal=" + u64(winFrameVal).toString(16) + ")");
-    }
+    const winFrameBuf = new ArrayBuffer(32);
+    const wfdv = new DataView(winFrameBuf);
+    wfdv.setFloat64(0, STATBAR_WIN_X, true);
+    wfdv.setFloat64(8, STATBAR_WIN_Y, true);
+    wfdv.setFloat64(16, STATBAR_WIN_W, true);
+    wfdv.setFloat64(24, STATBAR_WIN_H, true);
+    invokeStructSetter(win, "setFrame:", winFrameBuf);
 
-    const levelKey = nsStrRetained("windowLevel");
-    const levelNum = nsNumberLL(STATBAR_WIN_LEVEL);
-    if (isObjcReceiver(levelKey) && isObjcReceiver(levelNum)) {
-      objc(win, "setValue:forKey:", levelNum, levelKey);
-      log("statbar: windowLevel set via KVC");
-    }
+    const levelBuf = new ArrayBuffer(8);
+    new DataView(levelBuf).setFloat64(0, STATBAR_WIN_LEVEL, true);
+    invokeStructSetter(win, "setWindowLevel:", levelBuf);
 
     objc(win, "setUserInteractionEnabled:", 0n);
 
@@ -1415,12 +1414,14 @@
       if (isObjcReceiver(white)) objc(overlay, "setTextColor:", white);
     }
 
-    // Label fills the window. Frame in window-local coords via KVC.
-    const labelFrameVal = nsValueFromCGRect(0, 0, STATBAR_WIN_W, STATBAR_WIN_H);
-    if (isObjcReceiver(frameKey) && isObjcReceiver(labelFrameVal)) {
-      objc(overlay, "setValue:forKey:", labelFrameVal, frameKey);
-      log("statbar: label frame set via KVC");
-    }
+    // Label fills the window. Frame in window-local coords.
+    const labelFrameBuf = new ArrayBuffer(32);
+    const lfdv = new DataView(labelFrameBuf);
+    lfdv.setFloat64(0, 0, true);
+    lfdv.setFloat64(8, 0, true);
+    lfdv.setFloat64(16, STATBAR_WIN_W, true);
+    lfdv.setFloat64(24, STATBAR_WIN_H, true);
+    invokeStructSetter(overlay, "setFrame:", labelFrameBuf);
 
     objc(win, "addSubview:", overlay);
 
@@ -1448,6 +1449,7 @@
     // Diagnostic: read -windowLevel back via KVC. -intValue truncates
     // 999999.0 to 999999 - if we see UIWindowLevelAlert (2000) or
     // UIWindowLevelStatusBar (1000) instead, UIKit clamped us.
+    const levelKey = nsStrRetained("windowLevel");
     if (isObjcReceiver(levelKey)) {
       const levelBox = objc(win, "valueForKey:", levelKey);
       if (isObjcReceiver(levelBox)) {
@@ -1458,7 +1460,7 @@
 
     objc(win, "setHidden:", 0n);
     Native.callSymbol("objc_setAssociatedObject", app, assocKey, win, 1n);
-    log("statbar: KVC overlay window installed (level=" + STATBAR_WIN_LEVEL + ")");
+    log("statbar: dedicated overlay window installed (level=" + STATBAR_WIN_LEVEL + ")");
     return true;
   }
 
