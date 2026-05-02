@@ -6323,9 +6323,10 @@
             thread_group_unlock(exp_write_threads, n_of_current_exp_write_threads);
           }
           if (exp_attempt > n_of_max_exp_attempts - 32n) {
-            LOG(`too many attempts, exp_attempt: ${exp_attempt}...`);
+            LOG(`too many attempts, exp_attempt: ${exp_attempt}; trying next endpoint...`);
             thread_group_lock(exp_write_threads, n_of_current_exp_write_threads);
-            return false;
+            services_idx++;
+            break;
           }
           {
             let prev_count = n_of_current_exp_write_threads;
