@@ -968,54 +968,39 @@
     out.push(ptr);
   }
 
+  function validStatusBarCandidate(obj, tag) {
+    log("statbar: " + tag + "=0x" + u64(obj).toString(16));
+    if (!isNonZero(obj)) return 0n;
+    if (canRespond(obj, "itemWithIdentifier:")) return obj;
+    if (canRespond(obj, "statusBar")) {
+      const inner = objc(obj, "statusBar");
+      log("statbar: " + tag + ".statusBar=0x" + u64(inner).toString(16));
+      if (isNonZero(inner) && canRespond(inner, "itemWithIdentifier:")) return inner;
+    }
+    log("statbar: " + tag + " is not an item-backed status bar");
+    return 0n;
+  }
+
   function findSpringBoardStatusBar(app) {
-    log("statbar: direct graph lookup entry");
-    const SBStatusBarWindow = Native.callSymbol("objc_getClass", "SBStatusBarWindow");
-    const STUIStatusBar = Native.callSymbol("objc_getClass", "STUIStatusBar");
-    const STUIStatusBarWrapper = Native.callSymbol("objc_getClass", "STUIStatusBar_Wrapper");
-    log("statbar: SBStatusBarWindow=0x" + u64(SBStatusBarWindow).toString(16) +
-      " STUIStatusBar=0x" + u64(STUIStatusBar).toString(16) +
-      " Wrapper=0x" + u64(STUIStatusBarWrapper).toString(16));
+    log("statbar: embedded-display status lookup entry");
 
-    const keyWin = objc(app, "keyWindow");
-    log("statbar: keyWin=0x" + u64(keyWin).toString(16));
-    if (!isNonZero(keyWin)) return 0n;
-    const scene = objc(keyWin, "windowScene");
-    log("statbar: scene=0x" + u64(scene).toString(16));
-    if (!isNonZero(scene)) return 0n;
-    const sceneWins = objc(scene, "windows");
-    log("statbar: scene.windows=0x" + u64(sceneWins).toString(16));
-    if (!isNonZero(sceneWins)) return 0n;
+    if (canRespond(app, "statusBarForEmbeddedDisplay")) {
+      const appBar = validStatusBarCandidate(objc(app, "statusBarForEmbeddedDisplay"), "app.statusBarForEmbeddedDisplay");
+      if (isNonZero(appBar)) return appBar;
+    }
 
-    const sceneWinCnt = Number(u64(objc(sceneWins, "count")));
-    log("statbar: scene.windows count=" + sceneWinCnt);
-    const sceneWinLim = sceneWinCnt < 16 ? sceneWinCnt : 16;
-    for (let i = 0; i < sceneWinLim; i++) {
-      const w = objc(sceneWins, "objectAtIndex:", BigInt(i));
-      if (!isNonZero(w)) continue;
-      const isSBStatusWindow = isNonZero(SBStatusBarWindow) && isNonZero(objc(w, "isKindOfClass:", SBStatusBarWindow));
-      const saysStatusWindow = canRespond(w, "_isStatusBarWindow") && isNonZero(objc(w, "_isStatusBarWindow"));
-      if (!isSBStatusWindow && !saysStatusWindow) continue;
-
-      log("statbar: status window[" + i + "]=0x" + u64(w).toString(16) +
-        " isSB=" + (isSBStatusWindow ? "1" : "0") +
-        " saysStatus=" + (saysStatusWindow ? "1" : "0"));
-      if (!canRespond(w, "statusBar")) continue;
-      const wrapper = objc(w, "statusBar");
-      log("statbar: wrapper=0x" + u64(wrapper).toString(16));
-      if (!isNonZero(wrapper)) continue;
-
-      if (isNonZero(STUIStatusBar) && isNonZero(objc(wrapper, "isKindOfClass:", STUIStatusBar))) {
-        log("statbar: status window returned raw STUIStatusBar");
-        return wrapper;
-      }
-      if (canRespond(wrapper, "statusBar")) {
-        const bar = objc(wrapper, "statusBar");
-        log("statbar: wrapper.statusBar=0x" + u64(bar).toString(16));
-        if (isNonZero(bar)) return bar;
+    const Manager = Native.callSymbol("objc_getClass", "SBWindowSceneStatusBarManager");
+    log("statbar: SBWindowSceneStatusBarManager=0x" + u64(Manager).toString(16));
+    if (isNonZero(Manager) && canRespond(Manager, "windowSceneStatusBarManagerForEmbeddedDisplay")) {
+      const mgr = objc(Manager, "windowSceneStatusBarManagerForEmbeddedDisplay");
+      log("statbar: embedded manager=0x" + u64(mgr).toString(16));
+      if (isNonZero(mgr) && canRespond(mgr, "statusBar")) {
+        const mgrBar = validStatusBarCandidate(objc(mgr, "statusBar"), "manager.statusBar");
+        if (isNonZero(mgrBar)) return mgrBar;
       }
     }
-    log("statbar: direct graph lookup missed");
+
+    log("statbar: embedded-display status lookup missed");
     return 0n;
   }
 
@@ -1256,7 +1241,7 @@
     log("statbar: pre findSpringBoardStatusBar");
     const statusBar = findSpringBoardStatusBar(app);
     if (!isNonZero(statusBar)) {
-      log("statbar: no STUIStatusBar found via SBStatusBarWindow graph");
+      log("statbar: no STUIStatusBar found via embedded-display manager");
       return false;
     }
     log("statbar: STUIStatusBar=0x" + u64(statusBar).toString(16));
