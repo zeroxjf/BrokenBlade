@@ -262,25 +262,36 @@
     return u64(v) >= 0x100000000n;
   }
 
-  // BrokenBlade: every objc_msgSend call from this JS context goes through
-  // JSC's ObjCCallbackFunction -> NSInvocation chain (the InjectJS bridge
-  // hijacks an oinv/jsinv/inv triple to dispatch the function ptr). JSC
-  // wraps each invoker() round-trip in its own autoreleasepool, so an
-  // autoreleased ObjC return - e.g. -[UIWindowScene windows] returning a
-  // fresh NSArray, -[UIView subviews] returning a copy, -[UIWindow
-  // windowScene] tail-calling objc_loadWeakRetained - is dead by the time
-  // we read nativeCallBuff[200] back into JS. Reusing that pointer as a
-  // receiver on the next call hits PAC_EXCEPTION on the isa AUT once the
-  // freed slot has been recycled. This is exactly what 0x51983A800 was in
-  // SpringBoard-2026-05-02-123827.ips: a real mapped heap address, just
-  // no longer pointing at an ObjC object. The mediaplaybackd-side bridge
-  // (pe_main.js) handles this with #callObjcRetain; we mirror that idiom
-  // here. Leaks +1 ref per call - acceptable for a one-shot snapshot, and
-  // SpringBoard reclaims everything on its next respring/relaunch anyway.
-  function objcRetain(p) {
-    if (!isObjcReceiver(p)) return p;
-    Native.callSymbol("objc_retain", p);
-    return p;
+  // BrokenBlade: every objc_msgSend call from injected JS goes through
+  // JSC's ObjCCallbackFunction -> NSInvocation chain, and JSC wraps each
+  // invoker() round-trip in its own @autoreleasepool {}. So any return
+  // value that's *only* held by autorelease balance is already dead by
+  // the time JS reads nativeCallBuff[200] back. Returns held by some
+  // other strong reference (singletons, strong ivars on parent objects,
+  // _subviewCache, etc.) survive the drain because the underlying object
+  // never actually deallocates - only the +1 autorelease balance is
+  // paid. The crash distinguisher is whether ANYONE ELSE retains the
+  // return:
+  //   - +sharedApplication, -keyWindow, -windowScene, -statusBar,
+  //     -statusBarManager, -subviews (returns _subviewCache strong ivar):
+  //     SAFE, object owned elsewhere
+  //   - -[UIWindowScene windows] (fresh _allWindowsIncludingInternalWindows:
+  //     filtered NSArray, no other owner): UNSAFE, dies immediately
+  //   - +[NSString stringWithUTF8String:] (fresh autoreleased NSString):
+  //     UNSAFE if reused across bridge calls
+  // For UNSAFE cases we either route around them (use a strongly-owned
+  // accessor like SBWindowSceneStatusBarManager) or use the
+  // alloc/initWith... pattern which returns +1 retained outside the
+  // autorelease chain.
+
+  // +1 retained NSString that survives JSC's pool drain. Leaks +1 - fine
+  // for one-shot setText: snapshot.
+  function nsStrRetained(str) {
+    const NSString = Native.callSymbol("objc_getClass", "NSString");
+    if (!isObjcReceiver(NSString)) return 0n;
+    const allocated = Native.callSymbol("objc_msgSend", NSString, sel("alloc"));
+    if (!isObjcReceiver(allocated)) return 0n;
+    return Native.callSymbol("objc_msgSend", allocated, sel("initWithUTF8String:"), str);
   }
 
   function log(msg) {
@@ -1063,14 +1074,20 @@
       const m2 = objc(view, "isKindOfClass:", cls2);
       if (isNonZero(m2)) { out.push(view); return; }
     }
-    const subs = objcRetain(objc(view, "subviews"));
+    // -[UIView subviews] returns the strongly-owned _subviewCache ivar
+    // directly (verified via UIKitCore decompile on 18.6.2: lazy-builds
+    // and stores via objc_storeStrong at offset 56, then returns the
+    // ivar value). Survives JSC's autoreleasepool drain because the
+    // view holds it strongly. Same for -objectAtIndex: which returns a
+    // +0 reference owned by the array.
+    const subs = objc(view, "subviews");
     if (!isObjcReceiver(subs)) return;
     const cntRaw = objc(subs, "count");
     const cnt = Number(u64(cntRaw));
     if (cnt <= 0) return;
     const lim = cnt < 64 ? cnt : 64;
     for (let i = 0; i < lim; i++) {
-      const sub = objcRetain(objc(subs, "objectAtIndex:", BigInt(i)));
+      const sub = objc(subs, "objectAtIndex:", BigInt(i));
       if (!isObjcReceiver(sub)) continue;
       walkFindStatusBarLabels(sub, cls1, cls2, out, depth + 1, visited);
     }
@@ -1079,60 +1096,63 @@
   // Find the status bar string view instance.
   //
   // Fast path: if we found it on a previous tick, reuse the cached pointer.
-  // The system status bar label is retained by its superview (owned by
-  // SpringBoard's status bar scene) for the full lifetime of SpringBoard,
-  // so the pointer stays valid across ticks and we never need to rewalk.
+  // The system status bar label is retained by its superview for the full
+  // lifetime of SpringBoard, so the pointer stays valid across ticks and
+  // we never need to rewalk.
   //
-  // Slow path: walk -[UIWindowScene windows] instead of keyWindow's subtree.
-  // A previous attempt walked the keyWindow (211 views deep) and got 0
-  // candidates because on 18.6.2 SpringBoard the status bar lives in its
-  // own separate UIWindow inside the scene, NOT as a descendant of the
-  // active keyWindow. scene.windows returns every UIWindow attached to
-  // the scene including the status bar window, so walking each of those
-  // with a small depth cap lands us on the label with a fraction of the
-  // views visited and avoids racing against the home screen's layout
-  // churn that was use-after-freeing descendants between ticks.
+  // Slow path: enter via SBWindowSceneStatusBarManager. Walking
+  // -[UIWindowScene windows] used to seem attractive ("walk every window
+  // attached to the scene"), but that returns a fresh autoreleased
+  // NSArray with no other strong owner - JSC's per-callback
+  // autoreleasepool drains the array before the next bridge call, and
+  // -count or objc_retain on it then PAC-faults / SIGBUSes. The
+  // SBWindowSceneStatusBarManager singleton holds its STUIStatusBar_Wrapper
+  // via the strong _statusBar ivar, so the wrapper survives drain and we
+  // can walk it via -subviews (which returns the strongly-held
+  // _subviewCache ivar, also survives) all the way down to the
+  // STUIStatusBarStringView labels.
   function findStatusBarClockLabel(app, classes) {
     const cached = globalThis.__sbcust_statbar_label_cached;
     if (cached !== undefined && isObjcReceiver(cached)) {
       log("statbar: cache HIT label=0x" + u64(cached).toString(16));
       return cached;
     }
-    log("statbar: cache MISS - walking scene windows");
+    log("statbar: cache MISS - resolving via SBWindowSceneStatusBarManager");
 
+    // Skip the scene.windows enumeration entirely - that path goes
+    // through -[UIWindowScene windows] which builds a fresh autoreleased
+    // NSArray via _allWindowsIncludingInternalWindows: + filteredArray,
+    // and that fresh array has no strong owner so JSC's pool drain
+    // deallocs it the moment the bridge call returns. Three crash reports
+    // (020440, 123827, 130359) all faulted because the next bridge call
+    // dereferenced the dead array. Use SBWindowSceneStatusBarManager's
+    // singleton-ish accessor instead - the manager is held by the embedded
+    // scene, and its _statusBar ivar holds the wrapper strongly. Both
+    // survive drain. Verified on 18.6.2 SpringBoard:
+    //   +windowSceneStatusBarManagerForEmbeddedDisplay -> manager
+    //   manager._statusBar (strong ivar) -> STUIStatusBar_Wrapper
     const candidates = [];
     const visited = [0];
-    // All four returns below are autoreleased into JSC's per-callback
-    // pool. Bump retain so they survive across the next bridge call.
-    const keyWin = objcRetain(objc(app, "keyWindow"));
-    log("statbar: keyWin=0x" + u64(keyWin).toString(16));
-    if (!isObjcReceiver(keyWin)) {
-      log("statbar: keyWindow not a plausible ObjC pointer - bailing");
+    const Manager = Native.callSymbol("objc_getClass", "SBWindowSceneStatusBarManager");
+    log("statbar: SBWindowSceneStatusBarManager=0x" + u64(Manager).toString(16));
+    if (!isObjcReceiver(Manager)) {
+      log("statbar: manager class missing - bailing");
       return 0n;
     }
-    const scene = objcRetain(objc(keyWin, "windowScene"));
-    log("statbar: scene=0x" + u64(scene).toString(16));
-    if (!isObjcReceiver(scene)) {
-      log("statbar: windowScene not a plausible ObjC pointer - bailing");
+    const mgr = objc(Manager, "windowSceneStatusBarManagerForEmbeddedDisplay");
+    log("statbar: mgr=0x" + u64(mgr).toString(16));
+    if (!isObjcReceiver(mgr)) {
+      log("statbar: windowSceneStatusBarManagerForEmbeddedDisplay returned nil - bailing");
       return 0n;
     }
-    const sceneWins = objcRetain(objc(scene, "windows"));
-    log("statbar: scene.windows=0x" + u64(sceneWins).toString(16));
-    if (!isObjcReceiver(sceneWins)) {
-      log("statbar: scene.windows not a plausible ObjC pointer - bailing");
+    const wrapper = objc(mgr, "statusBar");
+    log("statbar: mgr.statusBar=0x" + u64(wrapper).toString(16));
+    if (!isObjcReceiver(wrapper)) {
+      log("statbar: mgr.statusBar nil - bailing");
       return 0n;
     }
-    const sceneWinCntRaw = objc(sceneWins, "count");
-    const sceneWinCnt = Number(u64(sceneWinCntRaw));
-    log("statbar: scene.windows count=" + sceneWinCnt);
-    const sceneWinLim = sceneWinCnt < 16 ? sceneWinCnt : 16;
-    for (let i = 0; i < sceneWinLim; i++) {
-      const w = objcRetain(objc(sceneWins, "objectAtIndex:", BigInt(i)));
-      if (!isObjcReceiver(w)) continue;
-      const preCount = candidates.length;
-      walkFindStatusBarLabels(w, classes.cls17, classes.cls16, candidates, 0, visited);
-      log("statbar: window[" + i + "]=0x" + u64(w).toString(16) + " +" + (candidates.length - preCount) + " candidates");
-    }
+    walkFindStatusBarLabels(wrapper, classes.cls17, classes.cls16, candidates, 0, visited);
+    log("statbar: walk visited=" + visited[0] + " candidates=" + candidates.length);
     log("statbar: walk total visited=" + visited[0] + " candidates=" + candidates.length);
 
     if (candidates.length === 0) return 0n;
@@ -1140,14 +1160,19 @@
     // Prefer a candidate whose current text has ':' (the clock line) so
     // we don't clobber the cellular / SSID labels. Cache the winner so
     // subsequent ticks don't need to walk.
-    // nsStr(":") returns autoreleased NSString; same containsString:
-    // text is autoreleased on read. Retain both to survive the inner
-    // bridge calls we do in the loop below.
-    const colon = objcRetain(nsStr(":"));
+    // The colon NSString gets reused across the loop, so use the +1
+    // alloc/init pattern - +stringWithUTF8String: would die on the first
+    // iteration's pool drain. -[UILabel text] returns the strongly-held
+    // _text ivar (same shape as -subviews), so it survives drain.
+    const colon = nsStrRetained(":");
+    if (!isObjcReceiver(colon)) {
+      log("statbar: colon string alloc failed - skipping ':' preference");
+    }
     for (let i = 0; i < candidates.length; i++) {
       if (!isObjcReceiver(candidates[i])) continue;
-      const txt = objcRetain(objc(candidates[i], "text"));
+      const txt = objc(candidates[i], "text");
       if (!isObjcReceiver(txt)) continue;
+      if (!isObjcReceiver(colon)) break;
       const hit = objc(txt, "containsString:", colon);
       if (isNonZero(hit)) {
         log("statbar: picked candidate " + i + " (has ':' in current text)");
@@ -1203,7 +1228,9 @@
     if (!isObjcReceiver(UIApplication)) { log("statbar: no UIApplication class"); return false; }
     const sharedSel = sel("sharedApplication");
     if (!isNonZero(sharedSel)) { log("statbar: no sharedApplication selector"); return false; }
-    const app = objcRetain(Native.callSymbol("objc_msgSend", UIApplication, sharedSel));
+    // sharedApplication is a process-singleton, never deallocs - safe to
+    // hold without a retain across JSC's pool drain.
+    const app = Native.callSymbol("objc_msgSend", UIApplication, sharedSel);
     log("statbar: app=0x" + u64(app).toString(16));
     if (!isObjcReceiver(app)) { log("statbar: sharedApplication not a plausible ObjC pointer"); return false; }
 
@@ -1220,12 +1247,11 @@
     const text = buildStatBarText();
     log("statbar: text='" + text + "'");
 
-    // nsStr() autoreleases. setText: copies from the source string
-    // synchronously, but a JSC pool drain between nsStr's bridge round-
-    // trip and setText:'s bridge round-trip would free textObj before
-    // setText: reads it. Retain to fence that drain off.
-    const textObj = objcRetain(nsStr(text));
-    if (!isObjcReceiver(textObj)) { log("statbar: nsStr returned non-pointer, aborting setText"); return false; }
+    // +stringWithUTF8String: returns autoreleased - dies before the next
+    // bridge call (setText:) can read it. Use alloc/initWithUTF8String:
+    // for a +1 retained string that survives JSC's pool drain.
+    const textObj = nsStrRetained(text);
+    if (!isObjcReceiver(textObj)) { log("statbar: nsStrRetained returned non-pointer, aborting setText"); return false; }
     objc(label, "setText:", textObj);
     log("statbar: replace complete");
     return true;
