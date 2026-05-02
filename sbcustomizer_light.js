@@ -1125,19 +1125,20 @@
     return objc(NSString, "stringWithUTF8String:", str);
   }
 
-  // Build the custom status bar text from live device metrics. The clock
-  // string view we're hijacking on Dynamic Island devices has roughly the
-  // width of "12:34" - about 5-6 chars - so we keep the output tight or
-  // it gets truncated to "T..." in the top-left ear. Format: integer
-  // celsius + RAM in GB, e.g. "32C 8G" or "32C" or "8G".
+  // Build the custom status bar text from live device metrics. Format:
+  // Fahrenheit + RAM in GB, two decimals each, e.g. "98.60F 7.00G".
+  // Fits in a 100pt-wide overlay at 11pt system font (~12 chars).
   function buildStatBarText() {
     const tempC = getBatteryTempC();
     const ramMB = getPhysMemMB();
     const parts = [];
-    if (tempC !== null && tempC > 0) parts.push(Math.round(tempC) + "C");
+    if (tempC !== null && tempC > 0) {
+      const tempF = tempC * 9 / 5 + 32;
+      parts.push(tempF.toFixed(2) + "F");
+    }
     if (ramMB > 0) {
-      if (ramMB >= 1024) parts.push(Math.round(ramMB / 1024) + "G");
-      else parts.push(ramMB + "M");
+      const ramGB = ramMB / 1024;
+      parts.push(ramGB.toFixed(2) + "G");
     }
     if (!parts.length) return "n/a";
     return parts.join(" ");
@@ -1332,14 +1333,19 @@
 
   // Position centered just below the Dynamic Island on iPhone 16 Pro
   // Max. Logical screen 440x956pt. Dynamic Island sits ~y=11..48 with
-  // its center around x=220 (screen midpoint). Overlay 70pt wide
-  // centered: x=(440-70)/2=185. y=54 places the top edge a few points
-  // under the island's bottom curve so the text doesn't kiss the
-  // island silhouette.
-  const STATBAR_WIN_X = 185;
+  // its center around x=220 (screen midpoint). Overlay 110pt wide
+  // (room for "98.60F 7.00G" at 11pt font) centered:
+  // x=(440-110)/2=165. y=54 places the top edge a few points under
+  // the island's bottom curve so the text doesn't kiss the silhouette.
+  const STATBAR_WIN_X = 165;
   const STATBAR_WIN_Y = 54;
-  const STATBAR_WIN_W = 70;
+  const STATBAR_WIN_W = 110;
   const STATBAR_WIN_H = 18;
+
+  // Font size for the overlay text. Smaller than UILabel's default
+  // 17pt system font - 11pt comfortably fits "98.60F 7.00G" in the
+  // 110pt-wide frame with a little padding on each side.
+  const STATBAR_FONT_PT = 11;
 
   // windowLevel above CC (UIWindowLevelStatusBar=1000, alerts at 2000)
   // paired with canShowWhileLocked=YES so the overlay survives lock
@@ -1454,12 +1460,20 @@
       if (isObjcReceiver(cachedLabel)) {
         objc(cachedLabel, "setText:", textObj);
         // Re-apply frame each inject so repositioning across versions
-        // takes effect without invalidating the assoc'd window. Both
-        // the window's outer frame and the label's window-local frame.
+        // takes effect without invalidating the assoc'd window.
         objcSendFP(cachedWin, "setFrame:", [STATBAR_WIN_X, STATBAR_WIN_Y, STATBAR_WIN_W, STATBAR_WIN_H]);
         objcSendFP(cachedLabel, "setFrame:", [0, 0, STATBAR_WIN_W, STATBAR_WIN_H]);
+        // Re-apply font too in case the cached label was created before
+        // setFont: was added to the install path (idempotent, cheap).
+        const UIFont = Native.callSymbol("objc_getClass", "UIFont");
+        if (isObjcReceiver(UIFont)) {
+          const fontObj = Native.callSymbolFP("objc_msgSend",
+            [UIFont, sel("systemFontOfSize:")],
+            [STATBAR_FONT_PT]);
+          if (isObjcReceiver(fontObj)) objc(cachedLabel, "setFont:", BigInt(fontObj));
+        }
         objc(cachedWin, "setHidden:", 0n);
-        log("statbar: cached overlay text + frame updated, window unhidden");
+        log("statbar: cached overlay text + frame + font updated, window unhidden");
         return true;
       }
       log("statbar: cached window had no tagged label - recreating");
@@ -1522,6 +1536,25 @@
       const white = objc(UIColor, "whiteColor");
       if (isObjcReceiver(black)) objc(overlay, "setBackgroundColor:", black);
       if (isObjcReceiver(white)) objc(overlay, "setTextColor:", white);
+    }
+
+    // Smaller font via FP bridge. +[UIFont systemFontOfSize:] takes a
+    // CGFloat (single double in d0). UIKit caches system fonts at the
+    // class level so the autoreleased return survives JSC's pool drain
+    // before setFont: dispatches - same singleton-style retain pattern
+    // as +[UIColor blackColor]. If empirically this turns out to drain,
+    // fall back to setAdjustsFontSizeToFitWidth:YES + setMinimumScaleFactor:.
+    const UIFont = Native.callSymbol("objc_getClass", "UIFont");
+    if (isObjcReceiver(UIFont)) {
+      const fontObj = Native.callSymbolFP("objc_msgSend",
+        [UIFont, sel("systemFontOfSize:")],
+        [STATBAR_FONT_PT]);
+      if (isObjcReceiver(fontObj)) {
+        objc(overlay, "setFont:", BigInt(fontObj));
+        log("statbar: font set to system " + STATBAR_FONT_PT + "pt");
+      } else {
+        log("statbar: systemFontOfSize: returned non-receiver, skipping font");
+      }
     }
 
     // Label fills the window (window-local coords).
