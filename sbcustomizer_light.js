@@ -233,6 +233,36 @@
       return buff[200];
     }
 
+    // FP-register variant: also writes d0..d7 (lower 8 bytes of q0..q7).
+    //
+    // Bridge layout (verified against -[NSInvocation invokeUsingIMP:] ->
+    // ___invoking___ at CoreFoundation 0x182bb98a0): the inner __invoking___
+    // loads q0..q7 from offsets 0x50, 0x60, 0x70, 0x80, 0x90, 0xa0, 0xb0,
+    // 0xc0 within argsBuff. argsBuff is at callBuff+0x320 = nativeCallBuff
+    // byte offset 0x320, so q0 sits at byte 0x320+0x50=0x370 = Float64Array
+    // index 110 (0x370/8). q1..q7 stride by 0x10 bytes (16 bytes per quad)
+    // = 2 Float64 indices each. Lower 8 bytes of each quad is d0..d7 for
+    // scalar double args (CGFloat); upper 8 bytes are unused for scalar
+    // doubles (would matter for vector / SIMD args).
+    //
+    // Stale values in the FP slots between bridge calls would read as
+    // d0..d7 garbage for any callee that takes FP args, so we explicitly
+    // zero unset slots each call.
+    static #nativeCallAddrFP(addr, xArgs, fpArgs) {
+      const intBuff = new BigInt64Array(nativeCallBuff);
+      const fpBuff = new Float64Array(nativeCallBuff);
+      intBuff[0] = addr;
+      for (let i = 0; i < 8; i++) {
+        intBuff[100 + i] = (i < xArgs.length) ? xArgs[i] : 0n;
+      }
+      // d0..d7 sit at Float64 indices 110, 112, 114, 116, 118, 120, 122, 124.
+      for (let i = 0; i < 8; i++) {
+        fpBuff[110 + i * 2] = (i < fpArgs.length) ? Number(fpArgs[i]) : 0;
+      }
+      invoker();
+      return intBuff[200];
+    }
+
     static callSymbol(name, x0, x1, x2, x3, x4, x5, x6, x7) {
       this.#argPtr = this.#argMem;
       x0 = this.#toNative(x0);
@@ -248,6 +278,41 @@
       this.#argPtr = this.#argMem;
       if (ret64 < 0xffffffffn && ret64 > -0xffffffffn) return Number(ret64);
       return ret64;
+    }
+
+    // FP-register variant of callSymbol. xArgs is an array (up to 8 entries
+    // for x0..x7); fpArgs is an array of up to 8 doubles for d0..d7.
+    // Use this for ObjC methods that take CGRect / CGPoint / CGFloat
+    // by-value args (setFrame:, setWindowLevel:, setAlpha:, etc.) which
+    // route through d0..d7 in the arm64 ABI for HFA / scalar floats and
+    // would otherwise be unreachable from the x-only #nativeCallAddr path.
+    //
+    // Returns the integer (x0) return value, same convention as callSymbol.
+    // For double / CGFloat / CGRect return values, call fpReturn(slot)
+    // immediately after this returns - it reads d0..d3 from the result
+    // buffer that __invoking___ writes back.
+    static callSymbolFP(name, xArgs, fpArgs) {
+      this.#argPtr = this.#argMem;
+      const xConverted = new Array(8);
+      for (let i = 0; i < 8; i++) {
+        xConverted[i] = (xArgs && i < xArgs.length) ? this.#toNative(xArgs[i]) : 0n;
+      }
+      const funcAddr = this.#dlsym(name);
+      const ret64 = this.#nativeCallAddrFP(funcAddr, xConverted, fpArgs || []);
+      this.#argPtr = this.#argMem;
+      if (ret64 < 0xffffffffn && ret64 > -0xffffffffn) return Number(ret64);
+      return ret64;
+    }
+
+    // Read a double-return from the most recent FP call. Slot 0..3 maps
+    // to d0..d3 (which is enough for CGRect-as-HFA returns). __invoking___
+    // writes back q0..q7 to resultBuff (callBuff+0x640) at offsets 0x50,
+    // 0x60, ..., so d0 = Float64 index 210 (= byte 0x690). Stride 2 per
+    // slot (16 bytes per quad).
+    static fpReturn(slot) {
+      if (slot < 0 || slot > 7) return 0;
+      const fpBuff = new Float64Array(nativeCallBuff);
+      return fpBuff[210 + slot * 2];
     }
 
     static bridgeInfo() {
@@ -1262,64 +1327,150 @@
   //
   // This is still one-shot: iOS will re-set the clock text on the next
   // minute tick. Re-inject sbcustomizer with __sbc_statbar=1 to refresh.
-  // Reverted to v3 setText: snapshot on the clock label. Every dedicated-
-  // window / overlay-subview iteration (v4-v8) hit autorelease drain
-  // crashes because every wrapper that lets the bridge pass FP-arg
-  // setters (NSInvocation via +invocationWithMethodSignature:, NSValue
-  // via +valueWithBytes:objCType:, NSNumber via +numberWithLongLong:)
-  // returns autoreleased, and JSC's per-call @autoreleasepool drains
-  // it before our next bridge call dispatches. The private init
-  // -_initWithMethodSignature:frame:buffer:size: in CoreFoundation
-  // uses non-standard ABI (x1 holds sig instead of _cmd) so it can't
-  // be called through objc_msgSend either.
-  //
-  // Real fix needs either FP-register support in pe_main.js's
-  // nativeCallAddr (so we can pass CGRect/CGFloat directly without an
-  // ObjC wrapper) or a JS-callable native helper that does the
-  // NSInvocation dance inside one bridge call. Both are pe_main.js
-  // changes. Until that lands, ship the v3 setText: snapshot which
-  // doesn't touch FP regs at all.
+  // Tag for the StatBar UILabel inside our dedicated overlay window.
+  const STATBAR_OVERLAY_TAG = 99421;
+
+  // Position in the gap between clock and Dynamic Island on iPhone 16
+  // Pro Max - clock occupies x=8..~80, island center starts at ~160.
+  const STATBAR_WIN_X = 90;
+  const STATBAR_WIN_Y = 12;
+  const STATBAR_WIN_W = 70;
+  const STATBAR_WIN_H = 18;
+
+  // windowLevel above CC (UIWindowLevelStatusBar=1000, alerts at 2000)
+  // paired with canShowWhileLocked=YES so the overlay survives lock
+  // screen / cover sheet / Control Center.
+  const STATBAR_WIN_LEVEL = 999999;
+
+  // Helper: objc_msgSend with FP args. Routes (receiver, sel, ...fpArgs)
+  // through Native.callSymbolFP which writes d0..d7 in addition to x0..x7.
+  // This is what the v6/v7/v8 attempts needed all along - rather than
+  // building NSInvocation wrappers (which all autoreleased and died on
+  // JSC's pool drain), we just pass the doubles directly through the
+  // bridge that __invoking___ already supports.
+  function objcSendFP(receiver, selectorName, fpArgs) {
+    return Native.callSymbolFP("objc_msgSend",
+      [receiver, sel(selectorName)],
+      fpArgs);
+  }
+
   function createStatBarOverlay() {
-    log("statbar: entry (v3 setText snapshot - reverted from v8 due to FP-reg autorelease drain)");
+    log("statbar: entry (v9 dedicated UIWindow via FP-reg bridge)");
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
     if (!isObjcReceiver(UIApplication)) { log("statbar: no UIApplication class"); return false; }
     const sharedSel = sel("sharedApplication");
     if (!isNonZero(sharedSel)) { log("statbar: no sharedApplication selector"); return false; }
-    // sharedApplication is a process-singleton, never deallocs - safe to
-    // hold without a retain across JSC's pool drain.
     const app = Native.callSymbol("objc_msgSend", UIApplication, sharedSel);
     if (!isObjcReceiver(app)) { log("statbar: sharedApplication not a plausible ObjC pointer"); return false; }
-
-    const classes = resolveStatusBarClasses();
-    if (!isObjcReceiver(classes.cls17) && !isObjcReceiver(classes.cls16)) {
-      log("statbar: NEITHER STUIStatusBarStringView nor _UIStatusBarStringView present");
-      return false;
-    }
-
-    // Tear down any subview-mode overlay (v4) we may have attached to
-    // the clock label in a previous session, then proceed with v3
-    // setText: behavior.
-    const clockLabel = findStatusBarClockLabel(app, classes);
-    if (!isObjcReceiver(clockLabel)) { log("statbar: no status bar label instance found"); return false; }
-    log("statbar: label=0x" + u64(clockLabel).toString(16));
-
-    const v4Leftover = objc(clockLabel, "viewWithTag:", 99421n);
-    if (isObjcReceiver(v4Leftover)) {
-      log("statbar: removing v4 leftover overlay 0x" + u64(v4Leftover).toString(16) + " from clock label");
-      objc(v4Leftover, "removeFromSuperview");
-    }
 
     const text = buildStatBarText();
     log("statbar: text='" + text + "'");
     const textObj = nsStrRetained(text);
-    if (!isObjcReceiver(textObj)) { log("statbar: nsStrRetained returned non-pointer, aborting setText"); return false; }
+    if (!isObjcReceiver(textObj)) { log("statbar: nsStrRetained returned non-pointer"); return false; }
 
-    // setText: directly on the clock label. iOS will overwrite on its
-    // minute tick / next status-bar refresh, but no FP regs involved
-    // and no autoreleased wrappers in the call path - just NSString
-    // (+1 retained from nsStrRetained) and a setText: dispatch.
-    objc(clockLabel, "setText:", textObj);
-    log("statbar: replace complete (setText only)");
+    // Persistence cache: associate the overlay UIWindow to
+    // sharedApplication via objc_setAssociatedObject (RETAIN_NONATOMIC=1)
+    // so re-injects find the same live window across runs. The key is
+    // a malloc'd byte cached in globalThis so the address is stable.
+    let assocKey = globalThis.__sbcust_statbar_assoc_key;
+    if (!assocKey) {
+      assocKey = Native.callSymbol("malloc", 1n);
+      if (!isNonZero(assocKey)) { log("statbar: malloc(1) for assocKey failed"); return false; }
+      globalThis.__sbcust_statbar_assoc_key = assocKey;
+    }
+
+    const cachedWin = Native.callSymbol("objc_getAssociatedObject", app, assocKey);
+    if (isObjcReceiver(cachedWin)) {
+      log("statbar: reusing cached overlay window 0x" + u64(cachedWin).toString(16));
+      const cachedLabel = objc(cachedWin, "viewWithTag:", BigInt(STATBAR_OVERLAY_TAG));
+      if (isObjcReceiver(cachedLabel)) {
+        objc(cachedLabel, "setText:", textObj);
+        objc(cachedWin, "setHidden:", 0n);
+        log("statbar: cached overlay text updated, window unhidden");
+        return true;
+      }
+      log("statbar: cached window had no tagged label - recreating");
+    }
+
+    // First-install: tear down any leftover v4 subview attached to the
+    // clock label, then build the dedicated UIWindow.
+    const classes = resolveStatusBarClasses();
+    if (isObjcReceiver(classes.cls17) || isObjcReceiver(classes.cls16)) {
+      const clockLabel = findStatusBarClockLabel(app, classes);
+      if (isObjcReceiver(clockLabel)) {
+        const v4Leftover = objc(clockLabel, "viewWithTag:", BigInt(STATBAR_OVERLAY_TAG));
+        if (isObjcReceiver(v4Leftover)) {
+          log("statbar: removing v4 leftover overlay 0x" + u64(v4Leftover).toString(16));
+          objc(v4Leftover, "removeFromSuperview");
+        }
+      }
+    }
+
+    const keyWin = objc(app, "keyWindow");
+    if (!isObjcReceiver(keyWin)) { log("statbar: keyWindow nil"); return false; }
+    const scene = objc(keyWin, "windowScene");
+    if (!isObjcReceiver(scene)) { log("statbar: windowScene nil"); return false; }
+
+    // Build the dedicated UIWindow. Frame and windowLevel use the FP
+    // bridge - no NSInvocation, no NSValue, no autoreleased wrappers.
+    const UIWindow = Native.callSymbol("objc_getClass", "UIWindow");
+    if (!isObjcReceiver(UIWindow)) { log("statbar: no UIWindow class"); return false; }
+    const winAlloc = objc(UIWindow, "alloc");
+    if (!isObjcReceiver(winAlloc)) { log("statbar: UIWindow alloc failed"); return false; }
+    const win = objc(winAlloc, "initWithWindowScene:", scene);
+    if (!isObjcReceiver(win)) { log("statbar: UIWindow initWithWindowScene: failed"); return false; }
+    log("statbar: window=0x" + u64(win).toString(16));
+
+    // setFrame:(CGRect) - 4 doubles (HFA, route through d0..d3).
+    objcSendFP(win, "setFrame:", [STATBAR_WIN_X, STATBAR_WIN_Y, STATBAR_WIN_W, STATBAR_WIN_H]);
+    // setWindowLevel:(CGFloat) - single double in d0.
+    objcSendFP(win, "setWindowLevel:", [STATBAR_WIN_LEVEL]);
+    objc(win, "setUserInteractionEnabled:", 0n);
+
+    const UIColor = Native.callSymbol("objc_getClass", "UIColor");
+    if (isObjcReceiver(UIColor)) {
+      const clear = objc(UIColor, "clearColor");
+      if (isObjcReceiver(clear)) objc(win, "setBackgroundColor:", clear);
+    }
+
+    const UILabel = Native.callSymbol("objc_getClass", "UILabel");
+    if (!isObjcReceiver(UILabel)) { log("statbar: no UILabel class"); return false; }
+    const labelAlloc = objc(UILabel, "alloc");
+    if (!isObjcReceiver(labelAlloc)) { log("statbar: UILabel alloc failed"); return false; }
+    const overlay = objc(labelAlloc, "init");
+    if (!isObjcReceiver(overlay)) { log("statbar: UILabel init failed"); return false; }
+    log("statbar: overlay label=0x" + u64(overlay).toString(16));
+
+    objc(overlay, "setText:", textObj);
+    objc(overlay, "setTag:", BigInt(STATBAR_OVERLAY_TAG));
+    objc(overlay, "setTextAlignment:", 1n);
+    if (isObjcReceiver(UIColor)) {
+      const black = objc(UIColor, "blackColor");
+      const white = objc(UIColor, "whiteColor");
+      if (isObjcReceiver(black)) objc(overlay, "setBackgroundColor:", black);
+      if (isObjcReceiver(white)) objc(overlay, "setTextColor:", white);
+    }
+
+    // Label fills the window (window-local coords).
+    objcSendFP(overlay, "setFrame:", [0, 0, STATBAR_WIN_W, STATBAR_WIN_H]);
+
+    objc(win, "addSubview:", overlay);
+
+    // Private UIWindow flag: keep visible across CC / lock screen.
+    // nsNumberLL uses alloc + initWithLongLong: (+1 retained) so the
+    // NSNumber survives JSC's pool drain between the creation call and
+    // the setValue:forKey: call. Same lifetime trap as v7's NSValue
+    // crash if we used +numberWithLongLong: directly.
+    const yesNum = nsNumberLL(1);
+    const lockKey = nsStrRetained("canShowWhileLocked");
+    if (isObjcReceiver(yesNum) && isObjcReceiver(lockKey)) {
+      objc(win, "setValue:forKey:", yesNum, lockKey);
+      log("statbar: set canShowWhileLocked=YES via KVC");
+    }
+
+    objc(win, "setHidden:", 0n);
+    Native.callSymbol("objc_setAssociatedObject", app, assocKey, win, 1n);
+    log("statbar: dedicated overlay window installed via FP bridge");
     return true;
   }
 
