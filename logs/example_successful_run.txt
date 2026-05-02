@@ -1,0 +1,360 @@
+# LightSaber successful chain run
+# Device: iPhone16,2 (A17 Pro), iOS 18.6.2
+# Tweaks: MobileGestalt Patcher (bootchime) + 3-App Limit Bypass
+# Note: SBCustomizer and Powercuff logs omitted (not queued this run)
+
+# === SBX0: Sandbox escape via GPU process ===
+
+sbx0: runLoopHolder_tid: 0x103
+sbx0: webProcess: 0x10c000100
+sbx0: webPage: 0x10075c6c8
+sbx0: 	m_drawingArea: 0x10c009340
+sbx0: 	m_isRenderingSuspended: 0x101000000
+sbx0: -> remoteRenderingBackendProxy: 0x10a0f2250
+sbx0: -> streamConnection: 0x10c014290
+sbx0: -> connection: 0x10a03d6c0
+sbx0: uiProcessConnection: 0x10a054340
+sbx0: [+] SBX0() (retry: 0)
+sbx0: crashGPUProcess("process cleanup")
+sbx0: [-] going to respawn gpu process
+sbx0: new gpuProcessConnection: 0x10ae580e0
+sbx0: waiting for sendPort
+sbx0: received sendPort
+sbx0: maybe_port: 0x760b
+sbx0: [+] SBX0() (retry: 1)
+sbx0: backendConnection.identifier: 0xffffffff
+sbx0: glConnection.identifier: 0x100000000
+sbx0: Connection.receiveMessages(): met bda
+sbx0: Connection.receiveMessages(): met 5a5
+sbx0: RemoteRenderingBackend created
+sbx0: Connection.receiveMessages(): met bda
+sbx0: Connection.receiveMessages(): met 409
+sbx0: RemoteGraphicsContextGL created
+sbx0: Vertex shader created. ID:1
+sbx0: Vertex shader sourced
+sbx0: Vertex shader compiled
+sbx0: Fragment shader created. ID:2
+sbx0: Fragment shader sourced
+sbx0: Fragment shader compiled
+sbx0: Program has been created. ID:3
+sbx0: Vertex shader has been attached
+sbx0: Fragment shader has been attached
+sbx0: Program has been linked
+sbx0: Program enabled
+sbx0: oob()
+sbx0: spray profile: compact chipset=c33e4990a9d3afe948b98d7d4205d596
+sbx0: [profiler] prepare_layout took 370ms
+sbx0: FINISHED oob()
+sbx0: preparePrimitives
+sbx0: Cache font ID: 0x10000002e
+sbx0: glThread: 0x10d010480
+sbx0: pthread_ptr: 0x16d32b000
+sbx0: currentThreadIndex: 0x106
+sbx0: pthread_tls: 0x11173c000
+sbx0: glBuffer: 0x1149b4200
+sbx0: rxBufferMtl: 0x114a0cf00
+sbx0: rxMtlBuffer: 0x103c5f540
+sbx0: AGXA13FamilyBuffer: 0x11493e400
+sbx0: offsets.free_slabs: 0x1f9511e90
+sbx0: Found our GPUConnectionToWebProcess: 0x10d07c190
+sbx0: Found our RenderingBackend: 0x10d024540
+sbx0: m_remoteDisplayLists: 0x10d0e8570
+sbx0: Image ID: 0x100000021 - remote_display_list_recorder: 0x10d0ccc20
+sbx0: 	m_imageBuffer: 0x10f006710
+sbx0: 	m_backend: 0x10f0064d0
+sbx0: 	m_platformContext: 0x111785980
+sbx0: 	CGContextDelegate: 0x111602bc0
+sbx0: 	IOSurfaceContextDelegate: 0x114a0d380
+sbx0: 	IOSurfaceDrawable: 0x114a40e00
+sbx0: 	IOSurfaceQueue: 0x114a45c00
+sbx0: 	CAPointer: 0x127310000
+sbx0: 	CA Header Before restoration
+sbx0: 		0x127310000 : 0x114a45c00
+sbx0: 		0x127310008 : 0x0
+sbx0: 		0x127310010 : 0x8000001000005e90
+sbx0: 		0x127310018 : 0x8000000fffffde70
+sbx0: 		0x127310020 : 0x127318020
+sbx0: 	CA Header After restoration
+sbx0: 		0x127310000 : 0x0
+sbx0: 		0x127310008 : 0x0
+sbx0: 		0x127310010 : 0x4000
+sbx0: 		0x127310018 : 0x4000
+sbx0: 		0x127310020 : 0x127310000
+sbx0: Image ID: 0x100000022 - remote_display_list_recorder: 0x10d0ccc70
+sbx0: 	m_imageBuffer: 0x10f0067a0
+sbx0: 	m_backend: 0x10f006830
+sbx0: 	m_platformContext: 0x111785a40
+sbx0: 	CGContextDelegate: 0x111602d00
+sbx0: 	IOSurfaceContextDelegate: 0x114a0d500
+sbx0: 	IOSurfaceDrawable: 0x114a40e70
+sbx0: 	IOSurfaceQueue: 0x114a45ce0
+sbx0: 	CAPointer: 0x127318000
+sbx0: 	CA Header Before restoration
+sbx0: 		0x127318000 : 0x0
+sbx0: 		0x127318008 : 0x0
+sbx0: 		0x127318010 : 0x10000
+sbx0: 		0x127318018 : 0x100b0
+sbx0: 		0x127318020 : 0x127328030
+sbx0: 	CA Header After restoration
+sbx0: 		0x127318000 : 0x0
+sbx0: 		0x127318008 : 0x0
+sbx0: 		0x127318010 : 0x4000
+sbx0: 		0x127318018 : 0x4000
+sbx0: 		0x127318020 : 0x127318000
+sbx0: Image ID: 0x100000023 - remote_display_list_recorder: 0x10d0cccc0
+sbx0: 	m_imageBuffer: 0x10f006950
+sbx0: 	m_backend: 0x10f006890
+sbx0: 	m_platformContext: 0x111785b00
+sbx0: 	CGContextDelegate: 0x111602e40
+sbx0: 	IOSurfaceContextDelegate: 0x114a0d680
+sbx0: 	IOSurfaceDrawable: 0x114a40ee0
+sbx0: 	IOSurfaceQueue: 0x114a45dc0
+sbx0: 	CAPointer: 0x127320000
+sbx0: 	CA Header Before restoration
+sbx0: 		0x127320000 : 0x0
+sbx0: 		0x127320008 : 0x0
+sbx0: 		0x127320010 : 0x10000
+sbx0: 		0x127320018 : 0x1ff50
+sbx0: 		0x127320020 : 0x1f96804b8
+sbx0: 	CA Header After restoration
+sbx0: 		0x127320000 : 0x0
+sbx0: 		0x127320008 : 0x0
+sbx0: 		0x127320010 : 0x4000
+sbx0: 		0x127320018 : 0x4000
+sbx0: 		0x127320020 : 0x127320000
+sbx0: Image ID: 0x100000024 - remote_display_list_recorder: 0x10d0ccd10
+sbx0: 	m_imageBuffer: 0x10f0069e0
+sbx0: 	m_backend: 0x10f0068f0
+sbx0: 	m_platformContext: 0x111785bc0
+sbx0: 	CGContextDelegate: 0x111602f80
+sbx0: 	IOSurfaceContextDelegate: 0x114a0d800
+sbx0: 	IOSurfaceDrawable: 0x114a40f50
+sbx0: 	IOSurfaceQueue: 0x114a45ea0
+sbx0: 	CAPointer: 0x127328000
+sbx0: 	CA Header Before restoration
+sbx0: 		0x127328000 : 0x0
+sbx0: 		0x127328008 : 0x0
+sbx0: 		0x127328010 : 0x10000
+sbx0: 		0x127328018 : 0x1ff50
+sbx0: 		0x127328020 : 0x11173edb0
+sbx0: 	CA Header After restoration
+sbx0: 		0x127328000 : 0x0
+sbx0: 		0x127328008 : 0x0
+sbx0: 		0x127328010 : 0x4000
+sbx0: 		0x127328018 : 0x4000
+sbx0: 		0x127328020 : 0x127328000
+sbx0: [profiler] sbx0 (read|write) took 1545ms
+sbx0: gpu pac bypass start
+sbx0: backendConnection2.identifier: 0x10000008b
+sbx0: backendConnection3.identifier: 0x10000008c
+sbx0: backendConnection4.identifier: 0x10000008d
+sbx0: Connection.receiveMessages(): met bda
+sbx0: Connection.receiveMessages(): met 5a5
+sbx0: RemoteRenderingBackend created
+sbx0: RemoteRenderingBackend created
+sbx0: Connection.receiveMessages(): met bda
+sbx0: Connection.receiveMessages(): met 5a5
+sbx0: imageBufferIdentifier1: 0x10000008e
+sbx0: imageBufferIdentifier2: 0x10000008f
+sbx0: imageBufferIdentifier3: 0x100000090
+sbx0: imageBufferIdentifier4: 0x100000091
+sbx0: imageBufferIdentifier5: 0x100000092
+sbx0: imageBufferIdentifier6: 0x100000093
+sbx0: webProcessConnectionsMap: 0x10d024370
+sbx0: webProcessConnectionsMap.size: 1
+sbx0:   [0x20] (WebProcess)0x10d07c190
+sbx0:     .remoteRenderingBackendMap = 0x10d0244b0
+sbx0: myWebProcessConnection: 0x10d07c190
+sbx0: remoteRenderingBackend2: 0x10d0240e0
+sbx0: remoteRenderingBackend3: 0x10d024220
+sbx0: remoteRenderingBackend4: 0x10d024680
+sbx0: remoteImageBuffersMap2: 0x10d05c190
+sbx0: remoteImageBuffersMap3: 0x10d0d0190
+sbx0: remoteImageBuffersMap4: 0x10d128190
+sbx0: remoteImageBuffer1: 0x10d1080c0
+sbx0: remoteImageBuffer2: 0x10d1080f0
+sbx0: remoteImageBuffer3: 0x10d1200c0
+sbx0: remoteImageBuffer4: 0x10d1200f0
+sbx0: remoteImageBuffer5: 0x10d12c0c0
+sbx0: remoteImageBuffer6: 0x10d12c0f0
+sbx0: imageBuffer1: 0x10f0075c0
+sbx0: imageBuffer2: 0x10f007f50
+sbx0: imageBuffer3: 0x10f0086b0
+sbx0: imageBuffer4: 0x10f008740
+sbx0: imageBuffer5: 0x10f008860
+sbx0: imageBuffer6: 0x10f0088f0
+sbx0: NSBundleTables: 0x103e9c080
+sbx0: loadedFrameworks: 0x1033bdbd0
+sbx0: loadedFrameworks_length: 0x80
+sbx0: loadedFrameworks_buffer: 0x114865400
+sbx0: bundle[3]: 0x1114789b0
+sbx0: bundle[5]: 0x1114790e0
+sbx0: bundle[8]: 0x111478cd0
+sbx0: bundle[22]: 0x111478730
+sbx0: TextToSpeech_NSBundle: 0x111478730
+sbx0: TextToSpeech_CFBundle: 0x1115dc620
+sbx0: runtimeState: 0x1f9126bd0
+sbx0: runtimeStateLock: 0x16cf5b458
+sbx0: p_InterposeTupleAll_buffer: 0x1f9126c88
+sbx0: p_InterposeTupleAll_size: 0x1f9126c90
+sbx0: runtimeState_vtable: 0x1fe3e0ab0
+sbx0: dyld_emptySlot: 0x1b5383b6c
+sbx0: dyld_offset: 0x-bd4c000
+sbx0: dlopen_from_lambda_ret: 0x1b5341fc8
+sbx0: workQueue: 0x10d010200
+sbx0: backend2_processingThread: 0x10d010280
+sbx0: stack_bottom: 0x16d443000
+sbx0: stack_top: 0x16d3c0000
+sbx0: RemoteRenderingBackend2 has been mutex-locked
+sbx0: loader: 0x16d4417b0
+sbx0: bss: 0x1f881d5e8
+sbx0: prev_metadata_ptr: 0x1f881d5e8
+sbx0: metadata_ptr: 0x1f881d5f8
+sbx0: invoker_arg: 0x1f881d608
+sbx0: invoker_x0: 0x1f881d618
+sbx0: gSecurityd: 0x1f881d678
+sbx0: slowFcallResult: 0x1f881d778
+sbx0: gpu_string_buffer: 0x1f881d788
+sbx0: signPointerSelf: 0x1f881d7a8
+sbx0: interposingTuples_ptr: 0x1f881d7b8
+sbx0: InterposeTupleAll_buffer: 0x1f881d7b8
+sbx0: RemoteRenderingBackend2 has been spin-locked
+sbx0: backend3_workQueue: 0x10d010500
+sbx0: backend3_processingThread: 0x10d010580
+sbx0: backend3_stack_bottom: 0x16d4cf000
+sbx0: backend3_stack_top: 0x16d44c000
+sbx0: RenderingBackend3 has been mutex-locked
+sbx0: backend3_loader: 0x16d4cd8d0
+sbx0: RenderingBackend3 has been spin-locked
+sbx0: fontIdentifier: 0x1234
+sbx0: initMediaAccessibilityMACaptionAppearanceGetDisplayType: 0x705b8001a154ce48
+sbx0: resourceCacheMap: 0x10d0380f0
+sbx0: paciza_invoker: 0x47268002488678b4
+sbx0: paciza_security_invoker_1: 0x764e00019733a930
+sbx0: paciza_security_invoker_2: 0x4d2500019734ec00
+sbx0: paciza_signPointer: 0x575d8001b534d3e4
+sbx0: paciza_pthread_create: 0xba4b000218d96988
+sbx0: paciza_malloc: 0xc06200019ef7c03c
+sbx0: gadget_control_1:0x24aac52ec
+sbx0: gadget_control_2:0x1b917cc28
+sbx0: gadget_control_3: 0x22ad86150
+sbx0: gadget_loop_1: 0x1923585dc
+sbx0: gadget_loop_2: 0x218d41ce8
+sbx0: gadget_loop_3: 0x190a89f1c
+sbx0: gadget_set_all_registers: 0x219aba16c
+sbx0: paciza_gadget_loop_1: 0xeb328001923585dc
+sbx0: paciza_gadget_loop_2: 0xd5d800218d41ce8
+sbx0: paciza_gadget_loop_3: 0x7918800190a89f1c
+sbx0: paciza_gadget_control_2: 0x414f0001b917cc28
+sbx0: paciza_gadget_control_3: 0x666700022ad86150
+sbx0: paciza_gadget_control_3_4: 0x632b00022ad86154
+sbx0: paciza_gadget_set_all_registers: 0xf43c000219aba16c
+sbx0: gpu_memory: 0x1406ec000
+sbx0: GPU fcall thread has been spawned!!
+sbx0: pthread_node: 0x16d213000
+sbx0: jop_stack_top: 0x16d190000
+sbx0: jop_stack_bottom: 0x16d218000
+sbx0: paciza_gadget_control_1: 0xd70280024aac52ec
+sbx0: pacib_gadget_loop_1_0x80020: 0x78350001923585dc
+sbx0: pacib_gadget_loop_1_0x800c0: 0xa65d8001923585dc
+sbx0: pacib_gadget_loop_2_0x80010: 0x3914000218d41ce8
+sbx0: pacib_gadget_loop_2_0x800b0: 0xf56f000218d41ce8
+sbx0: gpu_connection: 0x10d034340
+sbx0: gpu_sendPort: 0x2603
+sbx0: gpu_receiveBufferDataPointer: 0x1406ec580
+sbx0: scratchPad: 0x1406ed5c4
+sbx0: this.receivePort: 0x5507
+sbx0: memPort: 0x467b
+sbx0: gpu_memPort: 0x3e0b
+sbx0: going to mach_vm_map
+sbx0: gpu_receiveBufferDataPointer: 0x1406ec580
+sbx0: gpu_memory: 0x1166cc000
+sbx0: going to suspend the spinners in the GPU
+sbx0: backend2_thread_port: 0x5a03
+sbx0: backend3_thread_port: 0x5d03
+sbx0: gpu scratchpad: 0x1166cc480
+sbx0: wc scratchpad: 0x40180c480
+sbx0: [+] SBX0 complete
+sbx0: Restore bmalloc metadata after emptyString Corruption
+sbx0: [+] SBX1 complete
+sbx0: Invalidate backend connection from gpu process side
+sbx0: remoteRenderingBackendMap: 0x10d0244b0
+sbx0: remoteGraphicsContextGLMap: 0x10d0245f0
+sbx0: Invalidated
+
+# === PE: Post-exploit in mediaplaybackd ===
+
+[PE] Calling pe() - kernel exploit phase...
+[PE-DBG] pe() entered
+[PE-DBG] get_device_machine() called
+[PE-DBG] calling calloc...
+[PE-DBG] calloc returned: 0x0000000d806ef700
+[PE-DBG] calling uname...
+[PE-DBG] uname returned
+[PE-DBG] pe_init() done, about to call pe_v1()...
+[PE-DBG] pe_v1() entered
+[PE-DBG] pe_v1: allocating buffers...
+[PE-DBG] pe_v1: calling initialize_physical_read_write...
+[PE-DBG] pe_v1: physical r/w initialized
+[PE-DBG] pe_v1: entering main loop
+[PE-DBG] pe_v1: allocating search mappings...
+[PE-DBG] pe_v1: search mappings done, spraying sockets...
+[PE-DBG] pe_v1: socket spray done
+[PE-DBG] pe_v1: searching mappings for socket PCB...
+[PE-DBG] pe_v1: search mapping 0
+[PE] pe() completed
+[+] kernel_base: 0xfffffff03a884000
+[+] kernel_slide: 0x0000000033880000
+[PE] Creating MigFilterBypass...
+[PE] MigFilterBypass created
+[PE] Running PE chain...
+[PE] PE chain result: true
+[PE] Exfil dir: /private/var/mobile/Media/Downloads/
+[PE] Creating agent loader for SpringBoard
+[PE] Coruna tweakloader disabled
+[PE] SpringBoard JS tweak disabled
+[PE] Powercuff tweak disabled
+[PE] Unrelated dumps master switch disabled
+[PE] Keychain dump stage disabled
+[PE] WiFi dump stage disabled
+[PE] iCloud dump stage disabled
+[PE] Dump copyout stage disabled
+[MG] ENABLE_THREEAPP = true mode=enable
+[MG] === MG PATCHER ENTRY (in-place) ===
+[MG] Issuing sandbox tokens...
+[MG] token for plist: bfa24030e0bcdc4062496ae419f1c10a32488f9654db492bdb3f3f926004...
+[MG] consume(plist) = 48 (OK)
+[MG] token for dir: c191d6fb541b0d8d52fc93344f111124cd77f6dbffbc441ef21bbc8c3f45...
+[MG] consume(dir) = 74 (OK)
+[MG] consume(/private plist) = 48 (OK)
+[MG] Opening /var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist for read...
+[MG] open(RDONLY) fd = 12 errno=316
+[MG] file size = 10050
+[MG] read 10050/10050 bytes
+[MG] Parsing plist with CFPropertyList...
+[MG] plist = 0xd80478520
+[MG] CacheExtra = 0xd80479e40
+[MG] mode=enable flags=bootchime
+[MG] SET QHxt+hGLaBPbQJbXiUJX3w = 1
+[MG] serialized: 10079 bytes (original was 10050)
+[MG] open(WR|TRUNC) fd=12 errno=316
+[MG] fsync=0 errno=316
+[MG] wrote 10079/10079 bytes
+[MG] === VERIFICATION: re-reading file ===
+[MG] verify open fd=12 errno=316
+[MG] verify file size=10079 (wrote 10079)
+[MG] verify read=10079 bytes
+[MG] VERIFY InternalInstall=PRESENT InternalStorage=PRESENT SRD=PRESENT
+[MG] === MG PATCHER EXIT ===
+[APPLIMIT] ENABLE_APPLIMIT = true
+[APPLIMIT] === APP LIMIT BYPASS ENTRY ===
+[APPLIMIT] Consuming sandbox tokens...
+[APPLIMIT] Scanning /var/containers/Bundle/Application/...
+[APPLIMIT] SET xattr (3 null bytes) on kfun.app
+[APPLIMIT] SET xattr (3 null bytes) on AltStore.app
+[APPLIMIT] SET xattr (3 null bytes) on idevice.ipa.app
+[APPLIMIT] SET xattr (3 null bytes) on Filza.app
+[APPLIMIT] Done: scanned=94 cleared=5 skipped=89
+[APPLIMIT] === APP LIMIT BYPASS EXIT ===
+[PE] Cleaning up launchdTask...
+[PE] start() completed successfully

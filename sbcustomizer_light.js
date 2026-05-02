@@ -45,11 +45,6 @@
   // can't synthesize from JS, and -performSelector:...afterDelay: takes
   // a double which our int-only bridge can't pass.
   const ENABLE_STATBAR = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true);
-  // Keep StatBar snapshot-only. A repeat loop keeps this injected
-  // evaluateScript alive while re-posting evaluateScript: to the same
-  // JSContext on SpringBoard's main thread; the main thread then waits on
-  // JSC's VM lock long enough to trip the SpringBoard watchdog.
-  const ENABLE_STATBAR_REPEAT_LOOP = false;
   // Hide icon labels - calls -[SBIconListGridLayoutConfiguration setShowsLabels:NO]
   // on the same cfg object we already get in patchHomescreenGrid. BOOL arg,
   // no FP regs, no new class lookups. Verified against 18.6.2 SpringBoardHome
@@ -209,7 +204,6 @@
       x6 = this.#toNative(x6);
       x7 = this.#toNative(x7);
       const funcAddr = this.#dlsym(name);
-      if (!funcAddr) { this.#argPtr = this.#argMem; return 0n; }
       const ret64 = this.#nativeCallAddr(funcAddr, x0, x1, x2, x3, x4, x5, x6, x7);
       this.#argPtr = this.#argMem;
       if (ret64 < 0xffffffffn && ret64 > -0xffffffffn) return Number(ret64);
@@ -952,107 +946,14 @@
   }
 
   function nsStr(str) {
-    // Do not use +[NSString stringWithUTF8String:] here. The SpringBoard
-    // crash logs showed -[STUIStatusBarStringView setText:] dying in the
-    // first objc_retain_x2, which means the object arriving in x2 was already
-    // stale by the time UILabel tried to retain it. A retained CFString is
-    // toll-free bridged to NSString and survives the raw JS native-call shim.
-    return cfstr(str);
-  }
-
-  function releaseObj(obj) {
-    if (isNonZero(obj)) Native.callSymbol("CFRelease", obj);
-  }
-
-  function pushUniquePtr(out, ptr) {
-    if (!isNonZero(ptr)) return;
-    const p = u64(ptr);
-    for (let i = 0; i < out.length; i++) {
-      if (u64(out[i]) === p) return;
-    }
-    out.push(ptr);
-  }
-
-  function validStatusBarCandidate(obj, tag) {
-    log("statbar: " + tag + "=0x" + u64(obj).toString(16));
-    if (!isNonZero(obj)) return 0n;
-    if (canRespond(obj, "itemWithIdentifier:")) return obj;
-    if (canRespond(obj, "statusBar")) {
-      const inner = objc(obj, "statusBar");
-      log("statbar: " + tag + ".statusBar=0x" + u64(inner).toString(16));
-      if (isNonZero(inner) && canRespond(inner, "itemWithIdentifier:")) return inner;
-    }
-    log("statbar: " + tag + " is not an item-backed status bar");
-    return 0n;
-  }
-
-  function findSpringBoardStatusBar(app) {
-    log("statbar: embedded-display status lookup entry");
-
-    if (canRespond(app, "statusBarForEmbeddedDisplay")) {
-      const appBar = validStatusBarCandidate(objc(app, "statusBarForEmbeddedDisplay"), "app.statusBarForEmbeddedDisplay");
-      if (isNonZero(appBar)) return appBar;
-    }
-
-    const Manager = Native.callSymbol("objc_getClass", "SBWindowSceneStatusBarManager");
-    log("statbar: SBWindowSceneStatusBarManager=0x" + u64(Manager).toString(16));
-    if (isNonZero(Manager) && canRespond(Manager, "windowSceneStatusBarManagerForEmbeddedDisplay")) {
-      const mgr = objc(Manager, "windowSceneStatusBarManagerForEmbeddedDisplay");
-      log("statbar: embedded manager=0x" + u64(mgr).toString(16));
-      if (isNonZero(mgr) && canRespond(mgr, "statusBar")) {
-        const mgrBar = validStatusBarCandidate(objc(mgr, "statusBar"), "manager.statusBar");
-        if (isNonZero(mgrBar)) return mgrBar;
-      }
-    }
-
-    log("statbar: embedded-display status lookup missed");
-    return 0n;
-  }
-
-  function collectTimeItemViews(statusBar) {
-    const out = [];
-    if (!isNonZero(statusBar)) return out;
-
-    const TimeItem = Native.callSymbol("objc_getClass", "STUIStatusBarTimeItem");
-    log("statbar: TimeItem=0x" + u64(TimeItem).toString(16));
-    if (!isNonZero(TimeItem)) return out;
-
-    let item = 0n;
-    if (canRespond(TimeItem, "identifier") && canRespond(statusBar, "itemWithIdentifier:")) {
-      const itemIdentifier = objc(TimeItem, "identifier");
-      log("statbar: TimeItem.identifier=0x" + u64(itemIdentifier).toString(16));
-      if (isNonZero(itemIdentifier)) {
-        item = objc(statusBar, "itemWithIdentifier:", itemIdentifier);
-        log("statbar: statusBar.itemWithIdentifier(time)=0x" + u64(item).toString(16));
-      }
-    }
-    if (!isNonZero(item)) return out;
-
-    const directGetters = ["timeView", "shortTimeView", "pillTimeView"];
-    for (let i = 0; i < directGetters.length; i++) {
-      const getter = directGetters[i];
-      if (!canRespond(item, getter)) continue;
-      const view = objc(item, getter);
-      log("statbar: " + getter + "=0x" + u64(view).toString(16));
-      pushUniquePtr(out, view);
-    }
-
-    if (canRespond(item, "viewForIdentifier:")) {
-      const displayIdGetters = ["timeDisplayIdentifier", "shortTimeDisplayIdentifier", "pillTimeDisplayIdentifier"];
-      for (let i = 0; i < displayIdGetters.length; i++) {
-        const getter = displayIdGetters[i];
-        if (!canRespond(TimeItem, getter)) continue;
-        const displayIdentifier = objc(TimeItem, getter);
-        log("statbar: " + getter + "=0x" + u64(displayIdentifier).toString(16));
-        if (!isNonZero(displayIdentifier)) continue;
-        const view = objc(item, "viewForIdentifier:", displayIdentifier);
-        log("statbar: viewForIdentifier(" + getter + ")=0x" + u64(view).toString(16));
-        pushUniquePtr(out, view);
-      }
-    }
-
-    log("statbar: direct time views=" + out.length);
-    return out;
+    // NSString stringWithUTF8String:. We can't use cfstr (CFString)
+    // everywhere because CALayer/UIView KVC on 18.x PAC-faults when the
+    // key is a toll-free bridged CFString instead of a real NSString;
+    // the KVC accessor cache signs an IMP under an isa the bridge
+    // doesn't recognize. stringWithUTF8String: gives us a real
+    // __NSCFConstantString with the expected isa signing.
+    const NSString = Native.callSymbol("objc_getClass", "NSString");
+    return objc(NSString, "stringWithUTF8String:", str);
   }
 
   // Build the custom status bar text from live device metrics.
@@ -1243,39 +1144,27 @@
     log("statbar: app=0x" + u64(app).toString(16));
     if (!isNonZero(app)) { log("statbar: no sharedApplication"); return false; }
 
-    log("statbar: pre findSpringBoardStatusBar");
-    const statusBar = findSpringBoardStatusBar(app);
-    if (!isNonZero(statusBar)) {
-      log("statbar: no STUIStatusBar found via embedded-display manager");
+    log("statbar: pre resolveStatusBarClasses");
+    const classes = resolveStatusBarClasses();
+    if (!isNonZero(classes.cls17) && !isNonZero(classes.cls16)) {
+      log("statbar: NEITHER STUIStatusBarStringView nor _UIStatusBarStringView");
+      log("statbar: runtime - need a class-dump of UIKitCore on this build");
       return false;
     }
-    log("statbar: STUIStatusBar=0x" + u64(statusBar).toString(16));
 
-    log("statbar: pre collectTimeItemViews");
-    const labels = collectTimeItemViews(statusBar);
-    if (labels.length === 0) {
-      log("statbar: no time views found from STUIStatusBarTimeItem");
-      return false;
-    }
+    log("statbar: pre findStatusBarClockLabel");
+    const label = findStatusBarClockLabel(app, classes);
+    if (!isNonZero(label)) { log("statbar: no status bar label instance found"); return false; }
+    log("statbar: label=0x" + u64(label).toString(16));
 
     const text = buildStatBarText();
     log("statbar: text='" + text + "'");
-    const textObj = nsStr(text);
-    log("statbar: retained textObj=0x" + u64(textObj).toString(16));
-    if (!isNonZero(textObj)) return false;
 
-    try {
-      for (let i = 0; i < labels.length; i++) {
-        const label = labels[i];
-        log("statbar: pre setText label[" + i + "]=0x" + u64(label).toString(16));
-        objc(label, "setText:", textObj);
-        log("statbar: post setText label[" + i + "]");
-      }
-    } finally {
-      releaseObj(textObj);
-    }
+    log("statbar: pre setText:");
+    objc(label, "setText:", nsStr(text));
+    log("statbar: post setText:");
 
-    log("statbar: replace complete labels=" + labels.length);
+    log("statbar: replace complete");
     return true;
   }
 
@@ -1453,7 +1342,7 @@
     // the injected worker thread just lives in the sleep/dispatch cycle
     // until either the hard cap is hit or another code path clears
     // __sbcust_statbar_loop_active.
-    if (ENABLE_STATBAR && ENABLE_STATBAR_REPEAT_LOOP) {
+    if (ENABLE_STATBAR) {
       globalThis.__sbcust_statbar_loop_active = true;
       log("statbar: entering repeat loop (interval=" + STATBAR_LOOP_INTERVAL_US + "us max=" + STATBAR_LOOP_MAX_ITERS + ")");
       let tick = 0;
@@ -1475,8 +1364,6 @@
         tick++;
       }
       log("statbar: loop exited after " + tick + " ticks (active=" + !!globalThis.__sbcust_statbar_loop_active + ")");
-    } else if (ENABLE_STATBAR) {
-      log("statbar: repeat loop disabled; snapshot dispatch only");
     } else if (ENABLE_GRID_REAPPLY_LOOP) {
       // Statbar is off but grid reapply is on - run a dedicated loop at a
       // slightly tighter interval. Same injected-thread usleep + main-thread

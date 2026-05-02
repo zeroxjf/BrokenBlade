@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Filtered idevicesyslog viewer for LightSaber/DarkSword exploit chain debugging.
 
-Usage: python3 syslog.py [output_file]
-  output_file defaults to syslog.txt
-  Ctrl+C to stop.
+Dependencies (macOS):
+  - Homebrew                      https://brew.sh
+  - libimobiledevice              brew install libimobiledevice
+    (provides the `idevicesyslog` binary used below)
+  - Python 3.8+                   preinstalled on macOS, or `brew install python`
 
-Requires: idevicesyslog (brew install libimobiledevice)
+Usage: python3 syslog.py [output_file]
+  output_file defaults to lightsaber-logs/syslog_<timestamp>.txt
+  Ctrl+C to stop.
 """
 
 import re
@@ -129,7 +133,7 @@ def reader(proc, outfile):
 def main():
     from datetime import datetime
 
-    logdir = Path(__file__).resolve().parent / "logs"
+    logdir = Path(__file__).resolve().parent / "lightsaber-logs"
     logdir.mkdir(exist_ok=True)
 
     if len(sys.argv) > 1:
@@ -137,6 +141,22 @@ def main():
     else:
         stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         outpath = logdir / f"syslog_{stamp}.txt"
+
+    try:
+        ids = subprocess.run(
+            ["idevice_id", "-l"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except FileNotFoundError:
+        print("idevice_id not found. Install with: brew install libimobiledevice")
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print("idevice_id timed out. Is usbmuxd running? Try replugging the device.")
+        sys.exit(1)
+
+    if not ids.stdout.strip():
+        print("No iPhone detected. Plug in via USB, unlock the device, and tap 'Trust this computer'.")
+        sys.exit(1)
 
     try:
         proc = subprocess.Popen(

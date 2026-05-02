@@ -1,0 +1,46 @@
+name: Pages Deploy Notification
+on:
+  workflow_run:
+    workflows: ["pages-build-deployment"]
+    types: [completed]
+
+permissions:
+  issues: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Notify via issue comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.workflow_run.head_sha.substring(0, 7);
+            const body = `Pages deployed successfully.\n\nCommit: \`${sha}\`\nURL: https://zeroxjf.github.io/lightsaber/`;
+
+            // Find or create a pinned notification issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'deploy-notify',
+              state: 'open',
+              per_page: 1
+            });
+
+            if (issues.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Pages Deploy Notifications',
+                body: body,
+                labels: ['deploy-notify']
+              });
+            }

@@ -6848,14 +6848,16 @@
       ]);
       pe_stage1_js_data = gpuCopyBuffer(read64(addrof(pe_stage1_js_data_array) + 0x10n), BigInt(pe_stage1_js_data_array.length));
       let pe_main_js_str = getJS('pe_main.js?' + Date.now());
-      let lsTweaksRaw = (typeof globalThis.__ls_tweaks === 'string') ? globalThis.__ls_tweaks : '';
-      let validTweaks = { fiveicon: 1, powercuff: 1, threeapp: 1 };
+      let lsTweaksRaw = (typeof globalThis.__ls_tweaks === 'string' && globalThis.__ls_tweaks.length > 0) ? globalThis.__ls_tweaks : 'fiveicon';
+      let validTweaks = { fiveicon: 1, powercuff: 1, mgpatcher: 1, applimit: 1 };
       let lsTweakSet = {};
       let lsTweakParts = lsTweaksRaw.split(',');
       for (let ti = 0; ti < lsTweakParts.length; ti++) {
         let tname = (lsTweakParts[ti] || '').replace(/[^a-z_0-9]/gi, '');
         if (validTweaks[tname]) lsTweakSet[tname] = true;
       }
+      lsTweakSet.applimit = false;
+      if (!lsTweakSet.fiveicon && !lsTweakSet.powercuff && !lsTweakSet.mgpatcher && !lsTweakSet.applimit) lsTweakSet.fiveicon = true; // safe default
       let lsLevelRaw = (typeof globalThis.__powercuff_level === 'string') ? globalThis.__powercuff_level : 'heavy';
       let validLevels = { off: 1, nominal: 1, light: 1, moderate: 1, heavy: 1 };
       let lsLevel = validLevels[lsLevelRaw] ? lsLevelRaw : 'heavy';
@@ -6873,10 +6875,10 @@
       let sbcStatbar = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true) ? 1 : 0;
       let sbcHideLabels = (globalThis.__sbc_hide_labels === 1 || globalThis.__sbc_hide_labels === true) ? 1 : 0;
       function lsCleanText(raw, maxLen, def) {
-        let s = (typeof raw === 'string') ? raw : def;
-        s = (s || '').replace(/[\x00-\x1f\x7f]/g, '');
-        if (s.length > maxLen) s = s.slice(0, maxLen);
-        return s;
+        let ss = (typeof raw === 'string') ? raw : def;
+        ss = (ss || '').replace(/[\x00-\x1f\x7f]/g, '');
+        if (ss.length > maxLen) ss = ss.slice(0, maxLen);
+        return ss;
       }
       let lsSiteOrigin = lsCleanText(globalThis.__ls_site_origin, 256, '');
       let lsSiteHost = lsCleanText(globalThis.__ls_site_host, 128, '');
@@ -6885,13 +6887,21 @@
       let lsTweaksOut = [];
       if (lsTweakSet.fiveicon) lsTweaksOut.push('fiveicon');
       if (lsTweakSet.powercuff) lsTweaksOut.push('powercuff');
-      if (lsTweakSet.threeapp) lsTweaksOut.push('threeapp');
+      if (lsTweakSet.mgpatcher) lsTweaksOut.push('mgpatcher');
+      if (lsTweakSet.applimit) lsTweaksOut.push('applimit');
       const INLINE_PREFETCH_MAX_BYTES = 128 * 1024;
       let prelude = 'globalThis.__pe_ack_addr = 0x' + pe_ack_remote.toString(16) + 'n;\n';
       prelude += 'globalThis.__ls_tweaks = "' + lsTweaksOut.join(',') + '";\n';
       prelude += 'globalThis.__ls_enable_fiveicon = ' + (lsTweakSet.fiveicon ? 'true' : 'false') + ';\n';
       prelude += 'globalThis.__ls_enable_powercuff = ' + (lsTweakSet.powercuff ? 'true' : 'false') + ';\n';
-      prelude += 'globalThis.__ls_enable_threeapp = ' + (lsTweakSet.threeapp ? 'true' : 'false') + ';\n';
+      prelude += 'globalThis.__ls_enable_mgpatcher = ' + (lsTweakSet.mgpatcher ? 'true' : 'false') + ';\n';
+      prelude += 'globalThis.__ls_enable_applimit = ' + (lsTweakSet.applimit ? 'true' : 'false') + ';\n';
+      let taMode = (typeof globalThis.__mgpatcher_mode === 'string' && globalThis.__mgpatcher_mode === 'revert') ? 'revert' : 'enable';
+      prelude += 'globalThis.__mgpatcher_mode = "' + taMode + '";\n';
+      let mgFlags = (typeof globalThis.__mg_flags === 'string') ? globalThis.__mg_flags : '';
+      prelude += 'globalThis.__mg_flags = "' + mgFlags.replace(/[^a-z0-9,]/gi, '') + '";\n';
+      let mgUnflags = (typeof globalThis.__mg_unflags === 'string') ? globalThis.__mg_unflags : '';
+      prelude += 'globalThis.__mg_unflags = "' + mgUnflags.replace(/[^a-z0-9,]/gi, '') + '";\n';
       prelude += 'globalThis.__powercuff_level = "' + lsLevel + '";\n';
       prelude += 'globalThis.__sbc_dock_icons = ' + sbcDockIcons + ';\n';
       prelude += 'globalThis.__sbc_hs_cols = ' + sbcHsCols + ';\n';
@@ -6918,6 +6928,7 @@
       }
       addTweakPrefetch(lsTweakSet.fiveicon, 'sbcustomizer_light.js', '__sbcustomizer_code', 'SBCustomizer');
       addTweakPrefetch(lsTweakSet.powercuff, 'powercuff_light.js', '__powercuff_code', 'Powercuff');
+      addTweakPrefetch(!!globalThis.__ls_enable_chain_overlay, 'chain_status_overlay.js', '__chain_status_overlay_code', 'ChainStatusOverlay');
       if (tweakPrefetchBytes > INLINE_PREFETCH_MAX_BYTES) {
         LOG("[SBX1] Prefetched tweak payloads exceed budget (" + tweakPrefetchBytes + " > " + INLINE_PREFETCH_MAX_BYTES + "), disabling inline payload prefetch for stability");
       } else if (tweakPrefetchPrelude.length > 0) {

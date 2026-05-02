@@ -242,21 +242,25 @@ self[1] = boxed_arr;
   [][read64_str];
   let begin, ios_version, origin;
   const p = {};
-  function getJS(fname,method = 'POST') 
+  function getJS(fname,method = 'POST')
   {
-      try 
+      try
       {
           let url = "";
           url = host + "/" + fname;
-          print("trying to fetch from:" + url);
+          let shortName = fname.replace(/\?.*$/, '').replace(/^.*\//, '');
+          print("Fetching " + shortName + "...");
+          let t0 = Date.now();
           let xhr = new XMLHttpRequest();
           xhr.open("GET", `${url}` , false);
           xhr.send(null);
+          let elapsed = Date.now() - t0;
+          print("Loaded " + shortName + " (" + (xhr.responseText ? xhr.responseText.length : 0) + " bytes, " + elapsed + "ms)");
           return xhr.responseText;
       }
       catch(e)
       {
-          print("got error from getJS: " + e);
+          print("Fetch failed (" + fname + "): " + e);
       }
   }
   function loadJS(fname) {
@@ -678,17 +682,20 @@ self[1] = boxed_arr;
         }
       case 'setup_fcall':
         {
-          try { globalThis.__ls_tweaks = (typeof data.ls_tweaks === 'string') ? data.ls_tweaks : 'fiveicon'; } catch (e) { globalThis.__ls_tweaks = 'fiveicon'; }
+          try { globalThis.__ls_tweaks = (typeof data.ls_tweaks === 'string' && data.ls_tweaks.length > 0) ? data.ls_tweaks : 'fiveicon'; } catch (e) { globalThis.__ls_tweaks = 'fiveicon'; }
           try { globalThis.__powercuff_level = (typeof data.ls_powercuff_level === 'string' && data.ls_powercuff_level.length > 0) ? data.ls_powercuff_level : 'heavy'; } catch (e) { globalThis.__powercuff_level = 'heavy'; }
           try { globalThis.__sbc_dock_icons = (typeof data.ls_sbc_dock_icons === 'number') ? data.ls_sbc_dock_icons : 4; } catch (e) { globalThis.__sbc_dock_icons = 4; }
           try { globalThis.__sbc_hs_cols = (typeof data.ls_sbc_hs_cols === 'number') ? data.ls_sbc_hs_cols : 4; } catch (e) { globalThis.__sbc_hs_cols = 4; }
           try { globalThis.__sbc_hs_rows = (typeof data.ls_sbc_hs_rows === 'number') ? data.ls_sbc_hs_rows : 6; } catch (e) { globalThis.__sbc_hs_rows = 6; }
           try { globalThis.__sbc_statbar = (data.ls_sbc_statbar === 1 || data.ls_sbc_statbar === true) ? 1 : 0; } catch (e) { globalThis.__sbc_statbar = 0; }
           try { globalThis.__sbc_hide_labels = (data.ls_sbc_hide_labels === 1 || data.ls_sbc_hide_labels === true) ? 1 : 0; } catch (e) { globalThis.__sbc_hide_labels = 0; }
+          try { globalThis.__mgpatcher_mode = (typeof data.ls_mgpatcher_mode === 'string') ? data.ls_mgpatcher_mode : 'enable'; } catch (e) { globalThis.__mgpatcher_mode = 'enable'; }
+          try { globalThis.__mg_flags = (typeof data.ls_mg_flags === 'string') ? data.ls_mg_flags : ''; } catch (e) { globalThis.__mg_flags = ''; }
+          try { globalThis.__mg_unflags = (typeof data.ls_mg_unflags === 'string') ? data.ls_mg_unflags : ''; } catch (e) { globalThis.__mg_unflags = ''; }
           try { globalThis.__ls_site_origin = (typeof data.ls_site_origin === 'string') ? data.ls_site_origin : ''; } catch (e) { globalThis.__ls_site_origin = ''; }
           try { globalThis.__ls_site_host = (typeof data.ls_site_host === 'string') ? data.ls_site_host : ''; } catch (e) { globalThis.__ls_site_host = ''; }
           try { globalThis.__ls_site_path = (typeof data.ls_site_path === 'string' && data.ls_site_path.length > 0) ? data.ls_site_path : '/'; } catch (e) { globalThis.__ls_site_path = '/'; }
-          print("inside setup_fcall, tweaks=" + globalThis.__ls_tweaks + " level=" + globalThis.__powercuff_level + " sbc=" + globalThis.__sbc_dock_icons + "/" + globalThis.__sbc_hs_cols + "x" + globalThis.__sbc_hs_rows + " statbar=" + globalThis.__sbc_statbar + " hideLabels=" + globalThis.__sbc_hide_labels);
+          print("inside setup_fcall, tweaks=" + globalThis.__ls_tweaks + " level=" + globalThis.__powercuff_level + " sbc=" + globalThis.__sbc_dock_icons + "/" + globalThis.__sbc_hs_cols + "x" + globalThis.__sbc_hs_rows + " statbar=" + globalThis.__sbc_statbar + " hideLabels=" + globalThis.__sbc_hide_labels + " mgpatcherMode=" + globalThis.__mgpatcher_mode + " site=" + globalThis.__ls_site_host + globalThis.__ls_site_path);
           const {
             offsets
           } = p;
