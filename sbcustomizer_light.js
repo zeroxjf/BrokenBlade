@@ -533,14 +533,30 @@
       return false;
     }
     const s = cfstr(script);
-    log("runOnMainEvaluate: cfstr=0x" + u64(s).toString(16) + " calling performSelectorOnMainThread (waitUntilDone:NO)");
-    objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 0);
-    log("runOnMainEvaluate: performSelector returned, skipping CFRelease (main thread owns cfstr now)");
-    // NOTE: Do NOT CFRelease the cfstr here. With waitUntilDone:NO, the main
-    // thread retains/releases the object via performSelector's autorelease pool.
-    // Releasing on the injected thread races with main thread access and causes
-    // PAC violations on the release path (objc_release -> objc_msgSend with a
-    // PAC-signed isa that was signed for main thread context).
+    log("runOnMainEvaluate: cfstr=0x" + u64(s).toString(16) + " calling performSelectorOnMainThread (waitUntilDone:YES)");
+    // waitUntilDone:YES, not NO. With NO, the worker thread continues
+    // running JS - and therefore making bridge calls that write to the
+    // shared nativeCallBuff - while main thread is *also* making bridge
+    // calls processing our dispatched script. Both threads writing to
+    // callBuff[100..107] (the X0..X7 arg slots) at the same time scrambles
+    // each other's objc_msgSend args, lands one of them on the wrong
+    // receiver/selector pair, and raises doesNotRecognizeSelector mid-
+    // invocation - exactly what 141546.ips caught: worker thread (id
+    // 11675) crashed in __invoking___ with the abort/objc_terminate
+    // backtrace, while main was 115ms into running apply_once.
+    //
+    // YES blocks the worker in pthread_cond_wait while main runs the
+    // dispatched script. The worker isn't using the bridge during the
+    // wait - it's parked in a kernel cond_wait - so main has exclusive
+    // access to nativeCallBuff. When main returns, worker resumes and
+    // continues serially. No race, no scramble.
+    //
+    // The cfstr lifecycle comment from the NO version still holds: do
+    // not CFRelease here. Main retains/releases via performSelector's
+    // autorelease pool, and releasing on the injected thread would race
+    // the release path's objc_msgSend on a main-thread-signed isa.
+    objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 1);
+    log("runOnMainEvaluate: performSelector returned (main finished its run)");
     return true;
   }
 
