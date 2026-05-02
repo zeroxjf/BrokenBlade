@@ -262,6 +262,27 @@
     return u64(v) >= 0x100000000n;
   }
 
+  // BrokenBlade: every objc_msgSend call from this JS context goes through
+  // JSC's ObjCCallbackFunction -> NSInvocation chain (the InjectJS bridge
+  // hijacks an oinv/jsinv/inv triple to dispatch the function ptr). JSC
+  // wraps each invoker() round-trip in its own autoreleasepool, so an
+  // autoreleased ObjC return - e.g. -[UIWindowScene windows] returning a
+  // fresh NSArray, -[UIView subviews] returning a copy, -[UIWindow
+  // windowScene] tail-calling objc_loadWeakRetained - is dead by the time
+  // we read nativeCallBuff[200] back into JS. Reusing that pointer as a
+  // receiver on the next call hits PAC_EXCEPTION on the isa AUT once the
+  // freed slot has been recycled. This is exactly what 0x51983A800 was in
+  // SpringBoard-2026-05-02-123827.ips: a real mapped heap address, just
+  // no longer pointing at an ObjC object. The mediaplaybackd-side bridge
+  // (pe_main.js) handles this with #callObjcRetain; we mirror that idiom
+  // here. Leaks +1 ref per call - acceptable for a one-shot snapshot, and
+  // SpringBoard reclaims everything on its next respring/relaunch anyway.
+  function objcRetain(p) {
+    if (!isObjcReceiver(p)) return p;
+    Native.callSymbol("objc_retain", p);
+    return p;
+  }
+
   function log(msg) {
     try {
       const tagged = "[SBC] " + msg;
@@ -1042,14 +1063,14 @@
       const m2 = objc(view, "isKindOfClass:", cls2);
       if (isNonZero(m2)) { out.push(view); return; }
     }
-    const subs = objc(view, "subviews");
+    const subs = objcRetain(objc(view, "subviews"));
     if (!isObjcReceiver(subs)) return;
     const cntRaw = objc(subs, "count");
     const cnt = Number(u64(cntRaw));
     if (cnt <= 0) return;
     const lim = cnt < 64 ? cnt : 64;
     for (let i = 0; i < lim; i++) {
-      const sub = objc(subs, "objectAtIndex:", BigInt(i));
+      const sub = objcRetain(objc(subs, "objectAtIndex:", BigInt(i)));
       if (!isObjcReceiver(sub)) continue;
       walkFindStatusBarLabels(sub, cls1, cls2, out, depth + 1, visited);
     }
@@ -1081,22 +1102,24 @@
 
     const candidates = [];
     const visited = [0];
-    const keyWin = objc(app, "keyWindow");
+    // All four returns below are autoreleased into JSC's per-callback
+    // pool. Bump retain so they survive across the next bridge call.
+    const keyWin = objcRetain(objc(app, "keyWindow"));
     log("statbar: keyWin=0x" + u64(keyWin).toString(16));
     if (!isObjcReceiver(keyWin)) {
       log("statbar: keyWindow not a plausible ObjC pointer - bailing");
       return 0n;
     }
-    const scene = objc(keyWin, "windowScene");
+    const scene = objcRetain(objc(keyWin, "windowScene"));
     log("statbar: scene=0x" + u64(scene).toString(16));
     if (!isObjcReceiver(scene)) {
       log("statbar: windowScene not a plausible ObjC pointer - bailing");
       return 0n;
     }
-    const sceneWins = objc(scene, "windows");
+    const sceneWins = objcRetain(objc(scene, "windows"));
     log("statbar: scene.windows=0x" + u64(sceneWins).toString(16));
     if (!isObjcReceiver(sceneWins)) {
-      log("statbar: scene.windows not a plausible ObjC pointer - bailing (this is what crashed 18.5)");
+      log("statbar: scene.windows not a plausible ObjC pointer - bailing");
       return 0n;
     }
     const sceneWinCntRaw = objc(sceneWins, "count");
@@ -1104,7 +1127,7 @@
     log("statbar: scene.windows count=" + sceneWinCnt);
     const sceneWinLim = sceneWinCnt < 16 ? sceneWinCnt : 16;
     for (let i = 0; i < sceneWinLim; i++) {
-      const w = objc(sceneWins, "objectAtIndex:", BigInt(i));
+      const w = objcRetain(objc(sceneWins, "objectAtIndex:", BigInt(i)));
       if (!isObjcReceiver(w)) continue;
       const preCount = candidates.length;
       walkFindStatusBarLabels(w, classes.cls17, classes.cls16, candidates, 0, visited);
@@ -1117,10 +1140,13 @@
     // Prefer a candidate whose current text has ':' (the clock line) so
     // we don't clobber the cellular / SSID labels. Cache the winner so
     // subsequent ticks don't need to walk.
-    const colon = nsStr(":");
+    // nsStr(":") returns autoreleased NSString; same containsString:
+    // text is autoreleased on read. Retain both to survive the inner
+    // bridge calls we do in the loop below.
+    const colon = objcRetain(nsStr(":"));
     for (let i = 0; i < candidates.length; i++) {
       if (!isObjcReceiver(candidates[i])) continue;
-      const txt = objc(candidates[i], "text");
+      const txt = objcRetain(objc(candidates[i], "text"));
       if (!isObjcReceiver(txt)) continue;
       const hit = objc(txt, "containsString:", colon);
       if (isNonZero(hit)) {
@@ -1177,7 +1203,7 @@
     if (!isObjcReceiver(UIApplication)) { log("statbar: no UIApplication class"); return false; }
     const sharedSel = sel("sharedApplication");
     if (!isNonZero(sharedSel)) { log("statbar: no sharedApplication selector"); return false; }
-    const app = Native.callSymbol("objc_msgSend", UIApplication, sharedSel);
+    const app = objcRetain(Native.callSymbol("objc_msgSend", UIApplication, sharedSel));
     log("statbar: app=0x" + u64(app).toString(16));
     if (!isObjcReceiver(app)) { log("statbar: sharedApplication not a plausible ObjC pointer"); return false; }
 
@@ -1194,7 +1220,11 @@
     const text = buildStatBarText();
     log("statbar: text='" + text + "'");
 
-    const textObj = nsStr(text);
+    // nsStr() autoreleases. setText: copies from the source string
+    // synchronously, but a JSC pool drain between nsStr's bridge round-
+    // trip and setText:'s bridge round-trip would free textObj before
+    // setText: reads it. Retain to fence that drain off.
+    const textObj = objcRetain(nsStr(text));
     if (!isObjcReceiver(textObj)) { log("statbar: nsStr returned non-pointer, aborting setText"); return false; }
     objc(label, "setText:", textObj);
     log("statbar: replace complete");
