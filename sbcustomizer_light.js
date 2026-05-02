@@ -1270,6 +1270,24 @@
     if (canRespond(label, "setAlternateText:") && canRespond(label, "setShowsAlternateText:")) {
       objc(label, "setAlternateText:", textObj);
       objc(label, "setShowsAlternateText:", 1n);
+      // -setAlternateText: schedules an auto-revert NSTimer in
+      // _alternateTextTimer (~5s default - matches the user-observed
+      // disappearance window). The class exposes it via the readonly
+      // alternateTextTimer property, and NSTimer accepts -invalidate
+      // from any ObjC caller, so we can pull the rug out from under
+      // the revert before it fires and the alternate text sticks
+      // until something else explicitly toggles showsAlternateText.
+      if (canRespond(label, "alternateTextTimer")) {
+        const timer = objc(label, "alternateTextTimer");
+        if (isObjcReceiver(timer) && canRespond(timer, "invalidate")) {
+          objc(timer, "invalidate");
+          log("statbar: alt-text auto-revert timer invalidated");
+        } else {
+          log("statbar: alt-text timer nil or no invalidate selector");
+        }
+      } else {
+        log("statbar: no alternateTextTimer selector - timer can't be killed");
+      }
       log("statbar: alternateText path engaged");
     } else {
       log("statbar: alternateText selectors missing - setText: only");
