@@ -1330,10 +1330,14 @@
   // Tag for the StatBar UILabel inside our dedicated overlay window.
   const STATBAR_OVERLAY_TAG = 99421;
 
-  // Position in the gap between clock and Dynamic Island on iPhone 16
-  // Pro Max - clock occupies x=8..~80, island center starts at ~160.
-  const STATBAR_WIN_X = 90;
-  const STATBAR_WIN_Y = 12;
+  // Position centered just below the Dynamic Island on iPhone 16 Pro
+  // Max. Logical screen 440x956pt. Dynamic Island sits ~y=11..48 with
+  // its center around x=220 (screen midpoint). Overlay 70pt wide
+  // centered: x=(440-70)/2=185. y=54 places the top edge a few points
+  // under the island's bottom curve so the text doesn't kiss the
+  // island silhouette.
+  const STATBAR_WIN_X = 185;
+  const STATBAR_WIN_Y = 54;
   const STATBAR_WIN_W = 70;
   const STATBAR_WIN_H = 18;
 
@@ -1385,8 +1389,13 @@
       const cachedLabel = objc(cachedWin, "viewWithTag:", BigInt(STATBAR_OVERLAY_TAG));
       if (isObjcReceiver(cachedLabel)) {
         objc(cachedLabel, "setText:", textObj);
+        // Re-apply frame each inject so repositioning across versions
+        // takes effect without invalidating the assoc'd window. Both
+        // the window's outer frame and the label's window-local frame.
+        objcSendFP(cachedWin, "setFrame:", [STATBAR_WIN_X, STATBAR_WIN_Y, STATBAR_WIN_W, STATBAR_WIN_H]);
+        objcSendFP(cachedLabel, "setFrame:", [0, 0, STATBAR_WIN_W, STATBAR_WIN_H]);
         objc(cachedWin, "setHidden:", 0n);
-        log("statbar: cached overlay text updated, window unhidden");
+        log("statbar: cached overlay text + frame updated, window unhidden");
         return true;
       }
       log("statbar: cached window had no tagged label - recreating");
