@@ -53,6 +53,12 @@
   // status-bar object graph without inviting the watchdog kill or the
   // associated PAC-violation churn from stale label pointers across ticks.
   const ENABLE_STATBAR_REPEAT_LOOP = false;
+  // BrokenBlade: even the single snapshot dispatch crashed SpringBoard on
+  // 18.5 (PAC_EXCEPTION on objc_msgSend "count", JSC heap receiver - see
+  // SpringBoard-2026-05-02-020440.ips). Until that's root-caused the SBC UI
+  // checkbox is wired but createStatBarOverlay never actually runs, so the
+  // chain stays reliable when a user flips the in-development toggle.
+  const ENABLE_STATBAR_DISPATCH = false;
   // Hide icon labels - calls -[SBIconListGridLayoutConfiguration setShowsLabels:NO]
   // on the same cfg object we already get in patchHomescreenGrid. BOOL arg,
   // no FP regs, no new class lookups. Verified against 18.6.2 SpringBoardHome
@@ -1276,6 +1282,10 @@
     globalThis.__sbcust_statbar_consecutive_failures = 0;
     globalThis.__sbcust_statbar = function() {
       if (!ENABLE_STATBAR) return;
+      if (!ENABLE_STATBAR_DISPATCH) {
+        log("statbar: dispatch fenced - createStatBarOverlay disabled pending PAC fix (crash 2026-05-02-020440)");
+        return;
+      }
       try {
         const ok = createStatBarOverlay();
         if (ok) {
