@@ -24,18 +24,18 @@
   // ObjC swizzle on -[STUIStatusBarStringView setText:] from JS (no IMP
   // fabrication in the bridge), so instead the injected worker thread
   // sleeps for this many microseconds and re-posts __sbcust_statbar to
-  // main thread on every tick. 5 seconds is slow enough that the worker's
-  // evaluateScript: round-trips don't accumulate JSC VM-lock pressure on
-  // main (the c343bc7 watchdog regression was the chain-status-overlay
-  // tick at 2s with file I/O on the critical path; the StatBar tick is
-  // a manager lookup + 16-view subview walk + a handful of setters,
-  // ~5-10ms total). 5s ticks come out to ~0.2% main-thread occupancy.
-  const STATBAR_LOOP_INTERVAL_US = 5000000;
+  // main thread on every tick. 30 seconds avoids the layout-cascade
+  // lockout the user hit at 5s ticks: every setShowsAlternateText: /
+  // setText: pair invalidates the status bar's layout, which on the
+  // home screen ripples out far enough to starve touch dispatch when
+  // ticks land faster than the cascade can settle. Stats this updates
+  // (battery temp + total RAM) are slow-changing, so 30s is plenty.
+  const STATBAR_LOOP_INTERVAL_US = 30000000;
   // Hard ceiling on loop iterations so a bug can't spin the injected
-  // worker forever. 12h at 5s = 8640 ticks. The loop also exits early if
-  // globalThis.__sbcust_statbar_loop_active is cleared from another
+  // worker forever. 12h at 30s = 1440 ticks. The loop also exits early
+  // if globalThis.__sbcust_statbar_loop_active is cleared from another
   // context.
-  const STATBAR_LOOP_MAX_ITERS = 8640;
+  const STATBAR_LOOP_MAX_ITERS = 1440;
   // Home screen grid patch uses the SBHIconManager -> listLayoutProvider
   // path verified against the 18.6.2 SpringBoardHome class dump
   // (-[SBHIconManager listLayoutProvider], -[SBHDefaultIconListLayoutProvider
@@ -1273,31 +1273,48 @@
     // view picks that to display, so the system's _text rewrites don't
     // wipe our value. Set both: setText: handles older / no-alternate
     // builds, setAlternateText: + flag survives layout passes on 18.x.
-    objc(label, "setText:", textObj);
-    if (canRespond(label, "setAlternateText:") && canRespond(label, "setShowsAlternateText:")) {
-      objc(label, "setAlternateText:", textObj);
-      objc(label, "setShowsAlternateText:", 1n);
-      // -setAlternateText: schedules an auto-revert NSTimer in
-      // _alternateTextTimer (~5s default - matches the user-observed
-      // disappearance window). The class exposes it via the readonly
-      // alternateTextTimer property, and NSTimer accepts -invalidate
-      // from any ObjC caller, so we can pull the rug out from under
-      // the revert before it fires and the alternate text sticks
-      // until something else explicitly toggles showsAlternateText.
-      if (canRespond(label, "alternateTextTimer")) {
-        const timer = objc(label, "alternateTextTimer");
-        if (isObjcReceiver(timer) && canRespond(timer, "invalidate")) {
-          objc(timer, "invalidate");
-          log("statbar: alt-text auto-revert timer invalidated");
-        } else {
-          log("statbar: alt-text timer nil or no invalidate selector");
+    // Steady-state skip: if the label already shows our alternate text,
+    // don't fire setText:/setAlternateText:/setShowsAlternateText: again
+    // - those setters cascade UIKit layout invalidations and at fast
+    // tick intervals the cascade starves home-screen touch dispatch.
+    // Just re-invalidate the auto-revert timer (cheap, no layout work)
+    // and return. Only the *transitions* should trigger layout passes.
+    let needsApply = true;
+    if (canRespond(label, "showsAlternateText") && canRespond(label, "alternateText")) {
+      const showing = u64(objc(label, "showsAlternateText"));
+      if (showing !== 0n) {
+        const cur = objc(label, "alternateText");
+        if (isObjcReceiver(cur)) {
+          // -isEqualToString: returns BOOL; cheap and safe on a strong-
+          // ivar-backed _alternateText that we set ourselves.
+          const eq = objc(cur, "isEqualToString:", textObj);
+          if (isNonZero(eq)) needsApply = false;
         }
-      } else {
-        log("statbar: no alternateTextTimer selector - timer can't be killed");
       }
-      log("statbar: alternateText path engaged");
+    }
+
+    if (needsApply) {
+      objc(label, "setText:", textObj);
+      if (canRespond(label, "setAlternateText:") && canRespond(label, "setShowsAlternateText:")) {
+        objc(label, "setAlternateText:", textObj);
+        objc(label, "setShowsAlternateText:", 1n);
+        log("statbar: alternateText path engaged (transition)");
+      } else {
+        log("statbar: alternateText selectors missing - setText: only");
+      }
     } else {
-      log("statbar: alternateText selectors missing - setText: only");
+      log("statbar: alternateText steady-state, skipping setters");
+    }
+
+    // Always invalidate the auto-revert timer. -setAlternateText: schedules
+    // it (~5s default); even on a steady-state skip, anything that
+    // re-arms the timer (e.g. a system status-bar refresh that calls
+    // setAlternateText: itself) gets neutralized here.
+    if (canRespond(label, "alternateTextTimer")) {
+      const timer = objc(label, "alternateTextTimer");
+      if (isObjcReceiver(timer) && canRespond(timer, "invalidate")) {
+        objc(timer, "invalidate");
+      }
     }
     log("statbar: replace complete");
     return true;
