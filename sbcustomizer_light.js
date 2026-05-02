@@ -1456,17 +1456,16 @@
 
     objc(win, "addSubview:", overlay);
 
-    // Private UIWindow flag: keep visible across CC / lock screen.
-    // nsNumberLL uses alloc + initWithLongLong: (+1 retained) so the
-    // NSNumber survives JSC's pool drain between the creation call and
-    // the setValue:forKey: call. Same lifetime trap as v7's NSValue
-    // crash if we used +numberWithLongLong: directly.
-    const yesNum = nsNumberLL(1);
-    const lockKey = nsStrRetained("canShowWhileLocked");
-    if (isObjcReceiver(yesNum) && isObjcReceiver(lockKey)) {
-      objc(win, "setValue:forKey:", yesNum, lockKey);
-      log("statbar: set canShowWhileLocked=YES via KVC");
-    }
+    // canShowWhileLocked KVC removed: that key is on UIViewController,
+    // NOT UIWindow (verified via UIKitCore symbol dump - all
+    // _canShowWhileLocked impls live on UIVC subclasses). Setting it via
+    // KVC on a UIWindow raises NSUndefinedKeyException through
+    // -[NSObject(NSKeyValueCoding) setValue:forKey:] -> setValue:
+    // forUndefinedKey: -> _isUnarchived -> objc_exception_throw,
+    // SIGABRT (182216.ips). For CC-survival we'd need a UIVC subclass
+    // with -_canShowWhileLocked overridden, set as the window's root VC.
+    // Out of scope for this iteration; ship the overlay without CC
+    // resilience first.
 
     objc(win, "setHidden:", 0n);
     Native.callSymbol("objc_setAssociatedObject", app, assocKey, win, 1n);
