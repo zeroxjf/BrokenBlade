@@ -1346,6 +1346,70 @@
   // screen / cover sheet / Control Center.
   const STATBAR_WIN_LEVEL = 999999;
 
+  // Live-refresh interval. The overlay re-reads battery temp + RAM and
+  // re-applies setText: every N seconds. 3s is a comfortable middle
+  // ground - frequent enough that the user sees fresh numbers, cheap
+  // enough that the per-tick cost (~5-10ms cached-path createStatBarOverlay)
+  // is well under the watchdog ceiling.
+  const STATBAR_LIVE_INTERVAL_SEC = 3.0;
+
+  // Schedule a live refresh of the StatBar via
+  // -[NSObject performSelector:withObject:afterDelay:] on the current
+  // run loop. Each fire re-evaluates the script "__sbcust_statbar();"
+  // against the JSContext, which re-runs createStatBarOverlay (cached-
+  // window fast path) and ALSO calls scheduleStatBarRefresh() again to
+  // queue the next tick. The whole loop runs on SpringBoard's main
+  // thread; no worker thread, no bridge concurrency, no NSTimer block
+  // synthesis.
+  //
+  // performSelector:withObject:afterDelay: takes the delay as an
+  // NSTimeInterval (CGFloat = double). Bridge routes it through
+  // Native.callSymbolFP - which is exactly what the FP-register support
+  // unlocked.
+  //
+  // The script NSString is cached as a globalThis singleton so we don't
+  // leak one NSString per schedule. cancelPreviousPerformRequestsWithTarget:
+  // selector:object: dedupes any prior pending refresh on this same
+  // (target, sel, object) tuple - keyed by isEqual: so the singleton
+  // string matches itself across reruns.
+  function scheduleStatBarRefresh() {
+    if (!globalThis.__sbcust_refresh_script) {
+      const s = nsStrRetained("__sbcust_statbar();");
+      if (!isObjcReceiver(s)) {
+        log("statbar: refresh script alloc failed");
+        return false;
+      }
+      globalThis.__sbcust_refresh_script = s;
+    }
+    const script = globalThis.__sbcust_refresh_script;
+    const ctx = globalThis.__sbcust_jsctx_obj;
+    if (!isObjcReceiver(ctx)) {
+      log("statbar: jsContextObj missing - can't schedule refresh");
+      return false;
+    }
+
+    const NSObject = Native.callSymbol("objc_getClass", "NSObject");
+    if (isObjcReceiver(NSObject)) {
+      Native.callSymbol("objc_msgSend",
+        NSObject,
+        sel("cancelPreviousPerformRequestsWithTarget:selector:object:"),
+        ctx,
+        sel("evaluateScript:"),
+        script);
+    }
+
+    // [ctx performSelector:@selector(evaluateScript:) withObject:script
+    //               afterDelay:STATBAR_LIVE_INTERVAL_SEC];
+    //   x0=ctx, x1=performSel, x2=evaluateSel, x3=script, d0=delay
+    Native.callSymbolFP("objc_msgSend", [
+      ctx,
+      sel("performSelector:withObject:afterDelay:"),
+      sel("evaluateScript:"),
+      script,
+    ], [STATBAR_LIVE_INTERVAL_SEC]);
+    return true;
+  }
+
   // Helper: objc_msgSend with FP args. Routes (receiver, sel, ...fpArgs)
   // through Native.callSymbolFP which writes d0..d7 in addition to x0..x7.
   // This is what the v6/v7/v8 attempts needed all along - rather than
@@ -1590,19 +1654,27 @@
         const ok = createStatBarOverlay();
         if (ok) {
           globalThis.__sbcust_statbar_consecutive_failures = 0;
+          // Live refresh: schedule the next tick. After 3 consecutive
+          // failures we stop scheduling so a broken state doesn't churn
+          // the main thread forever.
+          scheduleStatBarRefresh();
         } else {
           globalThis.__sbcust_statbar_consecutive_failures++;
           if (globalThis.__sbcust_statbar_consecutive_failures >= 3) {
-            log("statbar: 3 consecutive failures, halting loop to avoid crash churn");
-            globalThis.__sbcust_statbar_loop_active = false;
+            log("statbar: 3 consecutive failures, halting live-refresh loop");
+          } else {
+            // Retry the refresh on the next tick anyway - transient
+            // failures (e.g., status bar mid-rebuild) might resolve.
+            scheduleStatBarRefresh();
           }
         }
       } catch (e) {
         log("statbar err: " + String(e));
         globalThis.__sbcust_statbar_consecutive_failures++;
         if (globalThis.__sbcust_statbar_consecutive_failures >= 3) {
-          log("statbar: 3 consecutive failures, halting loop to avoid crash churn");
-          globalThis.__sbcust_statbar_loop_active = false;
+          log("statbar: 3 consecutive failures, halting live-refresh loop");
+        } else {
+          scheduleStatBarRefresh();
         }
       }
     };
