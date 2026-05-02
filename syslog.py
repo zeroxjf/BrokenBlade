@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Filtered idevicesyslog viewer for LightSaber/DarkSword exploit chain debugging.
+"""Filtered idevicesyslog viewer for BrokenBlade/DarkSword exploit chain debugging.
 
 Dependencies (macOS):
   - Homebrew                      https://brew.sh
@@ -8,7 +8,7 @@ Dependencies (macOS):
   - Python 3.8+                   preinstalled on macOS, or `brew install python`
 
 Usage: python3 syslog.py [output_file]
-  output_file defaults to lightsaber-logs/syslog_<timestamp>.txt
+  output_file defaults to brokenblade-logs/syslog_<timestamp>.txt
   Ctrl+C to stop.
 """
 
@@ -133,7 +133,7 @@ def reader(proc, outfile):
 def main():
     from datetime import datetime
 
-    logdir = Path(__file__).resolve().parent / "lightsaber-logs"
+    logdir = Path(__file__).resolve().parent / "brokenblade-logs"
     logdir.mkdir(exist_ok=True)
 
     if len(sys.argv) > 1:

@@ -1,5 +1,5 @@
 (() => {
-  const STATUS_PATH = globalThis.__ls_chain_status_path || globalThis.__bb_chain_status_path || "/private/var/tmp/lightsaber_chain_status.log";
+  const STATUS_PATH = globalThis.__bb_chain_status_path || "/private/var/tmp/brokenblade_chain_status.log";
   const COMPLETE_MARKER = globalThis.__ls_chain_status_complete_marker || globalThis.__bb_chain_status_complete_marker || "[PE] start() completed successfully";
   const POLL_INTERVAL_US = 1500000;
   const POLL_MAX_ITERS = 2400;

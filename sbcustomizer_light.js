@@ -1139,7 +1139,7 @@
   }
 
   // Emulation of 34306/excalibur/darksword-kexploit-fun/StatusBarTweak.m
-  // in JS against the lightsaber Native bridge.
+  // in JS against the BrokenBlade Native bridge.
   //
   // Huy's tweak is a dylib that dlopens into SpringBoard and, in its
   // constructor, does exactly this:

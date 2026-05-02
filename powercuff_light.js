@@ -2,7 +2,7 @@
   // powercuff_light.js
   //
   // Port of rpetrich's Powercuff thermal-throttle tweak
-  // (https://github.com/rpetrich/Powercuff) to the lightsaber JS-injection
+  // (https://github.com/rpetrich/Powercuff) to the BrokenBlade JS-injection
   // chain's daemon-injection primitive instead of a Cydia-style dylib. All
   // credit for the original tweak design and the discovery of the
   // putDeviceInThermalSimulationMode: API goes to rpetrich.

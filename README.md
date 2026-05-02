@@ -1,6 +1,6 @@
-# LightSaber
+# BrokenBlade
 
-**[zeroxjf.github.io/lightsaber](https://zeroxjf.github.io/lightsaber/)**
+**[zeroxjf.github.io/BrokenBlade](https://zeroxjf.github.io/BrokenBlade/)**
 
 iOS 18.4 - 18.6.2 userland exploit chain with JavaScript injection that modifies SpringBoard and other system processes at runtime. Open source, derived from [DarkSword](https://iverify.io/blog/darksword-ios-exploit-kit-explained) with all malware communication stripped.
 
@@ -30,7 +30,7 @@ Every arm64e iPhone (A12 - A18 Pro) running iOS 18.4 - 18.6.2.
 
 ## How it works
 
-LightSaber chains a WebContent RCE into kernel R/W via sandbox escape, then uses a JSC + `objc_msgSend` / `dlsym` native bridge to inject JavaScript into other processes (SpringBoard, mediaplaybackd, thermalmonitord, etc.).
+BrokenBlade chains a WebContent RCE into kernel R/W via sandbox escape, then uses a JSC + `objc_msgSend` / `dlsym` native bridge to inject JavaScript into other processes (SpringBoard, mediaplaybackd, thermalmonitord, etc.).
 
 ### Chain stages
 
@@ -57,7 +57,7 @@ Port of [rpetrich's Powercuff](https://github.com/rpetrich/Powercuff). Undercloc
 
 ## Usage
 
-Visit [zeroxjf.github.io/lightsaber](https://zeroxjf.github.io/lightsaber/) in Safari on a supported device. Pick your tweaks, tap **Install Selected**, and keep Safari in the foreground for up to 60 seconds while the chain runs.
+Visit [zeroxjf.github.io/BrokenBlade](https://zeroxjf.github.io/BrokenBlade/) in Safari on a supported device. Pick your tweaks, tap **Install Selected**, and keep Safari in the foreground for up to 60 seconds while the chain runs.
 
 **If it fails** (page flash, "A problem repeatedly occurred", or "webpage crashed" banner): clear Safari's cache (book icon > Clear), reload, and retry. If it keeps failing, reboot, clear cache again, and try once more.
 
