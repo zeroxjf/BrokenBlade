@@ -1262,33 +1262,25 @@
   //
   // This is still one-shot: iOS will re-set the clock text on the next
   // minute tick. Re-inject sbcustomizer with __sbc_statbar=1 to refresh.
-  // Tag set on the StatBar UILabel inside our dedicated overlay window
-  // so re-injects can re-find the label via -[UIView viewWithTag:]. The
-  // window itself is found via objc_getAssociatedObject on
-  // +sharedApplication (the only stable retain anchor we can attach to
-  // from this bridge).
-  const STATBAR_OVERLAY_TAG = 99421;
-
-  // Frame for the dedicated overlay window. Positioned in the gap
-  // between the system clock and the Dynamic Island on iPhone 16 Pro
-  // Max - clock occupies x=8..~80, island center starts at ~160, so
-  // 90..160 is open space. y=12..30 sits inside the visible status-bar
-  // text band.
-  const STATBAR_WIN_X = 90;
-  const STATBAR_WIN_Y = 12;
-  const STATBAR_WIN_W = 70;
-  const STATBAR_WIN_H = 18;
-
-  // windowLevel high enough to sit above CC / cover-sheet (CC presents
-  // around UIWindowLevelStatusBar=1000, alerts at 2000, system overlays
-  // up to ~5000-8000). 999999 sits above every standard level. paired
-  // with canShowWhileLocked=YES so iOS treats us like its own
-  // privacy-indicator / recording-indicator overlays which stay
-  // visible across lock screen / cover sheet / CC.
-  const STATBAR_WIN_LEVEL = 999999;
-
+  // Reverted to v3 setText: snapshot on the clock label. Every dedicated-
+  // window / overlay-subview iteration (v4-v8) hit autorelease drain
+  // crashes because every wrapper that lets the bridge pass FP-arg
+  // setters (NSInvocation via +invocationWithMethodSignature:, NSValue
+  // via +valueWithBytes:objCType:, NSNumber via +numberWithLongLong:)
+  // returns autoreleased, and JSC's per-call @autoreleasepool drains
+  // it before our next bridge call dispatches. The private init
+  // -_initWithMethodSignature:frame:buffer:size: in CoreFoundation
+  // uses non-standard ABI (x1 holds sig instead of _cmd) so it can't
+  // be called through objc_msgSend either.
+  //
+  // Real fix needs either FP-register support in pe_main.js's
+  // nativeCallAddr (so we can pass CGRect/CGFloat directly without an
+  // ObjC wrapper) or a JS-callable native helper that does the
+  // NSInvocation dance inside one bridge call. Both are pe_main.js
+  // changes. Until that lands, ship the v3 setText: snapshot which
+  // doesn't touch FP regs at all.
   function createStatBarOverlay() {
-    log("statbar: entry (overlay window v8 - alloc+_initWithMethodSignature)");
+    log("statbar: entry (v3 setText snapshot - reverted from v8 due to FP-reg autorelease drain)");
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
     if (!isObjcReceiver(UIApplication)) { log("statbar: no UIApplication class"); return false; }
     const sharedSel = sel("sharedApplication");
@@ -1298,169 +1290,36 @@
     const app = Native.callSymbol("objc_msgSend", UIApplication, sharedSel);
     if (!isObjcReceiver(app)) { log("statbar: sharedApplication not a plausible ObjC pointer"); return false; }
 
+    const classes = resolveStatusBarClasses();
+    if (!isObjcReceiver(classes.cls17) && !isObjcReceiver(classes.cls16)) {
+      log("statbar: NEITHER STUIStatusBarStringView nor _UIStatusBarStringView present");
+      return false;
+    }
+
+    // Tear down any subview-mode overlay (v4) we may have attached to
+    // the clock label in a previous session, then proceed with v3
+    // setText: behavior.
+    const clockLabel = findStatusBarClockLabel(app, classes);
+    if (!isObjcReceiver(clockLabel)) { log("statbar: no status bar label instance found"); return false; }
+    log("statbar: label=0x" + u64(clockLabel).toString(16));
+
+    const v4Leftover = objc(clockLabel, "viewWithTag:", 99421n);
+    if (isObjcReceiver(v4Leftover)) {
+      log("statbar: removing v4 leftover overlay 0x" + u64(v4Leftover).toString(16) + " from clock label");
+      objc(v4Leftover, "removeFromSuperview");
+    }
+
     const text = buildStatBarText();
     log("statbar: text='" + text + "'");
     const textObj = nsStrRetained(text);
-    if (!isObjcReceiver(textObj)) { log("statbar: nsStrRetained returned non-pointer"); return false; }
+    if (!isObjcReceiver(textObj)) { log("statbar: nsStrRetained returned non-pointer, aborting setText"); return false; }
 
-    // Persistence cache: the overlay UIWindow is associated to
-    // sharedApplication via objc_setAssociatedObject (RETAIN_NONATOMIC=1).
-    // Runtime keeps it alive for the lifetime of the singleton
-    // UIApplication, so re-injecting always finds the same live window
-    // without walking -[UIWindowScene windows] (which returns a fresh
-    // autoreleased NSArray that PAC-faults after pool drain -
-    // 020440/123827/130359.ips).
-    let assocKey = globalThis.__sbcust_statbar_assoc_key;
-    if (!assocKey) {
-      assocKey = Native.callSymbol("malloc", 1n);
-      if (!isNonZero(assocKey)) { log("statbar: malloc(1) for assocKey failed"); return false; }
-      globalThis.__sbcust_statbar_assoc_key = assocKey;
-    }
-    log("statbar: assocKey=0x" + u64(assocKey).toString(16));
-
-    const cachedWin = Native.callSymbol("objc_getAssociatedObject", app, assocKey);
-    if (isObjcReceiver(cachedWin)) {
-      log("statbar: reusing cached overlay window 0x" + u64(cachedWin).toString(16));
-      const cachedLabel = objc(cachedWin, "viewWithTag:", BigInt(STATBAR_OVERLAY_TAG));
-      if (isObjcReceiver(cachedLabel)) {
-        objc(cachedLabel, "setText:", textObj);
-        objc(cachedWin, "setHidden:", 0n);
-        log("statbar: cached overlay text updated, window unhidden");
-        return true;
-      }
-      log("statbar: cached window had no tagged label - recreating");
-    }
-
-    // First-install path: tear down any prior subview-mode overlay we
-    // may have left attached to the clock label, then build a fresh
-    // dedicated overlay window.
-    const classes = resolveStatusBarClasses();
-    if (isObjcReceiver(classes.cls17) || isObjcReceiver(classes.cls16)) {
-      const clockLabel = findStatusBarClockLabel(app, classes);
-      if (isObjcReceiver(clockLabel)) {
-        const v4Leftover = objc(clockLabel, "viewWithTag:", BigInt(STATBAR_OVERLAY_TAG));
-        if (isObjcReceiver(v4Leftover)) {
-          log("statbar: removing v4 leftover overlay 0x" + u64(v4Leftover).toString(16) + " from clock label");
-          objc(v4Leftover, "removeFromSuperview");
-        }
-      }
-    }
-
-    // Resolve the UIWindowScene. keyWindow is technically deprecated on
-    // 18.x but still implemented and returns an unboxed +0 reference
-    // owned by the scene - safe across JSC's pool drain. Same path used
-    // by findWindowScene().
-    const keyWin = objc(app, "keyWindow");
-    if (!isObjcReceiver(keyWin)) { log("statbar: keyWindow nil"); return false; }
-    const scene = objc(keyWin, "windowScene");
-    if (!isObjcReceiver(scene)) { log("statbar: windowScene nil"); return false; }
-    log("statbar: scene=0x" + u64(scene).toString(16));
-
-    // Build the dedicated UIWindow.
-    //   - alloc/initWithWindowScene: returns +1 retained.
-    //   - setFrame: / setWindowLevel: routed through invokeStructSetter
-    //     (now using alloc + private _initWithMethodSignature: so the
-    //     NSInvocation survives JSC's pool drain - the v6 165909.ips
-    //     crash and v7 175118.ips crash were both autoreleased-return
-    //     -dies-on-drain bugs in the wrappers).
-    //   - userInteractionEnabled / hidden / backgroundColor are
-    //     pointer-or-int args, fine on the x-only bridge.
-    const UIWindow = Native.callSymbol("objc_getClass", "UIWindow");
-    if (!isObjcReceiver(UIWindow)) { log("statbar: no UIWindow class"); return false; }
-    const winAlloc = objc(UIWindow, "alloc");
-    if (!isObjcReceiver(winAlloc)) { log("statbar: UIWindow alloc failed"); return false; }
-    const win = objc(winAlloc, "initWithWindowScene:", scene);
-    if (!isObjcReceiver(win)) { log("statbar: UIWindow initWithWindowScene: failed"); return false; }
-    log("statbar: window=0x" + u64(win).toString(16));
-
-    const winFrameBuf = new ArrayBuffer(32);
-    const wfdv = new DataView(winFrameBuf);
-    wfdv.setFloat64(0, STATBAR_WIN_X, true);
-    wfdv.setFloat64(8, STATBAR_WIN_Y, true);
-    wfdv.setFloat64(16, STATBAR_WIN_W, true);
-    wfdv.setFloat64(24, STATBAR_WIN_H, true);
-    invokeStructSetter(win, "setFrame:", winFrameBuf);
-
-    const levelBuf = new ArrayBuffer(8);
-    new DataView(levelBuf).setFloat64(0, STATBAR_WIN_LEVEL, true);
-    invokeStructSetter(win, "setWindowLevel:", levelBuf);
-
-    objc(win, "setUserInteractionEnabled:", 0n);
-
-    const UIColor = Native.callSymbol("objc_getClass", "UIColor");
-    if (isObjcReceiver(UIColor)) {
-      const clear = objc(UIColor, "clearColor");
-      if (isObjcReceiver(clear)) objc(win, "setBackgroundColor:", clear);
-    }
-
-    // Build the UILabel that lives inside the window.
-    const UILabel = Native.callSymbol("objc_getClass", "UILabel");
-    if (!isObjcReceiver(UILabel)) { log("statbar: no UILabel class"); return false; }
-    const labelAlloc = objc(UILabel, "alloc");
-    if (!isObjcReceiver(labelAlloc)) { log("statbar: UILabel alloc failed"); return false; }
-    const overlay = objc(labelAlloc, "init");
-    if (!isObjcReceiver(overlay)) { log("statbar: UILabel init failed"); return false; }
-    log("statbar: overlay label=0x" + u64(overlay).toString(16));
-
-    objc(overlay, "setText:", textObj);
-    objc(overlay, "setTag:", BigInt(STATBAR_OVERLAY_TAG));
-    // NSTextAlignmentCenter = 1, NSInteger arg, fits in x0..x7.
-    objc(overlay, "setTextAlignment:", 1n);
-
-    if (isObjcReceiver(UIColor)) {
-      const black = objc(UIColor, "blackColor");
-      const white = objc(UIColor, "whiteColor");
-      if (isObjcReceiver(black)) objc(overlay, "setBackgroundColor:", black);
-      if (isObjcReceiver(white)) objc(overlay, "setTextColor:", white);
-    }
-
-    // Label fills the window. Frame in window-local coords.
-    const labelFrameBuf = new ArrayBuffer(32);
-    const lfdv = new DataView(labelFrameBuf);
-    lfdv.setFloat64(0, 0, true);
-    lfdv.setFloat64(8, 0, true);
-    lfdv.setFloat64(16, STATBAR_WIN_W, true);
-    lfdv.setFloat64(24, STATBAR_WIN_H, true);
-    invokeStructSetter(overlay, "setFrame:", labelFrameBuf);
-
-    objc(win, "addSubview:", overlay);
-
-    // Private UIWindow flag: keep the window visible across lock screen
-    // / cover-sheet / Control Center presentation. Apple's own
-    // privacy-indicator / recording-indicator windows use this flag to
-    // stay visible during CC. KVC reaches the underlying
-    // _canShowWhileLocked ivar (UIWindow has it since iOS 12). Set
-    // BEFORE setHidden:NO so the visibility check on unhide picks up
-    // the flag.
-    const yesNum = nsNumberLL(1);
-    const lockKey = nsStrRetained("canShowWhileLocked");
-    if (isObjcReceiver(yesNum) && isObjcReceiver(lockKey)) {
-      objc(win, "setValue:forKey:", yesNum, lockKey);
-      log("statbar: set canShowWhileLocked=YES via KVC");
-      const lockBox = objc(win, "valueForKey:", lockKey);
-      if (isObjcReceiver(lockBox)) {
-        const lockInt = objc(lockBox, "intValue");
-        log("statbar: canShowWhileLocked readback (intValue)=" + Number(BigInt.asIntN(32, u64(lockInt))));
-      } else {
-        log("statbar: canShowWhileLocked readback returned nil");
-      }
-    }
-
-    // Diagnostic: read -windowLevel back via KVC. -intValue truncates
-    // 999999.0 to 999999 - if we see UIWindowLevelAlert (2000) or
-    // UIWindowLevelStatusBar (1000) instead, UIKit clamped us.
-    const levelKey = nsStrRetained("windowLevel");
-    if (isObjcReceiver(levelKey)) {
-      const levelBox = objc(win, "valueForKey:", levelKey);
-      if (isObjcReceiver(levelBox)) {
-        const levelInt = objc(levelBox, "intValue");
-        log("statbar: windowLevel readback (intValue)=" + Number(BigInt.asIntN(32, u64(levelInt))));
-      }
-    }
-
-    objc(win, "setHidden:", 0n);
-    Native.callSymbol("objc_setAssociatedObject", app, assocKey, win, 1n);
-    log("statbar: dedicated overlay window installed (level=" + STATBAR_WIN_LEVEL + ")");
+    // setText: directly on the clock label. iOS will overwrite on its
+    // minute tick / next status-bar refresh, but no FP regs involved
+    // and no autoreleased wrappers in the call path - just NSString
+    // (+1 retained from nsStrRetained) and a setText: dispatch.
+    objc(clockLabel, "setText:", textObj);
+    log("statbar: replace complete (setText only)");
     return true;
   }
 
