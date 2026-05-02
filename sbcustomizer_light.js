@@ -45,6 +45,11 @@
   // can't synthesize from JS, and -performSelector:...afterDelay: takes
   // a double which our int-only bridge can't pass.
   const ENABLE_STATBAR = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true);
+  // Keep StatBar snapshot-only. A repeat loop keeps this injected
+  // evaluateScript alive while re-posting evaluateScript: to the same
+  // JSContext on SpringBoard's main thread; the main thread then waits on
+  // JSC's VM lock long enough to trip the SpringBoard watchdog.
+  const ENABLE_STATBAR_REPEAT_LOOP = false;
   // Hide icon labels - calls -[SBIconListGridLayoutConfiguration setShowsLabels:NO]
   // on the same cfg object we already get in patchHomescreenGrid. BOOL arg,
   // no FP regs, no new class lookups. Verified against 18.6.2 SpringBoardHome
@@ -1448,7 +1453,7 @@
     // the injected worker thread just lives in the sleep/dispatch cycle
     // until either the hard cap is hit or another code path clears
     // __sbcust_statbar_loop_active.
-    if (ENABLE_STATBAR) {
+    if (ENABLE_STATBAR && ENABLE_STATBAR_REPEAT_LOOP) {
       globalThis.__sbcust_statbar_loop_active = true;
       log("statbar: entering repeat loop (interval=" + STATBAR_LOOP_INTERVAL_US + "us max=" + STATBAR_LOOP_MAX_ITERS + ")");
       let tick = 0;
@@ -1470,6 +1475,8 @@
         tick++;
       }
       log("statbar: loop exited after " + tick + " ticks (active=" + !!globalThis.__sbcust_statbar_loop_active + ")");
+    } else if (ENABLE_STATBAR) {
+      log("statbar: repeat loop disabled; snapshot dispatch only");
     } else if (ENABLE_GRID_REAPPLY_LOOP) {
       // Statbar is off but grid reapply is on - run a dedicated loop at a
       // slightly tighter interval. Same injected-thread usleep + main-thread
