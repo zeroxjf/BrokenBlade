@@ -20,22 +20,20 @@
   const ENABLE_LAYOUT_COLUMN_PATCH = true;
   const ENABLE_FORCE_RELAYOUT = false;
   const ENABLE_SECOND_PASS = false;
-  // Repeat-loop interval for the statbar overlay. We can't install a real
-  // ObjC swizzle on -[STUIStatusBarStringView setText:] from JS (no IMP
-  // fabrication in the bridge), so instead the injected worker thread
-  // sleeps for this many microseconds and re-posts __sbcust_statbar to
-  // main thread on every tick. 30 seconds avoids the layout-cascade
-  // lockout the user hit at 5s ticks: every setShowsAlternateText: /
-  // setText: pair invalidates the status bar's layout, which on the
-  // home screen ripples out far enough to starve touch dispatch when
-  // ticks land faster than the cascade can settle. Stats this updates
-  // (battery temp + total RAM) are slow-changing, so 30s is plenty.
-  const STATBAR_LOOP_INTERVAL_US = 30000000;
+  // Repeat-loop interval for the statbar overlay. With the setText:-only
+  // path (no setAlternateText: / setShowsAlternateText: / NSTimer state
+  // machine), per-tick work is just a manager lookup + 16-view subview
+  // walk + one setText: dispatch - ~5-10ms total, no state-machine
+  // confusion, no watchdog risk. 2s ticks make the once-a-minute clock
+  // overwrite barely visible: iOS's minute formatter writes _text, our
+  // next tick restores within 2s. SBSpringBoard watchdog ceiling is
+  // 60s; per-tick load is ~0.25%, well clear.
+  const STATBAR_LOOP_INTERVAL_US = 2000000;
   // Hard ceiling on loop iterations so a bug can't spin the injected
-  // worker forever. 12h at 30s = 1440 ticks. The loop also exits early
+  // worker forever. 12h at 2s = 21600 ticks. The loop also exits early
   // if globalThis.__sbcust_statbar_loop_active is cleared from another
   // context.
-  const STATBAR_LOOP_MAX_ITERS = 1440;
+  const STATBAR_LOOP_MAX_ITERS = 21600;
   // Home screen grid patch uses the SBHIconManager -> listLayoutProvider
   // path verified against the 18.6.2 SpringBoardHome class dump
   // (-[SBHIconManager listLayoutProvider], -[SBHDefaultIconListLayoutProvider
@@ -1263,60 +1261,24 @@
     // for a +1 retained string that survives JSC's pool drain.
     const textObj = nsStrRetained(text);
     if (!isObjcReceiver(textObj)) { log("statbar: nsStrRetained returned non-pointer, aborting setText"); return false; }
-    // setText: writes _text directly, but iOS's clock formatter writes
-    // back to _text on every layout pass / minute tick, so anything we
-    // put there gets clobbered the moment the user taps the screen and
-    // SpringBoard re-runs the status-bar layout. STUIStatusBarStringView
-    // exposes an "alternate text" path (-setAlternateText: +
-    // -setShowsAlternateText:YES) that iOS uses internally for transient
-    // overlays - it parks a separate string in _alternateText and the
-    // view picks that to display, so the system's _text rewrites don't
-    // wipe our value. Set both: setText: handles older / no-alternate
-    // builds, setAlternateText: + flag survives layout passes on 18.x.
-    // Steady-state skip: if the label already shows our alternate text,
-    // don't fire setText:/setAlternateText:/setShowsAlternateText: again
-    // - those setters cascade UIKit layout invalidations and at fast
-    // tick intervals the cascade starves home-screen touch dispatch.
-    // Just re-invalidate the auto-revert timer (cheap, no layout work)
-    // and return. Only the *transitions* should trigger layout passes.
-    let needsApply = true;
-    if (canRespond(label, "showsAlternateText") && canRespond(label, "alternateText")) {
-      const showing = u64(objc(label, "showsAlternateText"));
-      if (showing !== 0n) {
-        const cur = objc(label, "alternateText");
-        if (isObjcReceiver(cur)) {
-          // -isEqualToString: returns BOOL; cheap and safe on a strong-
-          // ivar-backed _alternateText that we set ourselves.
-          const eq = objc(cur, "isEqualToString:", textObj);
-          if (isNonZero(eq)) needsApply = false;
-        }
-      }
-    }
-
-    if (needsApply) {
-      objc(label, "setText:", textObj);
-      if (canRespond(label, "setAlternateText:") && canRespond(label, "setShowsAlternateText:")) {
-        objc(label, "setAlternateText:", textObj);
-        objc(label, "setShowsAlternateText:", 1n);
-        log("statbar: alternateText path engaged (transition)");
-      } else {
-        log("statbar: alternateText selectors missing - setText: only");
-      }
-    } else {
-      log("statbar: alternateText steady-state, skipping setters");
-    }
-
-    // Always invalidate the auto-revert timer. -setAlternateText: schedules
-    // it (~5s default); even on a steady-state skip, anything that
-    // re-arms the timer (e.g. a system status-bar refresh that calls
-    // setAlternateText: itself) gets neutralized here.
-    if (canRespond(label, "alternateTextTimer")) {
-      const timer = objc(label, "alternateTextTimer");
-      if (isObjcReceiver(timer) && canRespond(timer, "invalidate")) {
-        objc(timer, "invalidate");
-      }
-    }
-    log("statbar: replace complete");
+    // setText: only. The setAlternateText: / setShowsAlternateText: path
+    // is fundamentally hostile to a steady-state custom value: that
+    // overlay path is meant for transient ringer / network announcements
+    // and forcing it on confuses the status-bar item state machine - at
+    // 5s ticks the cascade starved home-screen touches; at 30s tick the
+    // first toggle alone wedged main thread for >60s and backboardd
+    // killed SpringBoard via watchdog (140546.ips). setText: is gentler:
+    // STUIStatusBarStringView's override calls super setText: +
+    // setOriginalText: + super2 with sel "setText:" - just _text/
+    // _originalText ivar writes plus a setNeedsDisplay, no state-machine
+    // side effects, no NSTimer scheduling, no setShowsAlternateText:
+    // toggling. Tradeoff: iOS's clock formatter will overwrite _text on
+    // its minute tick, briefly showing the system clock until our next
+    // loop tick restores our text. With a 2s tick interval the flicker
+    // window is bounded and the per-tick layout cost stays well below
+    // the watchdog ceiling.
+    objc(label, "setText:", textObj);
+    log("statbar: replace complete (setText only)");
     return true;
   }
 
