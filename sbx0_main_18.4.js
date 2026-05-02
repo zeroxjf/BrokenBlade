@@ -8,7 +8,7 @@
     dlsym,
     device_model,
     chipset,
-    sbx0_fallback_start
+    sbx0_fallback_start = 0
   } = p;
   const libsystem_kernel = dlopen('/usr/lib/system/libsystem_kernel.dylib', 1n);
   const libsystem_platform = dlopen('/usr/lib/system/libsystem_platform.dylib', 1n);
@@ -7205,6 +7205,10 @@
     throw new Error(`SBX0 retry budget exhausted: ${reason}`);
   }
   (function SBX0() {
+    if (retry_count >= 150) {
+      LOG(`[!] SBX0 max retries (${retry_count}) reached, aborting`);
+      return false;
+    }
     LOG(`[+] SBX0() (retry: ${retry_count++})`);
     function waitForGpuValue(label, readFn, predicate, timeout = 5000, poll_ms = 10) {
       const start = Date.now();

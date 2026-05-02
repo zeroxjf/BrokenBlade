@@ -15,49 +15,6 @@
   }
 
   const ENABLE_CHAIN_SYSLOG_EXPORT = false;
-  const BB_CHAIN_SYSLOG_BOOT_MAX_LINES = 4096;
-  function bbChainSyslogBootTimestamp() {
-    try {
-      return new Date().toISOString();
-    } catch (_) {
-      return "unknown-time";
-    }
-  }
-  function bbChainSyslogBootFormat(raw) {
-    let line = String(raw || "").replace(/[\r\n]+/g, " ").trim();
-    if (line.length > 2048) line = line.slice(0, 2045) + "...";
-    return "[" + bbChainSyslogBootTimestamp() + "] " + line;
-  }
-  if (!globalThis.__bb_chain_syslog_buffer)
-    globalThis.__bb_chain_syslog_buffer = [];
-  if (!globalThis.__bb_chain_syslog_capture) {
-    globalThis.__bb_chain_syslog_capture = function(raw) {
-      try {
-        if (!ENABLE_CHAIN_SYSLOG_EXPORT) return;
-        if (globalThis.__bb_chain_syslog_sink) {
-          globalThis.__bb_chain_syslog_sink(raw);
-          return;
-        }
-        let line = bbChainSyslogBootFormat(raw);
-        if (!line.trim()) return;
-        globalThis.__bb_chain_syslog_buffer.push(line);
-        if (globalThis.__bb_chain_syslog_buffer.length > BB_CHAIN_SYSLOG_BOOT_MAX_LINES)
-          globalThis.__bb_chain_syslog_buffer.shift();
-      } catch (_) {}
-    };
-  }
-  const bbChainOriginalLog = LOG;
-  LOG = function(msg) {
-    try { globalThis.__bb_chain_syslog_capture(msg); } catch (_) {}
-    try {
-      globalThis.__bb_chain_syslog_forwarding = true;
-      return bbChainOriginalLog(msg);
-    } catch (_) {
-      try { console.log(String(msg)); } catch (_) {}
-    } finally {
-      globalThis.__bb_chain_syslog_forwarding = false;
-    }
-  };
 
   function peAck(stage) {
     try {
