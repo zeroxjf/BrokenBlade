@@ -24,15 +24,18 @@
   // ObjC swizzle on -[STUIStatusBarStringView setText:] from JS (no IMP
   // fabrication in the bridge), so instead the injected worker thread
   // sleeps for this many microseconds and re-posts __sbcust_statbar to
-  // main thread on every tick. Two seconds is slow enough not to saturate
-  // the main runloop with view walks, fast enough that the overlay reads
-  // as live.
-  const STATBAR_LOOP_INTERVAL_US = 2000000;
+  // main thread on every tick. 5 seconds is slow enough that the worker's
+  // evaluateScript: round-trips don't accumulate JSC VM-lock pressure on
+  // main (the c343bc7 watchdog regression was the chain-status-overlay
+  // tick at 2s with file I/O on the critical path; the StatBar tick is
+  // a manager lookup + 16-view subview walk + a handful of setters,
+  // ~5-10ms total). 5s ticks come out to ~0.2% main-thread occupancy.
+  const STATBAR_LOOP_INTERVAL_US = 5000000;
   // Hard ceiling on loop iterations so a bug can't spin the injected
-  // worker forever. 12h at 2s = 21600 ticks. The loop also exits early if
+  // worker forever. 12h at 5s = 8640 ticks. The loop also exits early if
   // globalThis.__sbcust_statbar_loop_active is cleared from another
   // context.
-  const STATBAR_LOOP_MAX_ITERS = 21600;
+  const STATBAR_LOOP_MAX_ITERS = 8640;
   // Home screen grid patch uses the SBHIconManager -> listLayoutProvider
   // path verified against the 18.6.2 SpringBoardHome class dump
   // (-[SBHIconManager listLayoutProvider], -[SBHDefaultIconListLayoutProvider
@@ -45,14 +48,19 @@
   // can't synthesize from JS, and -performSelector:...afterDelay: takes
   // a double which our int-only bridge can't pass.
   const ENABLE_STATBAR = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true);
-  // BrokenBlade: keep StatBar snapshot-only. The repeat loop on the injected
-  // worker pthread keeps performSelectorOnMainThread:withObject:waitUntilDone:
-  // re-entering SpringBoard's main JSContext every 2s; main thread waits on
-  // JSC's VM lock long enough to trip the SpringBoard watchdog (verified prior
-  // to ccdce66 / c343bc7). One snapshot dispatch is enough to validate the
-  // status-bar object graph without inviting the watchdog kill or the
-  // associated PAC-violation churn from stale label pointers across ticks.
-  const ENABLE_STATBAR_REPEAT_LOOP = false;
+  // BrokenBlade: re-enable the loop. With the manager-based path
+  // (7be09e3) the autorelease lifecycle issue is gone, with isObjcReceiver
+  // every receiver is sanity-checked, with nsStrRetained the setText:
+  // arg survives the bridge gap, and with the alt-text auto-revert
+  // timer killed (635c677) the only remaining cause of disappearance is
+  // the system itself periodically flipping showsAlternateText back to
+  // NO during status-bar layout / styling refreshes. The loop re-applies
+  // setAlternateText: + setShowsAlternateText:YES + invalidate timer
+  // every 5s so the alternate text sticks across those resets - that's
+  // what the user is asking for ("don't want it to disappear after
+  // time"). 5s tick is well clear of the c343bc7 watchdog regime; see
+  // STATBAR_LOOP_INTERVAL_US comment above for the reasoning.
+  const ENABLE_STATBAR_REPEAT_LOOP = true;
   // BrokenBlade: the 18.5 crash (SpringBoard-2026-05-02-020440.ips) hit
   // PAC_EXCEPTION on objc_msgSend "count" with X0 = 0x9FE03000 - a value
   // way below the iOS arm64e ObjC heap (which always lives above 4 GB).
@@ -1116,12 +1124,15 @@
   // _subviewCache ivar, also survives) all the way down to the
   // STUIStatusBarStringView labels.
   function findStatusBarClockLabel(app, classes) {
-    const cached = globalThis.__sbcust_statbar_label_cached;
-    if (cached !== undefined && isObjcReceiver(cached)) {
-      log("statbar: cache HIT label=0x" + u64(cached).toString(16));
-      return cached;
-    }
-    log("statbar: cache MISS - resolving via SBWindowSceneStatusBarManager");
+    // Re-walk every tick. Caching the label across ticks is unsafe in
+    // the loop - if SpringBoard rebuilt the status bar between ticks
+    // (rotation, scene swap, status-bar style refresh, etc.) the
+    // cached pointer would point at a freed STUIStatusBarStringView and
+    // setText: would PAC-fault. The walk itself is cheap (manager call
+    // + 16-view subview traversal, ~5ms) and re-derives a fresh, live
+    // label from the manager's strong _statusBar ivar each tick, so we
+    // get free liveness validation for the price of a few ObjC dispatches.
+    log("statbar: resolving via SBWindowSceneStatusBarManager");
 
     // Skip the scene.windows enumeration entirely - that path goes
     // through -[UIWindowScene windows] which builds a fresh autoreleased
@@ -1161,13 +1172,11 @@
 
     if (candidates.length === 0) return 0n;
 
-    // Prefer a candidate whose current text has ':' (the clock line) so
-    // we don't clobber the cellular / SSID labels. Cache the winner so
-    // subsequent ticks don't need to walk.
-    // The colon NSString gets reused across the loop, so use the +1
-    // alloc/init pattern - +stringWithUTF8String: would die on the first
-    // iteration's pool drain. -[UILabel text] returns the strongly-held
-    // _text ivar (same shape as -subviews), so it survives drain.
+    // Prefer a candidate whose current text contains ':' (the clock line)
+    // so we don't clobber cellular / SSID labels. The colon NSString
+    // uses the +1 alloc/init pattern - +stringWithUTF8String: would die
+    // on the first iteration's pool drain. -[UILabel text] returns the
+    // strongly-held _text ivar (same shape as -subviews), survives drain.
     const colon = nsStrRetained(":");
     if (!isObjcReceiver(colon)) {
       log("statbar: colon string alloc failed - skipping ':' preference");
@@ -1180,7 +1189,6 @@
       const hit = objc(txt, "containsString:", colon);
       if (isNonZero(hit)) {
         log("statbar: picked candidate " + i + " (has ':' in current text)");
-        globalThis.__sbcust_statbar_label_cached = candidates[i];
         return candidates[i];
       }
     }
@@ -1188,8 +1196,7 @@
       log("statbar: candidate 0 not a plausible ObjC pointer - bailing");
       return 0n;
     }
-    log("statbar: no ':' candidate, caching candidate 0");
-    globalThis.__sbcust_statbar_label_cached = candidates[0];
+    log("statbar: no ':' candidate, picking candidate 0");
     return candidates[0];
   }
 
