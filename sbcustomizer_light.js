@@ -53,12 +53,16 @@
   // status-bar object graph without inviting the watchdog kill or the
   // associated PAC-violation churn from stale label pointers across ticks.
   const ENABLE_STATBAR_REPEAT_LOOP = false;
-  // BrokenBlade: even the single snapshot dispatch crashed SpringBoard on
-  // 18.5 (PAC_EXCEPTION on objc_msgSend "count", JSC heap receiver - see
-  // SpringBoard-2026-05-02-020440.ips). Until that's root-caused the SBC UI
-  // checkbox is wired but createStatBarOverlay never actually runs, so the
-  // chain stays reliable when a user flips the in-development toggle.
-  const ENABLE_STATBAR_DISPATCH = false;
+  // BrokenBlade: the 18.5 crash (SpringBoard-2026-05-02-020440.ips) hit
+  // PAC_EXCEPTION on objc_msgSend "count" with X0 = 0x9FE03000 - a value
+  // way below the iOS arm64e ObjC heap (which always lives above 4 GB).
+  // The walk handed a sub-4GB scalar to objc_msgSend as a receiver. Now
+  // every receiver in the walk goes through isObjcReceiver(), which
+  // refuses to dispatch on anything below 0x100000000. The crash converts
+  // into a clean "not a plausible ObjC pointer" log and bail, instead of
+  // killing SpringBoard, and the success path is still intact for the
+  // common case where the bridge returns real heap pointers.
+  const ENABLE_STATBAR_DISPATCH = true;
   // Hide icon labels - calls -[SBIconListGridLayoutConfiguration setShowsLabels:NO]
   // on the same cfg object we already get in patchHomescreenGrid. BOOL arg,
   // no FP regs, no new class lookups. Verified against 18.6.2 SpringBoardHome
@@ -240,6 +244,22 @@
 
   function isNonZero(v) {
     return u64(v) !== 0n;
+  }
+
+  // BrokenBlade: pre-dispatch sanity check for any value we're about to
+  // hand to objc_msgSend as a receiver. iOS arm64e ObjC heap allocations
+  // always live above 4 GB - the malloc nano/scalable allocators map them
+  // into the 0x100000000+ space, and runtime classes/imps live at
+  // 0x180000000+. Anything below 4 GB is either a BOOL/int return that
+  // leaked into a receiver slot, an unmapped value in callBuff[200] that
+  // the bridge didn't cleanly write, or an ObjC pointer that's been
+  // truncated. The 18.5 SpringBoard PAC crash on -count
+  // (SpringBoard-2026-05-02-020440.ips) had X0 = 0x9FE03000, exactly the
+  // shape this guard rejects. Faster than -respondsToSelector: and safe
+  // even when the would-be receiver is unmapped, since we never
+  // dereference it.
+  function isObjcReceiver(v) {
+    return u64(v) >= 0x100000000n;
   }
 
   function log(msg) {
@@ -1012,7 +1032,7 @@
   // instead of the deep keyWindow tree.
   function walkFindStatusBarLabels(view, cls1, cls2, out, depth, visited) {
     if (depth > 10) return;
-    if (!isNonZero(view)) return;
+    if (!isObjcReceiver(view)) return;
     visited[0] = visited[0] + 1;
     if (isNonZero(cls1)) {
       const m1 = objc(view, "isKindOfClass:", cls1);
@@ -1023,14 +1043,14 @@
       if (isNonZero(m2)) { out.push(view); return; }
     }
     const subs = objc(view, "subviews");
-    if (!isNonZero(subs)) return;
+    if (!isObjcReceiver(subs)) return;
     const cntRaw = objc(subs, "count");
     const cnt = Number(u64(cntRaw));
     if (cnt <= 0) return;
     const lim = cnt < 64 ? cnt : 64;
     for (let i = 0; i < lim; i++) {
       const sub = objc(subs, "objectAtIndex:", BigInt(i));
-      if (!isNonZero(sub)) continue;
+      if (!isObjcReceiver(sub)) continue;
       walkFindStatusBarLabels(sub, cls1, cls2, out, depth + 1, visited);
     }
   }
@@ -1053,7 +1073,7 @@
   // churn that was use-after-freeing descendants between ticks.
   function findStatusBarClockLabel(app, classes) {
     const cached = globalThis.__sbcust_statbar_label_cached;
-    if (cached !== undefined && isNonZero(cached)) {
+    if (cached !== undefined && isObjcReceiver(cached)) {
       log("statbar: cache HIT label=0x" + u64(cached).toString(16));
       return cached;
     }
@@ -1063,19 +1083,20 @@
     const visited = [0];
     const keyWin = objc(app, "keyWindow");
     log("statbar: keyWin=0x" + u64(keyWin).toString(16));
-    if (!isNonZero(keyWin)) {
-      log("statbar: no keyWindow - bailing");
+    if (!isObjcReceiver(keyWin)) {
+      log("statbar: keyWindow not a plausible ObjC pointer - bailing");
       return 0n;
     }
     const scene = objc(keyWin, "windowScene");
     log("statbar: scene=0x" + u64(scene).toString(16));
-    if (!isNonZero(scene)) {
-      log("statbar: no windowScene - bailing");
+    if (!isObjcReceiver(scene)) {
+      log("statbar: windowScene not a plausible ObjC pointer - bailing");
       return 0n;
     }
     const sceneWins = objc(scene, "windows");
-    if (!isNonZero(sceneWins)) {
-      log("statbar: no scene.windows - bailing");
+    log("statbar: scene.windows=0x" + u64(sceneWins).toString(16));
+    if (!isObjcReceiver(sceneWins)) {
+      log("statbar: scene.windows not a plausible ObjC pointer - bailing (this is what crashed 18.5)");
       return 0n;
     }
     const sceneWinCntRaw = objc(sceneWins, "count");
@@ -1084,7 +1105,7 @@
     const sceneWinLim = sceneWinCnt < 16 ? sceneWinCnt : 16;
     for (let i = 0; i < sceneWinLim; i++) {
       const w = objc(sceneWins, "objectAtIndex:", BigInt(i));
-      if (!isNonZero(w)) continue;
+      if (!isObjcReceiver(w)) continue;
       const preCount = candidates.length;
       walkFindStatusBarLabels(w, classes.cls17, classes.cls16, candidates, 0, visited);
       log("statbar: window[" + i + "]=0x" + u64(w).toString(16) + " +" + (candidates.length - preCount) + " candidates");
@@ -1098,14 +1119,19 @@
     // subsequent ticks don't need to walk.
     const colon = nsStr(":");
     for (let i = 0; i < candidates.length; i++) {
+      if (!isObjcReceiver(candidates[i])) continue;
       const txt = objc(candidates[i], "text");
-      if (!isNonZero(txt)) continue;
+      if (!isObjcReceiver(txt)) continue;
       const hit = objc(txt, "containsString:", colon);
       if (isNonZero(hit)) {
         log("statbar: picked candidate " + i + " (has ':' in current text)");
         globalThis.__sbcust_statbar_label_cached = candidates[i];
         return candidates[i];
       }
+    }
+    if (!isObjcReceiver(candidates[0])) {
+      log("statbar: candidate 0 not a plausible ObjC pointer - bailing");
+      return 0n;
     }
     log("statbar: no ':' candidate, caching candidate 0");
     globalThis.__sbcust_statbar_label_cached = candidates[0];
@@ -1145,39 +1171,32 @@
   // This is still one-shot: iOS will re-set the clock text on the next
   // minute tick. Re-inject sbcustomizer with __sbc_statbar=1 to refresh.
   function createStatBarOverlay() {
-    log("statbar: entry (replace mode v2)");
-    log("statbar: pre objc_getClass UIApplication");
+    log("statbar: entry (replace mode v3, hardened receivers)");
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
     log("statbar: UIApplication=0x" + u64(UIApplication).toString(16));
-    if (!isNonZero(UIApplication)) { log("statbar: no UIApplication class"); return false; }
-    log("statbar: pre sel sharedApplication");
+    if (!isObjcReceiver(UIApplication)) { log("statbar: no UIApplication class"); return false; }
     const sharedSel = sel("sharedApplication");
-    log("statbar: sharedSel=0x" + u64(sharedSel).toString(16));
-    log("statbar: pre objc_msgSend sharedApplication");
+    if (!isNonZero(sharedSel)) { log("statbar: no sharedApplication selector"); return false; }
     const app = Native.callSymbol("objc_msgSend", UIApplication, sharedSel);
     log("statbar: app=0x" + u64(app).toString(16));
-    if (!isNonZero(app)) { log("statbar: no sharedApplication"); return false; }
+    if (!isObjcReceiver(app)) { log("statbar: sharedApplication not a plausible ObjC pointer"); return false; }
 
-    log("statbar: pre resolveStatusBarClasses");
     const classes = resolveStatusBarClasses();
-    if (!isNonZero(classes.cls17) && !isNonZero(classes.cls16)) {
-      log("statbar: NEITHER STUIStatusBarStringView nor _UIStatusBarStringView");
-      log("statbar: runtime - need a class-dump of UIKitCore on this build");
+    if (!isObjcReceiver(classes.cls17) && !isObjcReceiver(classes.cls16)) {
+      log("statbar: NEITHER STUIStatusBarStringView nor _UIStatusBarStringView present");
       return false;
     }
 
-    log("statbar: pre findStatusBarClockLabel");
     const label = findStatusBarClockLabel(app, classes);
-    if (!isNonZero(label)) { log("statbar: no status bar label instance found"); return false; }
+    if (!isObjcReceiver(label)) { log("statbar: no status bar label instance found"); return false; }
     log("statbar: label=0x" + u64(label).toString(16));
 
     const text = buildStatBarText();
     log("statbar: text='" + text + "'");
 
-    log("statbar: pre setText:");
-    objc(label, "setText:", nsStr(text));
-    log("statbar: post setText:");
-
+    const textObj = nsStr(text);
+    if (!isObjcReceiver(textObj)) { log("statbar: nsStr returned non-pointer, aborting setText"); return false; }
+    objc(label, "setText:", textObj);
     log("statbar: replace complete");
     return true;
   }
