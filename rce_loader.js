@@ -65,6 +65,11 @@ try {
     if (__sbx0FallbackStart < 0) __sbx0FallbackStart += 4;
     globalThis.__ls_sbx0_fallback_start = __sbx0FallbackStart;
 } catch (e) { globalThis.__ls_sbx0_fallback_start = 0; }
+try {
+    var __lsParams5 = new URLSearchParams(location.search || '');
+    var __mode = (__lsParams5.get('mode') || 'install').toLowerCase().trim();
+    globalThis.__ls_run_mode = (__mode === 'cleanup') ? 'cleanup' : 'install';
+} catch (e) { globalThis.__ls_run_mode = 'install'; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 if (!basePrefix && location.pathname && location.pathname !== '/' && location.pathname.indexOf('.') < 0) basePrefix = location.pathname;
 var localHost = location.origin + basePrefix;
@@ -189,7 +194,7 @@ const ios_version = (function() {
     print("WARNING: Could not detect iOS version from UA!");
     return null;
 })();
-print("Tweak selection: tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
+print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
 print("Loading worker code...");
 let workerCode = "";
 if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2') {
@@ -290,9 +295,10 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             {
                 print("[MSG] sign_pointers");
                 iframe.contentDocument.write('1');
-                worker.postMessage({
-                type: 'setup_fcall',
-                ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
+	                worker.postMessage({
+	                type: 'setup_fcall',
+	                ls_run_mode: globalThis.__ls_run_mode || 'install',
+	                ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
                 ls_powercuff_level: globalThis.__ls_powercuff_level || 'heavy',
                 ls_sbc_dock_icons: globalThis.__ls_sbc_dock_icons,
                 ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
@@ -385,8 +391,9 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                     type: 'stage1_rce',
                     desiredHost,
                     randomValues,
-                    SERVER_LOG,
-                    ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
+	                    SERVER_LOG,
+	                    ls_run_mode: globalThis.__ls_run_mode || 'install',
+	                    ls_tweaks: globalThis.__ls_tweaks || 'fiveicon',
                     ls_powercuff_level: globalThis.__ls_powercuff_level || 'heavy',
                     ls_sbc_dock_icons: globalThis.__ls_sbc_dock_icons,
                     ls_sbc_hs_cols: globalThis.__ls_sbc_hs_cols,
