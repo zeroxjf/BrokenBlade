@@ -1083,6 +1083,46 @@
     return Number(bytes / (1024n * 1024n));
   }
 
+  // Live free RAM from the kernel via host_statistics64(HOST_VM_INFO64).
+  // -[NSProcessInfo physicalMemory] returns a constant (the installed
+  // RAM total) and never changes, so the prior code looked frozen even
+  // though the refresh loop was firing - the user wants a moving
+  // number. host_statistics64 reads vm_statistics64 from the kernel
+  // each call, including the current free_count which moves as the
+  // system allocates/reclaims pages.
+  //
+  // vm_statistics64 layout (mach/vm_statistics.h):
+  //   offset 0x00: free_count        (natural_t = uint32)
+  //   offset 0x04: active_count      (natural_t)
+  //   offset 0x08: inactive_count    (natural_t)
+  //   offset 0x0c: wire_count        (natural_t)
+  //   ... (more fields, ~152 bytes total)
+  //
+  // HOST_VM_INFO64 = 4. HOST_VM_INFO64_COUNT is computed as
+  // sizeof(vm_statistics64_data_t) / sizeof(integer_t) ~= 38; we pass
+  // 64 to be safe (the kernel returns the actual count it filled).
+  // Page size on iOS arm64 is 16384 bytes.
+  function getFreeMemGB() {
+    const host = Native.callSymbol("mach_host_self");
+    if (!isNonZero(host)) return 0;
+    const stat = Native.callSymbol("malloc", 256n);
+    const countPtr = Native.callSymbol("malloc", 4n);
+    if (!isNonZero(stat) || !isNonZero(countPtr)) return 0;
+    writeU32(countPtr, 64);
+    const HOST_VM_INFO64 = 4;
+    const ret = Native.callSymbol("host_statistics64", host, HOST_VM_INFO64, stat, countPtr);
+    let result = 0;
+    if (Number(ret) === 0) {
+      const freePages = Native.read32(stat);
+      const PAGE_SIZE = 16384;
+      const bytes = freePages * PAGE_SIZE;
+      result = bytes / (1024 * 1024 * 1024);
+    }
+    Native.callSymbol("free", stat);
+    Native.callSymbol("free", countPtr);
+    return result;
+  }
+
   function findWindowScene(app) {
     // -[UIApplication connectedScenes] returns a copied NSSet whose
     // allObjects trampoline PAC-faults on our bridge (same slab/cache
@@ -1138,16 +1178,15 @@
   // initWithUTF8String: then decodes it into the real Unicode char.
   function buildStatBarText() {
     const tempC = getBatteryTempC();
-    const ramMB = getPhysMemMB();
+    const freeRamGB = getFreeMemGB();
     const parts = [];
     const DEG = String.fromCharCode(0xC2) + String.fromCharCode(0xB0);
     if (tempC !== null && tempC > 0) {
       const tempF = tempC * 9 / 5 + 32;
       parts.push(tempF.toFixed(2) + DEG + "F");
     }
-    if (ramMB > 0) {
-      const ramGB = ramMB / 1024;
-      parts.push(ramGB.toFixed(2) + "GB");
+    if (freeRamGB > 0) {
+      parts.push(freeRamGB.toFixed(2) + "GB");
     }
     if (!parts.length) return "n/a";
     return parts.join(" | ");
