@@ -1126,22 +1126,31 @@
   }
 
   // Build the custom status bar text from live device metrics. Format:
-  // Fahrenheit + RAM in GB, two decimals each, e.g. "98.60F 7.00G".
-  // Fits in a 100pt-wide overlay at 11pt system font (~12 chars).
+  // Fahrenheit + RAM in GB, two decimals each, separated by a vertical
+  // pipe, e.g. "98.60{deg}F | 7.00GB" (where {deg} is U+00B0).
+  //
+  // The degree sign is constructed at runtime as the UTF-8 byte
+  // sequence (0xC2 0xB0) via String.fromCharCode so the JS source
+  // stays ASCII (per repo rule that chain delivery byte-counts the
+  // payload). Native.writeString writes each JS char's lower 8 bits
+  // verbatim, so a 2-char JS string of 0xC2/0xB0 lands in the C
+  // buffer as valid UTF-8 for the degree sign; NSString's
+  // initWithUTF8String: then decodes it into the real Unicode char.
   function buildStatBarText() {
     const tempC = getBatteryTempC();
     const ramMB = getPhysMemMB();
     const parts = [];
+    const DEG = String.fromCharCode(0xC2) + String.fromCharCode(0xB0);
     if (tempC !== null && tempC > 0) {
       const tempF = tempC * 9 / 5 + 32;
-      parts.push(tempF.toFixed(2) + "F");
+      parts.push(tempF.toFixed(2) + DEG + "F");
     }
     if (ramMB > 0) {
       const ramGB = ramMB / 1024;
-      parts.push(ramGB.toFixed(2) + "G");
+      parts.push(ramGB.toFixed(2) + "GB");
     }
     if (!parts.length) return "n/a";
-    return parts.join(" ");
+    return parts.join(" | ");
   }
 
   // Resolve the status bar string view classes Huy's tweak targets, the
@@ -1333,19 +1342,21 @@
 
   // Position centered just below the Dynamic Island on iPhone 16 Pro
   // Max. Logical screen 440x956pt. Dynamic Island sits ~y=11..48 with
-  // its center around x=220 (screen midpoint). Overlay 110pt wide
-  // (room for "98.60F 7.00G" at 11pt font) centered:
-  // x=(440-110)/2=165. y=54 places the top edge a few points under
-  // the island's bottom curve so the text doesn't kiss the silhouette.
-  const STATBAR_WIN_X = 165;
+  // its center around x=220 (screen midpoint). Overlay 140pt wide
+  // (room for "98.60{deg}F | 7.00GB" - ~16 chars at 11.5pt with pill
+  // padding) centered: x=(440-140)/2=150. y=54 places the top edge a
+  // few points under the island's bottom curve so the text doesn't
+  // kiss the silhouette.
+  const STATBAR_WIN_X = 150;
   const STATBAR_WIN_Y = 54;
-  const STATBAR_WIN_W = 110;
+  const STATBAR_WIN_W = 140;
   const STATBAR_WIN_H = 18;
 
   // Font size for the overlay text. Smaller than UILabel's default
-  // 17pt system font - 11pt comfortably fits "98.60F 7.00G" in the
-  // 110pt-wide frame with a little padding on each side.
-  const STATBAR_FONT_PT = 11;
+  // 17pt system font - 11.5pt comfortably fits the formatted string
+  // ("98.60{deg}F | 7.00GB", ~16 chars) in the 140pt-wide frame with
+  // padding on each side for the rounded pill shape.
+  const STATBAR_FONT_PT = 11.5;
 
   // windowLevel above CC (UIWindowLevelStatusBar=1000, alerts at 2000)
   // paired with canShowWhileLocked=YES so the overlay survives lock
@@ -1353,11 +1364,10 @@
   const STATBAR_WIN_LEVEL = 999999;
 
   // Live-refresh interval. The overlay re-reads battery temp + RAM and
-  // re-applies setText: every N seconds. 3s is a comfortable middle
-  // ground - frequent enough that the user sees fresh numbers, cheap
-  // enough that the per-tick cost (~5-10ms cached-path createStatBarOverlay)
-  // is well under the watchdog ceiling.
-  const STATBAR_LIVE_INTERVAL_SEC = 3.0;
+  // re-applies setText: every N seconds. 1s gives the user immediate
+  // feedback when temp/RAM moves; per-tick cost is ~5-10ms cached-path
+  // createStatBarOverlay so even at 1Hz we're using <1% of main thread.
+  const STATBAR_LIVE_INTERVAL_SEC = 1.0;
 
   // Schedule a live refresh of the StatBar via
   // -[NSObject performSelector:withObject:afterDelay:] on the current
@@ -1428,6 +1438,33 @@
       fpArgs);
   }
 
+  // Round the overlay UILabel into a pill (corner radius = height/2).
+  // -[UIView layer] returns the strongly-held _layer ivar (+0 owned by
+  // the view, survives JSC pool drain). -[CALayer setCornerRadius:]
+  // takes a CGFloat (FP bridge). masksToBounds=YES so the rounded
+  // shape actually clips the background color rendering.
+  function applyOverlayPillShape(label) {
+    const layer = objc(label, "layer");
+    if (!isObjcReceiver(layer)) return false;
+    objcSendFP(layer, "setCornerRadius:", [STATBAR_WIN_H / 2]);
+    objc(layer, "setMasksToBounds:", 1n);
+    return true;
+  }
+
+  // Apply the smaller font + pill shape to a UILabel. Used by both
+  // first-install and cached-window paths so re-injects after these
+  // commits pick up the latest styling without invalidating the cache.
+  function applyOverlayStyle(label) {
+    const UIFont = Native.callSymbol("objc_getClass", "UIFont");
+    if (isObjcReceiver(UIFont)) {
+      const fontObj = Native.callSymbolFP("objc_msgSend",
+        [UIFont, sel("systemFontOfSize:")],
+        [STATBAR_FONT_PT]);
+      if (isObjcReceiver(fontObj)) objc(label, "setFont:", BigInt(fontObj));
+    }
+    applyOverlayPillShape(label);
+  }
+
   function createStatBarOverlay() {
     log("statbar: entry (v9 dedicated UIWindow via FP-reg bridge)");
     const UIApplication = Native.callSymbol("objc_getClass", "UIApplication");
@@ -1459,21 +1496,13 @@
       const cachedLabel = objc(cachedWin, "viewWithTag:", BigInt(STATBAR_OVERLAY_TAG));
       if (isObjcReceiver(cachedLabel)) {
         objc(cachedLabel, "setText:", textObj);
-        // Re-apply frame each inject so repositioning across versions
-        // takes effect without invalidating the assoc'd window.
+        // Re-apply frame + style each inject so layout/font/pill-shape
+        // changes take effect without invalidating the assoc'd window.
         objcSendFP(cachedWin, "setFrame:", [STATBAR_WIN_X, STATBAR_WIN_Y, STATBAR_WIN_W, STATBAR_WIN_H]);
         objcSendFP(cachedLabel, "setFrame:", [0, 0, STATBAR_WIN_W, STATBAR_WIN_H]);
-        // Re-apply font too in case the cached label was created before
-        // setFont: was added to the install path (idempotent, cheap).
-        const UIFont = Native.callSymbol("objc_getClass", "UIFont");
-        if (isObjcReceiver(UIFont)) {
-          const fontObj = Native.callSymbolFP("objc_msgSend",
-            [UIFont, sel("systemFontOfSize:")],
-            [STATBAR_FONT_PT]);
-          if (isObjcReceiver(fontObj)) objc(cachedLabel, "setFont:", BigInt(fontObj));
-        }
+        applyOverlayStyle(cachedLabel);
         objc(cachedWin, "setHidden:", 0n);
-        log("statbar: cached overlay text + frame + font updated, window unhidden");
+        log("statbar: cached overlay text + frame + style updated, window unhidden");
         return true;
       }
       log("statbar: cached window had no tagged label - recreating");
@@ -1538,24 +1567,11 @@
       if (isObjcReceiver(white)) objc(overlay, "setTextColor:", white);
     }
 
-    // Smaller font via FP bridge. +[UIFont systemFontOfSize:] takes a
-    // CGFloat (single double in d0). UIKit caches system fonts at the
-    // class level so the autoreleased return survives JSC's pool drain
-    // before setFont: dispatches - same singleton-style retain pattern
-    // as +[UIColor blackColor]. If empirically this turns out to drain,
-    // fall back to setAdjustsFontSizeToFitWidth:YES + setMinimumScaleFactor:.
-    const UIFont = Native.callSymbol("objc_getClass", "UIFont");
-    if (isObjcReceiver(UIFont)) {
-      const fontObj = Native.callSymbolFP("objc_msgSend",
-        [UIFont, sel("systemFontOfSize:")],
-        [STATBAR_FONT_PT]);
-      if (isObjcReceiver(fontObj)) {
-        objc(overlay, "setFont:", BigInt(fontObj));
-        log("statbar: font set to system " + STATBAR_FONT_PT + "pt");
-      } else {
-        log("statbar: systemFontOfSize: returned non-receiver, skipping font");
-      }
-    }
+    // Smaller font + pill shape via FP bridge. UIKit caches system
+    // fonts at the class level so the autoreleased UIFont return
+    // survives JSC's pool drain before setFont: dispatches - same
+    // singleton-style retain pattern as +[UIColor blackColor].
+    applyOverlayStyle(overlay);
 
     // Label fills the window (window-local coords).
     objcSendFP(overlay, "setFrame:", [0, 0, STATBAR_WIN_W, STATBAR_WIN_H]);
