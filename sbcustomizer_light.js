@@ -46,19 +46,35 @@
   // can't synthesize from JS, and -performSelector:...afterDelay: takes
   // a double which our int-only bridge can't pass.
   const ENABLE_STATBAR = (globalThis.__sbc_statbar === 1 || globalThis.__sbc_statbar === true);
-  // BrokenBlade: re-enable the loop. With the manager-based path
-  // (7be09e3) the autorelease lifecycle issue is gone, with isObjcReceiver
-  // every receiver is sanity-checked, with nsStrRetained the setText:
-  // arg survives the bridge gap, and with the alt-text auto-revert
-  // timer killed (635c677) the only remaining cause of disappearance is
-  // the system itself periodically flipping showsAlternateText back to
-  // NO during status-bar layout / styling refreshes. The loop re-applies
-  // setAlternateText: + setShowsAlternateText:YES + invalidate timer
-  // every 5s so the alternate text sticks across those resets - that's
-  // what the user is asking for ("don't want it to disappear after
-  // time"). 5s tick is well clear of the c343bc7 watchdog regime; see
-  // STATBAR_LOOP_INTERVAL_US comment above for the reasoning.
-  const ENABLE_STATBAR_REPEAT_LOOP = true;
+  // BrokenBlade: snapshot-only. Every persistence variant we tried has
+  // crashed SpringBoard one way or another, all rooted in the InjectJS
+  // bridge being structurally hostile to two threads using it
+  // concurrently:
+  //
+  //   - waitUntilDone:NO (a2bf2fb): worker writes to nativeCallBuff
+  //     while main is also using it for its own bridge calls; X0..X7
+  //     arg slots get scrambled, objc_msgSend lands on a wrong
+  //     receiver/selector pair, doesNotRecognizeSelector raises out of
+  //     __invoking___ and SpringBoard SIGABRTs (141546.ips).
+  //   - waitUntilDone:YES (1ab2d20): worker parks in pthread_cond_wait
+  //     INSIDE the hijacked oinv/jsinv/inv NSInvocation chain. Main
+  //     wants to use the same NSInvocation chain to run the dispatched
+  //     script, walks into its partially-committed state, and hangs.
+  //     Watchdog kills SpringBoard for 60s+ main-thread silence
+  //     (145412.ips).
+  //
+  // Both are NSInvocation- / shared-buffer-not-thread-safe issues at the
+  // bridge layer. Fixing them properly means giving the bridge a per-
+  // thread NSInvocation chain, which is a pe_main.js / InjectJS change
+  // outside this StatBar feature's scope.
+  //
+  // Snapshot-only sidesteps the issue: a single combined dispatch (one
+  // bridge call) runs apply_once + statbar in one main-thread script,
+  // worker exits, no further bridge contention, no race. StatBar shows
+  // briefly (until the next system status-bar refresh / minute tick
+  // / layout pass) and then reverts. Tradeoff vs reliability: chain
+  // stays alive, no SpringBoard crashes.
+  const ENABLE_STATBAR_REPEAT_LOOP = false;
   // BrokenBlade: the 18.5 crash (SpringBoard-2026-05-02-020440.ips) hit
   // PAC_EXCEPTION on objc_msgSend "count" with X0 = 0x9FE03000 - a value
   // way below the iOS arm64e ObjC heap (which always lives above 4 GB).
@@ -533,30 +549,24 @@
       return false;
     }
     const s = cfstr(script);
-    log("runOnMainEvaluate: cfstr=0x" + u64(s).toString(16) + " calling performSelectorOnMainThread (waitUntilDone:YES)");
-    // waitUntilDone:YES, not NO. With NO, the worker thread continues
-    // running JS - and therefore making bridge calls that write to the
-    // shared nativeCallBuff - while main thread is *also* making bridge
-    // calls processing our dispatched script. Both threads writing to
-    // callBuff[100..107] (the X0..X7 arg slots) at the same time scrambles
-    // each other's objc_msgSend args, lands one of them on the wrong
-    // receiver/selector pair, and raises doesNotRecognizeSelector mid-
-    // invocation - exactly what 141546.ips caught: worker thread (id
-    // 11675) crashed in __invoking___ with the abort/objc_terminate
-    // backtrace, while main was 115ms into running apply_once.
-    //
-    // YES blocks the worker in pthread_cond_wait while main runs the
-    // dispatched script. The worker isn't using the bridge during the
-    // wait - it's parked in a kernel cond_wait - so main has exclusive
-    // access to nativeCallBuff. When main returns, worker resumes and
-    // continues serially. No race, no scramble.
-    //
-    // The cfstr lifecycle comment from the NO version still holds: do
-    // not CFRelease here. Main retains/releases via performSelector's
-    // autorelease pool, and releasing on the injected thread would race
-    // the release path's objc_msgSend on a main-thread-signed isa.
-    objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 1);
-    log("runOnMainEvaluate: performSelector returned (main finished its run)");
+    log("runOnMainEvaluate: cfstr=0x" + u64(s).toString(16) + " calling performSelectorOnMainThread (waitUntilDone:NO)");
+    // waitUntilDone:NO. YES (tried in 1ab2d20) blocks the worker thread
+    // INSIDE the hijacked oinv/jsinv/inv NSInvocation chain; main then
+    // tries to use the same NSInvocation chain to run the dispatched
+    // script and hangs on its partially-committed state, leading to
+    // SpringBoard watchdog kill (145412.ips).
+    // NO is racy with concurrent bridge use, so it's the caller's
+    // responsibility not to make any further bridge calls between the
+    // dispatch and the worker thread exiting / sleeping. The combined-
+    // dispatch + immediate-exit pattern further down avoids the race
+    // entirely; the loop variants did not, hence ENABLE_STATBAR_REPEAT_LOOP
+    // = false.
+    objc(jsctxObj, "performSelectorOnMainThread:withObject:waitUntilDone:", sel("evaluateScript:"), s, 0);
+    log("runOnMainEvaluate: performSelector returned, skipping CFRelease (main thread owns cfstr now)");
+    // NOTE: Do NOT CFRelease the cfstr here. Main thread retains/releases
+    // via performSelector's autorelease pool. Releasing on the injected
+    // thread races the release path's objc_msgSend on a main-thread-signed
+    // isa.
     return true;
   }
 
@@ -1443,14 +1453,17 @@
     const testSB = Native.callSymbol("objc_getClass", "SBIconController");
     log("test SBIconController=0x" + u64(testSB).toString(16) + (testSB ? " (found)" : " (NOT FOUND - wrong process?)"));
 
-    log("about to runOnMainEvaluate (performSelectorOnMainThread) - PAC violation happens here if PAC context is stale");
-    runOnMainEvaluate("try{__sbcust_log('main-thread dispatch alive');__sbcust_apply_once('main-pass-1');}catch(e){__sbcust_log('main-pass-1 err: '+e);}");
-    // Bounce statbar through a separate performSelectorOnMainThread so it
-    // lands on a fresh runloop tick rather than piggybacking on the dock
-    // pass, which kicks off async UIKit layout work that can leave the
-    // main thread in a funky state for an immediate follow-up message.
-    runOnMainEvaluate("try{__sbcust_statbar();}catch(e){__sbcust_log('statbar dispatch err: '+e);}");
-    log("runOnMainEvaluate returned (async dispatch, no crash on injected thread)");
+    log("about to runOnMainEvaluate (combined apply_once + statbar)");
+    // Single combined dispatch: apply_once and statbar in one main-thread
+    // script. Two separate runOnMainEvaluate calls (the prior pattern)
+    // expose a race between the worker's dispatch return path and main's
+    // concurrent bridge use - 141546.ips caught the worker mid-second-
+    // dispatch with main 115ms into running apply_once, both writing to
+    // callBuff and scrambling each other's args. One bridge call from
+    // the worker means there's no second dispatch to overlap with main's
+    // execution; after this returns the worker has zero further bridge
+    // calls to make and just exits cleanly.
+    runOnMainEvaluate("try{__sbcust_log('main-thread dispatch alive');__sbcust_apply_once('main-pass-1');__sbcust_statbar();}catch(e){__sbcust_log('combined-dispatch err: '+e);}");
 
     if (ENABLE_SECOND_PASS) {
       Native.callSymbol("usleep", 1200000);
