@@ -1022,18 +1022,22 @@
     return objc(NSString, "stringWithUTF8String:", str);
   }
 
-  // Build the custom status bar text from live device metrics.
+  // Build the custom status bar text from live device metrics. The clock
+  // string view we're hijacking on Dynamic Island devices has roughly the
+  // width of "12:34" - about 5-6 chars - so we keep the output tight or
+  // it gets truncated to "T..." in the top-left ear. Format: integer
+  // celsius + RAM in GB, e.g. "32C 8G" or "32C" or "8G".
   function buildStatBarText() {
     const tempC = getBatteryTempC();
     const ramMB = getPhysMemMB();
-    let text = "";
-    if (tempC !== null && tempC > 0) {
-      const rounded = Math.round(tempC * 10) / 10;
-      text += rounded.toFixed(1) + "C  ";
+    const parts = [];
+    if (tempC !== null && tempC > 0) parts.push(Math.round(tempC) + "C");
+    if (ramMB > 0) {
+      if (ramMB >= 1024) parts.push(Math.round(ramMB / 1024) + "G");
+      else parts.push(ramMB + "M");
     }
-    if (ramMB > 0) text += "RAM: " + ramMB + "MB";
-    if (!text) text = "no data";
-    return text;
+    if (!parts.length) return "n/a";
+    return parts.join(" ");
   }
 
   // Resolve the status bar string view classes Huy's tweak targets, the
@@ -1252,7 +1256,24 @@
     // for a +1 retained string that survives JSC's pool drain.
     const textObj = nsStrRetained(text);
     if (!isObjcReceiver(textObj)) { log("statbar: nsStrRetained returned non-pointer, aborting setText"); return false; }
+    // setText: writes _text directly, but iOS's clock formatter writes
+    // back to _text on every layout pass / minute tick, so anything we
+    // put there gets clobbered the moment the user taps the screen and
+    // SpringBoard re-runs the status-bar layout. STUIStatusBarStringView
+    // exposes an "alternate text" path (-setAlternateText: +
+    // -setShowsAlternateText:YES) that iOS uses internally for transient
+    // overlays - it parks a separate string in _alternateText and the
+    // view picks that to display, so the system's _text rewrites don't
+    // wipe our value. Set both: setText: handles older / no-alternate
+    // builds, setAlternateText: + flag survives layout passes on 18.x.
     objc(label, "setText:", textObj);
+    if (canRespond(label, "setAlternateText:") && canRespond(label, "setShowsAlternateText:")) {
+      objc(label, "setAlternateText:", textObj);
+      objc(label, "setShowsAlternateText:", 1n);
+      log("statbar: alternateText path engaged");
+    } else {
+      log("statbar: alternateText selectors missing - setText: only");
+    }
     log("statbar: replace complete");
     return true;
   }
