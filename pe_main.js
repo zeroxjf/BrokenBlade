@@ -8520,7 +8520,7 @@ const POWERCUFF_TWEAK_LABEL = "Powercuff";
 const ENABLE_THREEAPP = !!globalThis.__ls_enable_threeapp;
 const ENABLE_SAFARI_ORIGIN_AUDIT = true;
 const ENABLE_SAFARI_ORIGIN_DELETE = true;
-const ENABLE_SAFARI_KILL_BEFORE_COUNTDOWN = false;
+const ENABLE_SAFARI_KILL_AFTER_CLEAN = true;
 // sbcustomizer_light.js dispatches to the SpringBoard main thread
 // asynchronously. When it runs without Powercuff piggybacking on it, keep the
 // chain alive briefly so the dispatched main-thread work has time to run
@@ -9919,10 +9919,12 @@ function start() { LOG("[+] PE start() called");
 	LOG("[PE] Status log: " + CHAIN_STATUS_LOG_PATH);
 	LOG("[PE] Chain syslog export path: " + chainSyslogPath + " ready=" + chainSyslogOk);
 	let safariCleanOk = runOptionalStage("Safari origin cleanup audit", ENABLE_SAFARI_ORIGIN_AUDIT, auditSafariOriginData);
-	if (ENABLE_SAFARI_KILL_BEFORE_COUNTDOWN) {
-		runOptionalStage("Safari app termination before countdown", true, () => terminateSafariAfterClean(launchdTask));
+	if (ENABLE_SAFARI_KILL_AFTER_CLEAN && safariCleanOk) {
+		runOptionalStage("Safari app termination after cleanup", true, () => terminateSafariAfterClean(launchdTask));
+	} else if (ENABLE_SAFARI_KILL_AFTER_CLEAN) {
+		LOG("[PE] Safari app termination after cleanup skipped cleanOk=" + safariCleanOk);
 	} else {
-		LOG("[PE] Safari app termination before countdown disabled");
+		LOG("[PE] Safari app termination after cleanup disabled");
 	}
 	LOG("[PE] Initial Safari clean complete cleanOk=" + safariCleanOk + "; URL launch disabled");
 
