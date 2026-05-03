@@ -75,6 +75,56 @@ def _brew_install(formula):
     return subprocess.call([brew, "install", formula]) == 0
 
 
+def _describe_device(udid):
+    """Return a dict of selected ideviceinfo fields for udid, or {} on failure."""
+    try:
+        r = subprocess.run(
+            ["ideviceinfo", "-u", udid],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {}
+    if r.returncode != 0:
+        return {}
+    info = {}
+    wanted = {"DeviceName", "ProductType", "ProductVersion",
+              "BuildVersion", "HardwareModel", "CPUArchitecture"}
+    for raw in r.stdout.splitlines():
+        if ":" not in raw:
+            continue
+        k, _, v = raw.partition(":")
+        k = k.strip()
+        if k in wanted:
+            info[k] = v.strip()
+    return info
+
+
+def _print_device_banner(udids):
+    for i, udid in enumerate(udids):
+        info = _describe_device(udid)
+        prefix = "[syslog] Detected device" + (f" #{i+1}" if len(udids) > 1 else "") + ":"
+        print(prefix)
+        if info.get("DeviceName"):
+            print(f"[syslog]   Name:   {info['DeviceName']}")
+        model_bits = []
+        if info.get("ProductType"):
+            model_bits.append(info["ProductType"])
+        if info.get("HardwareModel"):
+            model_bits.append(f"({info['HardwareModel']})")
+        if info.get("CPUArchitecture"):
+            model_bits.append(f"[{info['CPUArchitecture']}]")
+        if model_bits:
+            print(f"[syslog]   Model:  {' '.join(model_bits)}")
+        if info.get("ProductVersion"):
+            ver = info["ProductVersion"]
+            if info.get("BuildVersion"):
+                ver += f" ({info['BuildVersion']})"
+            print(f"[syslog]   iOS:    {ver}")
+        print(f"[syslog]   UDID:   {udid}")
+    if len(udids) > 1:
+        print(f"[syslog] Multiple devices connected; idevicesyslog will follow {udids[0]}.")
+
+
 def ensure_dependencies():
     """Detect Homebrew + libimobiledevice; prompt + install whatever's missing."""
     if sys.platform != "darwin":
@@ -248,9 +298,12 @@ def main():
         print("idevice_id timed out. Is usbmuxd running? Try replugging the device.")
         sys.exit(1)
 
-    if not ids.stdout.strip():
+    udids = [u.strip() for u in ids.stdout.splitlines() if u.strip()]
+    if not udids:
         print("No iPhone detected. Plug in via USB, unlock the device, and tap 'Trust this computer'.")
         sys.exit(1)
+
+    _print_device_banner(udids)
 
     try:
         proc = subprocess.Popen(
@@ -265,8 +318,8 @@ def main():
         sys.exit(1)
 
     outfile = open(outpath, "w")
-    print(f"[syslog] PID {proc.pid} -> {outpath}")
-    print(f"[syslog] Ctrl+C to stop\n")
+    print(f"[syslog] Monitoring filtered chain logs -> {outpath}")
+    print(f"[syslog] PID {proc.pid}, Ctrl+C to stop\n")
 
     t = threading.Thread(target=reader, args=(proc, outfile), daemon=True)
     t.start()
