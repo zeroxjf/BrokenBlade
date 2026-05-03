@@ -204,6 +204,9 @@ function isIos186Path(version) {
     const key = iosVersionKey(version);
     return key === '18,6' || key === '18,6,1' || key === '18,6,2';
 }
+function rcePathName(version) {
+    return isIos186Path(version) ? "iOS 18.6.x worker RCE path" : "iOS 18.0-18.5 check_attempt RCE path";
+}
 function hasBundledOffsetSupport(version) {
     if (!Array.isArray(version) || version.length < 2) return false;
     const major = version[0];
@@ -223,16 +226,17 @@ if (isTheoreticalIos18Window(ios_version) && !hasBundledOffsetSupport(ios_versio
     throw new Error("missing bundled offsets for theoretical iOS 18 target");
 }
 print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
+print("Selected RCE route: " + rcePathName(ios_version) + " for detected iOS " + iosVersionString(ios_version));
 print("Loading worker code...");
 let workerCode = "";
 if(isIos186Path(ios_version)) {
-    print("Using worker for iOS 18.6.x");
+    print("Using rce_worker_18.6.js for " + rcePathName(ios_version));
     workerCode = getJS(`rce_worker_18.6.js?${Date.now()}`); // local version
     if (!workerCode || !workerCode.trim()) {
         workerCode = getJS(`rce_worker.js?${Date.now()}`);
     }
 } else {
-    print("Using worker for iOS 18.4-18.5 path");
+    print("Using rce_worker.js for " + rcePathName(ios_version));
     workerCode = getJS(`rce_worker.js?${Date.now()}`); // local version
 }
 if (!workerCode || !workerCode.trim()) {
@@ -414,7 +418,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         print("desiredHost = " + desiredHost);
             if(isIos186Path(ios_version))
             {
-                print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
+                print("Sending stage1_rce to worker (" + rcePathName(ios_version) + ") tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
                 worker.postMessage({
                     type: 'stage1_rce',
                     desiredHost,
@@ -439,7 +443,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             }
             else
             {
-                print("Starting check_attempt (iOS 18.4-18.5 path), sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
+                print("Starting check_attempt (" + rcePathName(ios_version) + "), sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
         var attempt = new check_attempt();
         (async function() {
             var maxRetries = 5;
