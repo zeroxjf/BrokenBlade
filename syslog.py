@@ -6,17 +6,14 @@ Dependencies (auto-detected on first run; install path depends on host OS):
   macOS  - Auto-installs Homebrew + libimobiledevice on first run if either
            is missing. Asks for sudo password when needed.
 
-  Windows - Detects scoop; if available, prompts to add the `extras`
-            bucket and run `scoop install libimobiledevice`. winget's
-            main repo does NOT package libimobiledevice (despite older
-            versions of this script trying to use it), so we don't
-            attempt winget at all anymore. Falls back to a manual
-            install guide (scoop, chocolatey, or prebuilt zip from
-            imobiledevice-net releases) if scoop isn't available or
-            the install fails. Also reminds the user that the Apple
-            Mobile Device Service (driver/pairing layer) must be
-            installed separately - either by installing the "Apple
-            Devices" app from Microsoft Store or iTunes.
+  Windows - No auto-install (verified: winget, Chocolatey, and the
+            official Scoop `extras` bucket all have zero matches for
+            libimobiledevice). Prints a manual install guide pointing
+            at the imobiledevice-net releases zip, with the exact
+            asset name + PATH-editing steps. Also reminds the user
+            that the Apple Mobile Device Service (USB pairing / driver
+            layer) must be installed separately - either via the
+            "Apple Devices" app from Microsoft Store or iTunes.
 
   Linux  - Prints a package-manager hint
            (`apt install libimobiledevice-utils` etc.) and exits if
@@ -143,30 +140,42 @@ def _print_device_banner(udids):
 IMOBILEDEVICE_NET_RELEASES = (
     "https://github.com/libimobiledevice-win32/imobiledevice-net/releases"
 )
+# The official imobiledevice-net release zips ship as
+#   libimobiledevice.<version>-<rev>-win-x64.zip   (or -win-x86.zip)
+# verified against the v1.3.17 release - asset names start with
+# "libimobiledevice." (period), NOT "libimobiledevice-net-".
 WINDOWS_INSTALL_GUIDE = (
     "Two pieces are required on Windows:\n"
-    "  1. Apple Mobile Device Service (USB pairing/driver layer):\n"
+    "\n"
+    "  1. Apple Mobile Device Service (USB pairing / driver layer):\n"
     "       - Install \"Apple Devices\" from the Microsoft Store, OR\n"
     "       - Install iTunes from https://www.apple.com/itunes/.\n"
+    "\n"
     "  2. libimobiledevice tools (idevice_id.exe, idevicesyslog.exe).\n"
-    "     Pick whichever of these you can run:\n"
-    "       a) Scoop (recommended - smallest install):\n"
-    "            iwr -useb get.scoop.sh | iex     (in PowerShell)\n"
-    "            scoop bucket add extras\n"
-    "            scoop install libimobiledevice\n"
-    "       b) Chocolatey (Admin shell required):\n"
-    "            choco install libimobiledevice\n"
-    "       c) Manual zip download (no package manager needed):\n"
-    "            " + IMOBILEDEVICE_NET_RELEASES + "\n"
-    "            Download the latest libimobiledevice-net-*-win-x64.zip\n"
-    "            (or arm64 if you're on a Snapdragon Surface), extract\n"
-    "            it somewhere stable like C:\\tools\\libimobiledevice,\n"
-    "            and add that folder to your PATH (System Properties\n"
-    "            -> Environment Variables -> Path -> Edit -> New, then\n"
-    "            open a NEW terminal so the change takes effect).\n"
-    "  Note: winget's main repo does NOT package libimobiledevice. If\n"
-    "  `winget search libimobiledevice` returns nothing, that's expected\n"
-    "  and not a bug - use scoop / choco / the manual zip instead."
+    "     Heads-up: winget, Chocolatey, and Scoop's official `extras`\n"
+    "     bucket do NOT package libimobiledevice (verified). The\n"
+    "     reliable path is a manual zip download:\n"
+    "\n"
+    "       a) Open " + IMOBILEDEVICE_NET_RELEASES + "\n"
+    "       b) Under the latest release's \"Assets\", download the file\n"
+    "          named  libimobiledevice.<version>-<rev>-win-x64.zip\n"
+    "          (or  -win-x86.zip  on 32-bit Windows). There is no\n"
+    "          official ARM64 build - Snapdragon Surface users need to\n"
+    "          run the x64 zip via emulation.\n"
+    "       c) Extract it to a stable folder, e.g.\n"
+    "          C:\\tools\\libimobiledevice  (the .exe files should sit\n"
+    "          directly in that folder).\n"
+    "       d) Add that folder to your PATH:\n"
+    "            Win+R -> sysdm.cpl -> Advanced -> Environment\n"
+    "            Variables -> Path -> Edit -> New -> paste the folder\n"
+    "            path -> OK.\n"
+    "       e) Open a NEW PowerShell / Command Prompt window so the\n"
+    "          updated PATH takes effect, then re-run this script.\n"
+    "\n"
+    "     If you already use Scoop and prefer a one-liner, a community\n"
+    "     bucket has libimobiledevice. Example using beer-psi/scoop-bucket:\n"
+    "       scoop bucket add beer-psi https://github.com/beer-psi/scoop-bucket\n"
+    "       scoop install beer-psi/libimobiledevice"
 )
 LINUX_INSTALL_HINT = (
     "Install via your distro's package manager:\n"
@@ -214,33 +223,13 @@ def _ensure_windows():
     if not missing:
         return
 
+    # No reliable auto-install path on stock Windows: winget, Chocolatey,
+    # and Scoop's official `extras` bucket all have zero matches for
+    # libimobiledevice (verified against each registry directly). Older
+    # versions of this script tried each in turn and shipped misleading
+    # success prompts before failing. Don't do that anymore - just print
+    # the manual instructions and exit.
     print(f"[deps] Missing on PATH: {', '.join(missing)} (libimobiledevice tools).")
-    print("[deps] Reminder: Apple Mobile Device Service is also required for")
-    print("[deps] USB pairing - install \"Apple Devices\" (Microsoft Store) or iTunes.")
-
-    # Scoop is the most reliable auto-install path on Windows; the
-    # libimobiledevice package lives in scoop's `extras` bucket.
-    # winget's main repo does NOT have libimobiledevice (verified - it
-    # returns "No packages match"), so we deliberately don't try it.
-    scoop = _which("scoop")
-    if scoop:
-        if _prompt_yes("Found scoop on PATH. Install via `scoop install libimobiledevice` (extras bucket)?"):
-            # Adding the bucket is idempotent - exit 0 if already added.
-            subprocess.call([scoop, "bucket", "add", "extras"])
-            rc = subprocess.call([scoop, "install", "libimobiledevice"])
-            if rc == 0:
-                still_missing = [c for c in REQUIRED_TOOLS if not _which(c)]
-                if not still_missing:
-                    return
-                print(f"[deps] scoop reported success but {', '.join(still_missing)} not")
-                print("[deps] yet on PATH. Open a NEW terminal and re-run this script.")
-                sys.exit(1)
-            print(f"[deps] scoop install exited with status {rc}.")
-        else:
-            print("[deps] Skipping scoop install.")
-    else:
-        print("[deps] scoop not detected on PATH.")
-
     print()
     print("[deps] " + WINDOWS_INSTALL_GUIDE)
     sys.exit(1)
