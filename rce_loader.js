@@ -456,6 +456,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 var result = false;
                 var attemptStart = Date.now();
                 try {
+                    globalThis.__bb_rce_attempt_idx = retryIdx;
                     result = await attempt.start();
                 } catch(e) {
                     lastFailure = "exception in check_attempt.start: " + (e && e.stack ? e.stack : e);

