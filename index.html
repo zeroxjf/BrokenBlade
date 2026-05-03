@@ -468,6 +468,41 @@
     }
     .debug strong { color: #0c3954; font-weight: 700; }
     .debug a { color: #155274; text-decoration: underline; }
+    .beta-chip {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 2px 10px;
+      background: #b91c1c;
+      color: #fff;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      vertical-align: middle;
+      box-shadow: 0 2px 6px rgba(185,28,28,0.30);
+      text-transform: uppercase;
+    }
+    .beta-banner {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-left: 4px solid #b91c1c;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      color: #7f1d1d;
+    }
+    .beta-banner strong { color: #5b0d0d; font-weight: 800; }
+    .beta-banner-title {
+      display: block;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      color: #b91c1c;
+      margin-bottom: 4px;
+    }
     .debug a.debug-download {
       display: inline-block;
       padding: 4px 12px;
@@ -1620,8 +1655,8 @@
 <body>
   <div class="page">
     <div class="page-header">
-      <div class="page-title">BrokenBlade</div>
-      <div class="page-subtitle">iOS research tool(s)? 👀</div>
+      <div class="page-title">BrokenBlade<span class="beta-chip">Beta</span></div>
+      <div class="page-subtitle">iOS 18 userland exploit chain &mdash; beta testing, use at your own risk</div>
       <div class="page-author">
         <a href="https://twitter.com/zeroxjf" target="_blank" rel="noopener" title="Follow @zeroxjf on X / Twitter">
           @zeroxjf
@@ -1651,6 +1686,11 @@
     <div class="section">
       <p id="supportMsg" style="font-size:0.78rem;margin-bottom:4px"></p>
       <p style="font-size:0.7rem;color:var(--faint);margin-bottom:10px">iPhone &middot; CVE window 18.0&ndash;18.6.2 &middot; sampled offsets 18.0&ndash;18.3, bundled 18.4&ndash;18.6.2</p>
+
+      <div class="beta-banner" role="alert">
+        <span class="beta-banner-title">Beta &mdash; use at your own risk</span>
+        This is an active beta of an experimental userland exploit chain. <strong>Not for daily drivers.</strong> Expect: page freezes, Safari crashes, repeated retries, occasional SpringBoard crashes, and (rarely) a kernel panic. Back up before testing. Author is not liable for any damage or data loss.
+      </div>
 
       <div class="tweak-list" style="display:none">
         <div class="tweak-section-label">SpringBoard</div>
@@ -1891,7 +1931,7 @@
       </div>
     </details>
 
-    <details class="warning">
+    <details open class="warning">
       <summary><strong>Use caution</strong> &mdash; unstable, not for daily drivers</summary>
       <div class="details-body">
         Derived from the <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">DarkSword</a> exploit chain with all malware communication stripped and <a href="https://github.com/zeroxjf/BrokenBlade">fully open source</a>, but this is an inherently unstable chain and is <strong>not recommended for deployment on a daily driver</strong> unless you are willing to accept the risk. The chain may take several tries to succeed, SpringBoard may crash, the kernel may panic. Use at your own risk &mdash; I am not liable for any damage or data loss.
