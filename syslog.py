@@ -6,11 +6,17 @@ Dependencies (auto-detected on first run; install path depends on host OS):
   macOS  - Auto-installs Homebrew + libimobiledevice on first run if either
            is missing. Asks for sudo password when needed.
 
-  Windows - Detects winget; if available, prompts to install
-            `imobiledevice-net.imobiledevice-net`. Also reminds the user
-            that the Apple Mobile Device Service (driver/pairing layer)
-            must be installed separately - either by installing the
-            "Apple Devices" app from Microsoft Store or iTunes.
+  Windows - Detects scoop; if available, prompts to add the `extras`
+            bucket and run `scoop install libimobiledevice`. winget's
+            main repo does NOT package libimobiledevice (despite older
+            versions of this script trying to use it), so we don't
+            attempt winget at all anymore. Falls back to a manual
+            install guide (scoop, chocolatey, or prebuilt zip from
+            imobiledevice-net releases) if scoop isn't available or
+            the install fails. Also reminds the user that the Apple
+            Mobile Device Service (driver/pairing layer) must be
+            installed separately - either by installing the "Apple
+            Devices" app from Microsoft Store or iTunes.
 
   Linux  - Prints a package-manager hint
            (`apt install libimobiledevice-utils` etc.) and exits if
@@ -134,17 +140,33 @@ def _print_device_banner(udids):
         print(f"[syslog] Multiple devices connected; idevicesyslog will follow {udids[0]}.")
 
 
-WINGET_PACKAGE_ID = "imobiledevice-net.imobiledevice-net"
+IMOBILEDEVICE_NET_RELEASES = (
+    "https://github.com/libimobiledevice-win32/imobiledevice-net/releases"
+)
 WINDOWS_INSTALL_GUIDE = (
     "Two pieces are required on Windows:\n"
-    "  1. Apple Mobile Device Service (USB pairing/driver layer).\n"
+    "  1. Apple Mobile Device Service (USB pairing/driver layer):\n"
     "       - Install \"Apple Devices\" from the Microsoft Store, OR\n"
     "       - Install iTunes from https://www.apple.com/itunes/.\n"
     "  2. libimobiledevice tools (idevice_id.exe, idevicesyslog.exe).\n"
-    "       - winget: winget install --id " + WINGET_PACKAGE_ID + "\n"
-    "       - or download a prebuilt zip from\n"
-    "           https://github.com/libimobiledevice-win32/imobiledevice-net/releases\n"
-    "         and add the extracted folder to your PATH."
+    "     Pick whichever of these you can run:\n"
+    "       a) Scoop (recommended - smallest install):\n"
+    "            iwr -useb get.scoop.sh | iex     (in PowerShell)\n"
+    "            scoop bucket add extras\n"
+    "            scoop install libimobiledevice\n"
+    "       b) Chocolatey (Admin shell required):\n"
+    "            choco install libimobiledevice\n"
+    "       c) Manual zip download (no package manager needed):\n"
+    "            " + IMOBILEDEVICE_NET_RELEASES + "\n"
+    "            Download the latest libimobiledevice-net-*-win-x64.zip\n"
+    "            (or arm64 if you're on a Snapdragon Surface), extract\n"
+    "            it somewhere stable like C:\\tools\\libimobiledevice,\n"
+    "            and add that folder to your PATH (System Properties\n"
+    "            -> Environment Variables -> Path -> Edit -> New, then\n"
+    "            open a NEW terminal so the change takes effect).\n"
+    "  Note: winget's main repo does NOT package libimobiledevice. If\n"
+    "  `winget search libimobiledevice` returns nothing, that's expected\n"
+    "  and not a bug - use scoop / choco / the manual zip instead."
 )
 LINUX_INSTALL_HINT = (
     "Install via your distro's package manager:\n"
@@ -196,25 +218,28 @@ def _ensure_windows():
     print("[deps] Reminder: Apple Mobile Device Service is also required for")
     print("[deps] USB pairing - install \"Apple Devices\" (Microsoft Store) or iTunes.")
 
-    winget = _which("winget")
-    if winget:
-        if _prompt_yes(f"Try `winget install --id {WINGET_PACKAGE_ID}` now?"):
-            rc = subprocess.call([
-                winget, "install", "--id", WINGET_PACKAGE_ID,
-                "--accept-package-agreements", "--accept-source-agreements",
-            ])
+    # Scoop is the most reliable auto-install path on Windows; the
+    # libimobiledevice package lives in scoop's `extras` bucket.
+    # winget's main repo does NOT have libimobiledevice (verified - it
+    # returns "No packages match"), so we deliberately don't try it.
+    scoop = _which("scoop")
+    if scoop:
+        if _prompt_yes("Found scoop on PATH. Install via `scoop install libimobiledevice` (extras bucket)?"):
+            # Adding the bucket is idempotent - exit 0 if already added.
+            subprocess.call([scoop, "bucket", "add", "extras"])
+            rc = subprocess.call([scoop, "install", "libimobiledevice"])
             if rc == 0:
                 still_missing = [c for c in REQUIRED_TOOLS if not _which(c)]
                 if not still_missing:
                     return
-                print(f"[deps] winget reported success but {', '.join(still_missing)} not")
+                print(f"[deps] scoop reported success but {', '.join(still_missing)} not")
                 print("[deps] yet on PATH. Open a NEW terminal and re-run this script.")
                 sys.exit(1)
-            print(f"[deps] winget exited with status {rc}.")
+            print(f"[deps] scoop install exited with status {rc}.")
         else:
-            print("[deps] Skipping winget install.")
+            print("[deps] Skipping scoop install.")
     else:
-        print("[deps] winget not detected on PATH.")
+        print("[deps] scoop not detected on PATH.")
 
     print()
     print("[deps] " + WINDOWS_INSTALL_GUIDE)
