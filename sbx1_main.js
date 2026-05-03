@@ -7498,7 +7498,7 @@
       ]);
       pe_stage1_js_data = gpuCopyBuffer(read64(addrof(pe_stage1_js_data_array) + 0x10n), BigInt(pe_stage1_js_data_array.length));
       let pe_main_js_str = getJS('pe_main.js?' + Date.now());
-      let lsTweaksRaw = (typeof globalThis.__ls_tweaks === 'string' && globalThis.__ls_tweaks.length > 0) ? globalThis.__ls_tweaks : 'fiveicon';
+      let lsTweaksRaw = (typeof globalThis.__ls_tweaks === 'string') ? globalThis.__ls_tweaks : '';
       let validTweaks = { fiveicon: 1, powercuff: 1, mgpatcher: 1, applimit: 1 };
       let lsTweakSet = {};
       let lsTweakParts = lsTweaksRaw.split(',');
@@ -7510,8 +7510,6 @@
       let lsRunMode = (globalThis.__ls_run_mode === 'cleanup') ? 'cleanup' : 'install';
       if (lsRunMode === 'cleanup') {
         lsTweakSet = { fiveicon: false, powercuff: false, mgpatcher: false, applimit: false };
-      } else if (!lsTweakSet.fiveicon && !lsTweakSet.powercuff && !lsTweakSet.mgpatcher && !lsTweakSet.applimit) {
-        lsTweakSet.fiveicon = true; // safe default
       }
       let lsLevelRaw = (typeof globalThis.__powercuff_level === 'string') ? globalThis.__powercuff_level : 'heavy';
       let validLevels = { off: 1, nominal: 1, light: 1, moderate: 1, heavy: 1 };

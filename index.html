@@ -2983,13 +2983,6 @@
       if (!canRun) return;
       var sel = gatherSelection();
       var statusEl = document.getElementById('installStatus');
-      if (sel.tweaks.length === 0) {
-        if (statusEl) {
-          statusEl.className = 'install-status error';
-          statusEl.textContent = 'Select at least one tweak to install.';
-        }
-        return;
-      }
       if (statusEl) {
         statusEl.className = 'install-status';
         statusEl.textContent = '';
@@ -3052,7 +3045,7 @@
     function runExploit(tweaks, level, sbc, mg_flags, mg_unflags, mode) {
       if (!canRun) return;
       mode = (mode === 'cleanup') ? 'cleanup' : 'install';
-      if (mode !== 'cleanup' && (!tweaks || tweaks.length === 0)) tweaks = ['fiveicon'];
+      if (!tweaks) tweaks = [];
       if (mode === 'cleanup') tweaks = [];
       level = level || 'heavy';
       sbc = sbc || { dock_icons: 4, hs_cols: 4, hs_rows: 6, hide_labels: 0 };
@@ -3123,7 +3116,7 @@
       var tweakDisplayNames = { fiveicon: 'SBCustomizer', powercuff: 'Powercuff', mgpatcher: 'MobileGestalt Patcher', applimit: '3-App Limit Bypass' };
       var displayTweaks = tweaks.map(function(t) { return tweakDisplayNames[t] || t; });
       rawLogAppend('[UI] WebContent log armed', 'ok');
-      logAppend(mode === 'cleanup' ? 'Starting cleanup-only run' : 'Starting install with: ' + displayTweaks.join(', '), 'ok');
+      logAppend(mode === 'cleanup' ? 'Starting cleanup-only run' : (displayTweaks.length ? 'Starting install with: ' + displayTweaks.join(', ') : 'Starting chain-only install'), 'ok');
       startLogWatchdog();
       scrollToLog();
 
