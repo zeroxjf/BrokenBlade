@@ -2,20 +2,37 @@
 
 **[zeroxjf.github.io/BrokenBlade](https://zeroxjf.github.io/BrokenBlade/)**
 
-iOS 18.4 - 18.6.2 userland exploit chain with JavaScript injection that modifies SpringBoard and other system processes at runtime. Open source, derived from [DarkSword](https://iverify.io/blog/darksword-ios-exploit-kit-explained) with all malware communication stripped.
+iOS 18.x userland exploit-chain research project with JavaScript injection that modifies SpringBoard and other system processes at runtime. Based on CVE patch levels, the theoretical iOS 18 vulnerability window is 18.0 - 18.6.2; bundled runtime offsets cover iOS 18.4 - 18.6.2 plus sampled early-build support for 18.0 - 18.3. Open source, derived from [DarkSword](https://iverify.io/blog/darksword-ios-exploit-kit-explained) with all malware communication stripped.
 
 > **This is not tweak injection.** It is runtime JS modification through an exploit chain. Changes persist until respring or reboot - this is not dylib injection like a full jailbreak.
 
 ## Supported devices
 
-Every arm64e iPhone (A12 - A18 Pro) running iOS 18.4 - 18.6.2.
+The theoretical device class is every arm64e iPhone (A12 - A18 Pro) running iOS 18.0 - 18.6.2.
+
+Bundled offset-backed runtime support covers every arm64e iPhone (A12 - A18 Pro) running iOS 18.4 - 18.6.2, plus the sampled early-build devices below:
+
+| iOS | Build | Runtime status |
+|---|---:|---|
+| 18.0 | 22A3354 | Bundled sampled offsets: A12 `iPhone11,8`, A18 Pro `iPhone17,1` |
+| 18.1 | 22B83 | Bundled sampled offsets: A13 `iPhone12,1` |
+| 18.2 | 22C152 | Bundled sampled offsets: A14 `iPhone13,2/13,3`, A16 `iPhone15,2` |
+| 18.3 | 22D63 | Bundled sampled offsets: A15 `iPhone14,5`, A17 Pro `iPhone16,1` |
+| 18.4 | 22E240 | Bundled |
+| 18.4.1 | 22E252 | Bundled |
+| 18.5 | 22F76 | Bundled |
+| 18.6 | 22G86 | Bundled |
+| 18.6.1 | 22G90 | Bundled |
+| 18.6.2 | 22G100 | Bundled |
+
+The early-build sampling intentionally staggers OS versions across hardware generations. Device model prefixes are not SoC names: `iPhone13,2/13,3` is A14 hardware, and the runtime `device_chipset` hashes are existing per-model profile identifiers rather than labels derived from the visible model number.
 
 ## Roadmap
 
 > **To do**
 >
 > - [ ] Improve chain reliability and reproducibility
-> - [ ] Add offsets to support more iOS 18.x versions
+> - [ ] Broaden iOS 18.0 - 18.3.x offsets beyond the sampled early-build devices
 > - [ ] Get StatBar functional (data reporting works but UI display hits nonstop PAC violations)
 > - [ ] Resolve compatibility issues with Nugget and similar tools
 
@@ -25,7 +42,8 @@ Every arm64e iPhone (A12 - A18 Pro) running iOS 18.4 - 18.6.2.
 > - [x] SBCustomizer (dock icons, home grid columns/rows, hide labels)
 > - [x] Powercuff battery saver (4 throttle levels via thermalmonitord)
 > - [x] Multi-tweak picker with single chain execution
-> - [x] Support for every arm64e iPhone on iOS 18.4 - 18.6.2
+> - [x] Offset-backed support for every arm64e iPhone on iOS 18.4 - 18.6.2
+> - [x] Sampled offset-backed support for A12/A13/A14/A15/A16/A17 Pro/A18 Pro on early iOS 18 builds
 > - [x] #cloutfarmed
 
 ## How it works
@@ -84,10 +102,10 @@ See [`logs/example_successful_run.txt`](logs/example_successful_run.txt) for wha
 index.html              Main install page (Safari UI)
 frame.html              Exploit iframe shell
 rce_loader.js           Iframe-side bootstrap + postMessage router
-rce_worker.js           WebContent worker (iOS 18.4)
-rce_worker_18.6.js      WebContent worker (iOS 18.5-18.6.2)
-rce_module.js           Heap shaping module (18.4)
-rce_module_18.6.js      Heap shaping module (18.5-18.6.2)
+rce_worker.js           WebContent worker (iOS 18.4-18.5 path)
+rce_worker_18.6.js      WebContent worker (iOS 18.6-18.6.2 path)
+rce_module.js           Heap shaping module (iOS 18.4-18.5 path)
+rce_module_18.6.js      Heap shaping module (iOS 18.6-18.6.2 path)
 sbx0_main_18.4.js       Sandbox escape
 sbx1_main.js            Kernel R/W + process injection bridge
 pe_main.js              Payload dispatch in mediaplaybackd

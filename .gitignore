@@ -1,7 +1,14 @@
 CLAUDE.md
 .DS_Store
+__pycache__/
 syslog.py
 syslog.txt
 logs/syslog_*.txt
 brokenblade-logs/
 lightsaber-logs/
+firmware/ipsw/
+firmware/extracted/
+firmware/reference/
+firmware/work/*_symaddr_all.txt
+firmware/work/*_libsystem_pthread_image.txt
+firmware/work/checksums.txt.sha1

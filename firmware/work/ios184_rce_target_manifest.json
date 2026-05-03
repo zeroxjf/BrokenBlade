@@ -1,0 +1,470 @@
+[
+  {
+    "build": "22E240",
+    "device": "iPhone11,2",
+    "device_key": "iPhone11,2_4_6_22E240",
+    "group": "iPhone11,2_4_6",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-13816/F8D156A2-DBE7-49A4-8C2C-6EF6F6776F06/iPhone11,2,iPhone11,4,iPhone11,6_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone11,2",
+    "device_key": "iPhone11,2_4_6_22E252",
+    "group": "iPhone11,2_4_6",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30237/B50CA9AE-E891-4FD5-943E-859351EFB4D2/iPhone11,2,iPhone11,4,iPhone11,6_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone11,8",
+    "device_key": "iPhone11,8_22E240",
+    "group": "iPhone11,8",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14374/4BFDFFD2-985B-46A1-9444-D7EFB985F545/iPhone11,8_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone11,8",
+    "device_key": "iPhone11,8_22E252",
+    "group": "iPhone11,8",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30644/F961D9FC-ECB1-4F07-9AFC-EB3A21E2C4B5/iPhone11,8_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone12,1",
+    "device_key": "iPhone12,1_22E240",
+    "group": "iPhone12,1",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14797/272F08A9-B8B7-4649-9954-D83781B69280/iPhone12,1_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone12,1",
+    "device_key": "iPhone12,1_22E252",
+    "group": "iPhone12,1",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30402/13553856-A712-4685-A8CA-166E200A3EEE/iPhone12,1_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone12,3",
+    "device_key": "iPhone12,3_5_22E240",
+    "group": "iPhone12,3_5",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15843/BDD88763-DC3F-4DB6-B82D-133EAB3E5F49/iPhone12,3,iPhone12,5_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone12,3",
+    "device_key": "iPhone12,3_5_22E252",
+    "group": "iPhone12,3_5",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30986/19344EB5-D5B5-40C0-A5F7-6C638AF45CF2/iPhone12,3,iPhone12,5_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone12,8",
+    "device_key": "iPhone12,8_22E240",
+    "group": "iPhone12,8",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15768/008C2862-195B-48EE-B790-997431B752FD/iPhone12,8_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone12,8",
+    "device_key": "iPhone12,8_22E252",
+    "group": "iPhone12,8",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31872/FFC95CB0-EA97-4089-A807-21B3E186718A/iPhone12,8_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone13,1",
+    "device_key": "iPhone13,1_22E240",
+    "group": "iPhone13,1",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15314/34DD1101-1684-4D2D-8BF8-651A10139FE4/iPhone13,1_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone13,1",
+    "device_key": "iPhone13,1_22E252",
+    "group": "iPhone13,1",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31930/77C3D2A9-2254-4773-B76F-6C883A3C61B5/iPhone13,1_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone13,2",
+    "device_key": "iPhone13,2_3_22E240",
+    "group": "iPhone13,2_3",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15147/92F711E1-9EE9-4B8E-84AE-5DE332AD9517/iPhone13,2,iPhone13,3_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone13,2",
+    "device_key": "iPhone13,2_3_22E252",
+    "group": "iPhone13,2_3",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30403/CE4C8197-9ADB-4797-95E6-21897D1FD27C/iPhone13,2,iPhone13,3_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone13,4",
+    "device_key": "iPhone13,4_22E240",
+    "group": "iPhone13,4",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-13885/4E71EC64-57CE-4017-865D-4EEBA8E0094F/iPhone13,4_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone13,4",
+    "device_key": "iPhone13,4_22E252",
+    "group": "iPhone13,4",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31629/2068F838-7EF9-4955-8A4B-2F62340720EC/iPhone13,4_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone14,2",
+    "device_key": "iPhone14,2_22E240",
+    "group": "iPhone14,2",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15570/AD50DD97-8FAC-4A3E-9509-9DAA1E5F7AF1/iPhone14,2_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone14,2",
+    "device_key": "iPhone14,2_22E252",
+    "group": "iPhone14,2",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30771/F9B3FC0B-F517-4988-A60C-89A9DFDE19B8/iPhone14,2_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone14,3",
+    "device_key": "iPhone14,3_22E240",
+    "group": "iPhone14,3",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14504/E2ABACCD-E2EE-4C2E-995D-51BB5D13C73F/iPhone14,3_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone14,3",
+    "device_key": "iPhone14,3_22E252",
+    "group": "iPhone14,3",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30719/80BA70E8-C4B7-4024-98CC-CFB4E94A1F45/iPhone14,3_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone14,4",
+    "device_key": "iPhone14,4_22E240",
+    "group": "iPhone14,4",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14511/C56636C7-0204-4E75-B739-61C466779338/iPhone14,4_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone14,4",
+    "device_key": "iPhone14,4_22E252",
+    "group": "iPhone14,4",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30414/602FC797-B309-4EBC-B8D2-DBE4B3E5EB4A/iPhone14,4_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone14,5",
+    "device_key": "iPhone14,5_22E240",
+    "group": "iPhone14,5",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14842/53873720-0BBD-46F5-8D4B-FD0944239F23/iPhone14,5_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone14,5",
+    "device_key": "iPhone14,5_22E252",
+    "group": "iPhone14,5",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-32033/609811BD-3F4B-4D8A-B7D2-AEE9E8AF29A4/iPhone14,5_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone14,6",
+    "device_key": "iPhone14,6_22E240",
+    "group": "iPhone14,6",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-13918/885623C2-56B7-4AE7-8C37-C523C682271B/iPhone14,6_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone14,6",
+    "device_key": "iPhone14,6_22E252",
+    "group": "iPhone14,6",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31670/8AB1A2B4-9357-44E2-AF91-769D7885E68C/iPhone14,6_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone14,7",
+    "device_key": "iPhone14,7_22E240",
+    "group": "iPhone14,7",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15157/41C959D8-AE1C-4422-BF87-A4EE566F68F7/iPhone14,7_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone14,7",
+    "device_key": "iPhone14,7_22E252",
+    "group": "iPhone14,7",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30563/AC21E0CD-9427-4F5E-9FE7-9D39765D1304/iPhone14,7_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone14,8",
+    "device_key": "iPhone14,8_22E240",
+    "group": "iPhone14,8",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15901/45C85DC8-7B35-48A8-ABCA-808DAF7897F1/iPhone14,8_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone14,8",
+    "device_key": "iPhone14,8_22E252",
+    "group": "iPhone14,8",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31543/505F17A7-37F0-43D2-B3DE-A802E747F205/iPhone14,8_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone15,2",
+    "device_key": "iPhone15,2_22E240",
+    "group": "iPhone15,2",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15819/37A3D476-CEC3-437E-A2DC-36EB0E1172BB/iPhone15,2_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone15,2",
+    "device_key": "iPhone15,2_22E252",
+    "group": "iPhone15,2",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31214/7F5845A1-E9B8-4765-BBE0-01D2040A1211/iPhone15,2_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone15,3",
+    "device_key": "iPhone15,3_22E240",
+    "group": "iPhone15,3",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14586/9F474C33-8636-45DF-855D-CD46CA479245/iPhone15,3_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone15,3",
+    "device_key": "iPhone15,3_22E252",
+    "group": "iPhone15,3",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31307/E3363401-54EB-4BF1-BEF5-F260B60016CF/iPhone15,3_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone15,4",
+    "device_key": "iPhone15,4_22E240",
+    "group": "iPhone15,4",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-13939/96408796-FA78-4B73-ABF1-29721C523700/iPhone15,4_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone15,4",
+    "device_key": "iPhone15,4_22E252",
+    "group": "iPhone15,4",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31104/5AF0436F-C529-41F7-86D0-C20F112D6F98/iPhone15,4_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone15,5",
+    "device_key": "iPhone15,5_22E240",
+    "group": "iPhone15,5",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14323/ACF227AC-3390-43A6-ABF8-6D28127D5B5D/iPhone15,5_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone15,5",
+    "device_key": "iPhone15,5_22E252",
+    "group": "iPhone15,5",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30955/EFC5FE4A-6B8C-4FD7-AC63-05EE3ADAD923/iPhone15,5_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone16,1",
+    "device_key": "iPhone16,1_22E240",
+    "group": "iPhone16,1",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15134/AB2A51C2-B3BE-48E0-B2BE-5A9E068152AE/iPhone16,1_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone16,1",
+    "device_key": "iPhone16,1_22E252",
+    "group": "iPhone16,1",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30328/72255C68-7127-4B06-A7C3-540D8D0B6147/iPhone16,1_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone16,2",
+    "device_key": "iPhone16,2_22E240",
+    "group": "iPhone16,2",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14019/C558013D-A1E9-485D-BEF4-52BDB11041D7/iPhone16,2_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone16,2",
+    "device_key": "iPhone16,2_22E252",
+    "group": "iPhone16,2",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30136/119F7311-D430-4FE8-9C01-9B7F6D23B543/iPhone16,2_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone17,1",
+    "device_key": "iPhone17,1_22E240",
+    "group": "iPhone17,1",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14531/B393F94D-A15B-4411-AC3C-276402012455/iPhone17,1_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone17,1",
+    "device_key": "iPhone17,1_22E252",
+    "group": "iPhone17,1",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31183/7F0822F7-DB32-455F-BB51-34D64CAB0FAD/iPhone17,1_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone17,2",
+    "device_key": "iPhone17,2_22E240",
+    "group": "iPhone17,2",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-15610/329926BB-4CC3-4704-B49E-4465302D870C/iPhone17,2_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone17,2",
+    "device_key": "iPhone17,2_22E252",
+    "group": "iPhone17,2",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31406/BB80EF6A-7952-4599-9629-610E4B83867F/iPhone17,2_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone17,3",
+    "device_key": "iPhone17,3_22E240",
+    "group": "iPhone17,3",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14688/8DC47FED-F5B6-4BE6-B75F-8E36BCC5A484/iPhone17,3_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone17,3",
+    "device_key": "iPhone17,3_22E252",
+    "group": "iPhone17,3",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-30380/AD76C77E-51AA-4D55-A074-9C0E7545D784/iPhone17,3_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone17,4",
+    "device_key": "iPhone17,4_22E240",
+    "group": "iPhone17,4",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14126/4470E23E-16E7-489F-8CB1-BE2B57146230/iPhone17,4_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone17,4",
+    "device_key": "iPhone17,4_22E252",
+    "group": "iPhone17,4",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-31604/1B81A3BC-552E-4DE8-B15E-D795E9E2C202/iPhone17,4_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E240",
+    "device": "iPhone17,5",
+    "device_key": "iPhone17,5_22E240",
+    "group": "iPhone17,5",
+    "ios": "18.4",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-14296/C74EADF7-DE53-48A8-A5CB-C9ED16BA8E65/iPhone17,5_18.4_22E240_Restore.ipsw",
+    "url_status": "ok"
+  },
+  {
+    "build": "22E252",
+    "device": "iPhone17,5",
+    "device_key": "iPhone17,5_22E252",
+    "group": "iPhone17,5",
+    "ios": "18.4.1",
+    "url": "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/082-32018/BFD7A3AB-05DA-498D-8795-1292E64C6DA1/iPhone17,5_18.4.1_22E252_Restore.ipsw",
+    "url_status": "ok"
+  }
+]

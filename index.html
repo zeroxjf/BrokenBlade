@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BrokenBlade</title>
-  <meta name="description" content="iOS 18.4-18.6.2 userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Open source, derived from DarkSword.">
+  <meta name="description" content="iOS 18.0-18.6.2 theoretical CVE window; bundled offsets cover 18.4-18.6.2 plus sampled 18.0-18.3 builds. Open source, derived from DarkSword.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="BrokenBlade">
-  <meta property="og:title" content="BrokenBlade - iOS 18.4-18.6.2 research tool">
+  <meta property="og:title" content="BrokenBlade - iOS 18.x research tool">
   <meta property="og:description" content="iOS userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Open source, derived from DarkSword.">
   <meta property="og:url" content="https://zeroxjf.github.io/BrokenBlade/">
   <meta property="og:image" content="https://zeroxjf.github.io/BrokenBlade/icons/brokenblade-logo.png">
@@ -17,7 +17,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@zeroxjf">
   <meta name="twitter:creator" content="@zeroxjf">
-  <meta name="twitter:title" content="BrokenBlade - iOS 18.4-18.6.2 research tool">
+  <meta name="twitter:title" content="BrokenBlade - iOS 18.x research tool">
   <meta name="twitter:description" content="iOS userland exploit chain with JavaScript injection that modifies SpringBoard and other processes at runtime. Open source, derived from DarkSword.">
   <meta name="twitter:image" content="https://zeroxjf.github.io/BrokenBlade/icons/brokenblade-logo.png">
   <meta name="twitter:image:alt" content="BrokenBlade logo - broken sword">
@@ -1632,7 +1632,7 @@
 
     <div class="section">
       <p id="supportMsg" style="font-size:0.78rem;margin-bottom:4px"></p>
-      <p style="font-size:0.7rem;color:var(--faint);margin-bottom:10px">iPhone &middot; iOS 18.4&ndash;18.6.2</p>
+      <p style="font-size:0.7rem;color:var(--faint);margin-bottom:10px">iPhone &middot; CVE window 18.0&ndash;18.6.2 &middot; sampled offsets 18.0&ndash;18.3, bundled 18.4&ndash;18.6.2</p>
 
       <div class="tweak-list" style="display:none">
         <div class="tweak-section-label">SpringBoard</div>
@@ -2383,15 +2383,25 @@
     var supportMsg = document.getElementById('supportMsg');
     var canRun = false;
 
+    // Allow any iOS 18 build through 18.6.2; older majors and 18.6.3+ /
+    // 18.7+ / 19+ are red. Per-build offset coverage is sorted out at
+    // runtime by the chain itself.
+    function inSupportedWindow(maj, min, pat) {
+      if (maj !== 18) return false;
+      if (min < 6) return true;
+      if (min === 6 && pat <= 2) return true;
+      return false;
+    }
+
     var supportText = '';
     var supportColor = '';
     if (!isIphone) {
       supportColor = '#b91c1c';
       supportText = 'Not an iPhone';
-    } else if (major < 18 || (major === 18 && minor < 4)) {
+    } else if (major < 18) {
       supportColor = '#b91c1c';
       supportText = 'iOS ' + iosVer + ' \u2014 not supported';
-    } else if (major === 18 && minor >= 4 && (minor < 6 || (minor === 6 && patch <= 2))) {
+    } else if (inSupportedWindow(major, minor, patch)) {
       supportColor = '#15803d';
       supportText = 'iOS ' + iosVer + ' \u2014 supported';
       canRun = true;
