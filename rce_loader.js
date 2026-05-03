@@ -220,7 +220,9 @@ function hasBundledOffsetSupport(version) {
     const major = version[0];
     const minor = version[1];
     const patch = version.length > 2 ? version[2] : 0;
-    return major === 18 && (minor < 6 || (minor === 6 && patch <= 2));
+    if (major !== 18) return false;
+    if (minor <= 3) return patch === 0;
+    return minor < 6 || (minor === 6 && patch <= 2);
 }
 function isTheoreticalIos18Window(version) {
     if (!Array.isArray(version) || version.length < 2) return false;
