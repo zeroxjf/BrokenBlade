@@ -204,8 +204,16 @@ function isIos186Path(version) {
     const key = iosVersionKey(version);
     return key === '18,6' || key === '18,6,1' || key === '18,6,2';
 }
+function isEarlyIos18Path(version) {
+    return Array.isArray(version) && version[0] === 18 && version[1] <= 3;
+}
+function isWorkerRcePath(version) {
+    return isEarlyIos18Path(version) || isIos186Path(version);
+}
 function rcePathName(version) {
-    return isIos186Path(version) ? "iOS 18.6.x worker RCE path" : "iOS 18.0-18.5 check_attempt RCE path";
+    if (isEarlyIos18Path(version)) return "iOS 18.0-18.3 worker RCE path";
+    if (isIos186Path(version)) return "iOS 18.6.x worker RCE path";
+    return "iOS 18.4-18.5 check_attempt RCE path";
 }
 function hasBundledOffsetSupport(version) {
     if (!Array.isArray(version) || version.length < 2) return false;
@@ -229,7 +237,7 @@ print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " twe
 print("Selected RCE route: " + rcePathName(ios_version) + " for detected iOS " + iosVersionString(ios_version));
 print("Loading worker code...");
 let workerCode = "";
-if(isIos186Path(ios_version)) {
+if(isWorkerRcePath(ios_version)) {
     print("Using rce_worker_18.6.js for " + rcePathName(ios_version));
     workerCode = getJS(`rce_worker_18.6.js?${Date.now()}`); // local version
     if (!workerCode || !workerCode.trim()) {
@@ -394,7 +402,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         try
         {
         let rceCode = "";
-        if(isIos186Path(ios_version)) {
+        if(isWorkerRcePath(ios_version)) {
                 rceCode = getJS(`rce_module_18.6.js?${Date.now()}`); // local version
             } else {
                 rceCode = getJS(`rce_module.js?${Date.now()}`); // local version
@@ -416,7 +424,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         let desiredHost = "";
         desiredHost = localHost;
         print("desiredHost = " + desiredHost);
-            if(isIos186Path(ios_version))
+            if(isWorkerRcePath(ios_version))
             {
                 print("Sending stage1_rce to worker (" + rcePathName(ios_version) + ") tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
                 worker.postMessage({
