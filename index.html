@@ -231,6 +231,16 @@
       border-color: #30d158;
       pointer-events: none;
     }
+    .btn-copy-log {
+      background: #30d158;
+      color: #fff;
+      border-color: #30d158;
+      cursor: pointer;
+    }
+    .btn-copy-log:hover {
+      background: #25ad48;
+      border-color: #25ad48;
+    }
     .note {
       font-size: 0.72rem;
       color: var(--subtle);
@@ -2851,6 +2861,60 @@
       return { tweaks: tweaks, level: level, sbc: sbc, mg_flags: mgFlags.join(','), mg_unflags: mgUnflags.join(',') };
     }
 
+    // Pull every line out of #rawLogScroll, join with newlines, copy to
+    // the clipboard. Modern path uses navigator.clipboard.writeText;
+    // legacy path uses a hidden textarea + execCommand('copy') for
+    // older Safari/iOS contexts where the async clipboard API is
+    // gated. Flashes the button text to "Copied!" for ~1.5s on
+    // success so the user gets feedback without an alert/dialog.
+    function copyWebLog() {
+      var scroll = document.getElementById('rawLogScroll');
+      var btn = document.getElementById('runBtn');
+      var lines = scroll ? scroll.querySelectorAll('.raw-log-line') : [];
+      var arr = [];
+      for (var i = 0; i < lines.length; i++) arr.push(lines[i].textContent || '');
+      var text = arr.join('\n');
+      function flash(label) {
+        if (!btn) return;
+        var prev = btn.textContent;
+        btn.textContent = label;
+        setTimeout(function() {
+          if (btn.textContent === label) btn.textContent = prev;
+        }, 1500);
+      }
+      if (!text) {
+        flash('No log yet');
+        return;
+      }
+      function legacyCopy() {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          ta.style.top = '0';
+          ta.setAttribute('readonly', '');
+          document.body.appendChild(ta);
+          ta.select();
+          ta.setSelectionRange(0, text.length);
+          var ok = false;
+          try { ok = document.execCommand('copy'); } catch (e) {}
+          ta.parentNode.removeChild(ta);
+          flash(ok ? 'Copied!' : 'Copy failed');
+        } catch (e) {
+          flash('Copy failed');
+        }
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(
+          function() { flash('Copied!'); },
+          function() { legacyCopy(); }
+        );
+        return;
+      }
+      legacyCopy();
+    }
+
     function markDone(message) {
       if (doneSignal) return;
       doneSignal = true;
@@ -2863,8 +2927,8 @@
         stageBanner.classList.remove('err');
         stageBanner.classList.add('done');
       }
-      if (stageText) stageText.textContent = message ? 'Check result' : 'Install complete';
-      if (stageSub) stageSub.textContent = message ? 'Safari returned after the expected run window' : 'All tweaks applied successfully';
+      if (stageText) stageText.textContent = message ? 'Run window elapsed' : 'Install complete';
+      if (stageSub) stageSub.textContent = message ? 'Safari did not signal back. Copy the log and send it over.' : 'All tweaks applied successfully';
       markAllPhasesDone();
       try { sessionStorage.removeItem('ls_running'); } catch(e) {}
       try { localStorage.setItem(RAW_LOG_ACTIVE_KEY, '0'); } catch(e) {}
@@ -2876,8 +2940,9 @@
       }
       var btn = document.getElementById('runBtn');
       if (btn) {
-        btn.textContent = message ? 'Check Result' : 'Installed';
-        btn.className = 'btn btn-done';
+        btn.textContent = 'Copy Web Log';
+        btn.className = 'btn btn-copy-log';
+        btn.onclick = copyWebLog;
       }
     }
 
