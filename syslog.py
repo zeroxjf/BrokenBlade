@@ -1,23 +1,115 @@
 #!/usr/bin/env python3
 """Filtered idevicesyslog viewer for BrokenBlade/DarkSword exploit chain debugging.
 
-Dependencies (macOS):
+Dependencies (macOS) - auto-detected and installed on first run:
   - Homebrew                      https://brew.sh
   - libimobiledevice              brew install libimobiledevice
-    (provides the `idevicesyslog` binary used below)
-  - Python 3.8+                   preinstalled on macOS, or `brew install python`
+    (provides the `idevicesyslog` and `idevice_id` binaries)
+  - Python 3.8+                   preinstalled on macOS
 
 Usage: python3 syslog.py [output_file]
   output_file defaults to brokenblade-logs/syslog_<timestamp>.txt
   Ctrl+C to stop.
 """
 
+import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
 import threading
 from pathlib import Path
+
+BREW_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin")
+HOMEBREW_INSTALL_URL = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
+
+
+def _which(cmd):
+    p = shutil.which(cmd)
+    if p:
+        return p
+    for d in BREW_BIN_DIRS:
+        full = os.path.join(d, cmd)
+        if os.path.isfile(full) and os.access(full, os.X_OK):
+            return full
+    return None
+
+
+def _add_brew_to_path():
+    parts = os.environ.get("PATH", "").split(":")
+    changed = False
+    for d in BREW_BIN_DIRS:
+        if os.path.isdir(d) and d not in parts:
+            parts.insert(0, d)
+            changed = True
+    if changed:
+        os.environ["PATH"] = ":".join(parts)
+
+
+def _prompt_yes(msg):
+    if not sys.stdin.isatty():
+        print(f"{msg} (no TTY, refusing to auto-install)")
+        return False
+    try:
+        return input(f"{msg} [y/N] ").strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+
+
+def _install_homebrew():
+    print("[deps] Installing Homebrew (you will be prompted for your sudo password)...")
+    rc = subprocess.call([
+        "/bin/bash", "-c",
+        f'/bin/bash -c "$(curl -fsSL {HOMEBREW_INSTALL_URL})"',
+    ])
+    return rc == 0
+
+
+def _brew_install(formula):
+    brew = _which("brew")
+    if not brew:
+        return False
+    print(f"[deps] Running: {brew} install {formula}")
+    return subprocess.call([brew, "install", formula]) == 0
+
+
+def ensure_dependencies():
+    """Detect Homebrew + libimobiledevice; prompt + install whatever's missing."""
+    if sys.platform != "darwin":
+        # Other platforms: trust the user. idevicesyslog exists on Linux too
+        # (apt install libimobiledevice-utils) but we don't auto-install there.
+        return
+
+    _add_brew_to_path()
+
+    if not _which("brew"):
+        print("[deps] Homebrew is required to install libimobiledevice.")
+        if not _prompt_yes("Install Homebrew now?"):
+            print("Cannot continue without Homebrew. See https://brew.sh")
+            sys.exit(1)
+        if not _install_homebrew():
+            print("Homebrew install failed. See https://brew.sh")
+            sys.exit(1)
+        _add_brew_to_path()
+        if not _which("brew"):
+            print("Homebrew installed but `brew` is still not on PATH; open a new shell and re-run.")
+            sys.exit(1)
+
+    missing = [c for c in ("idevice_id", "idevicesyslog") if not _which(c)]
+    if missing:
+        print(f"[deps] Missing: {', '.join(missing)} (provided by libimobiledevice).")
+        if not _prompt_yes("Install with `brew install libimobiledevice` now?"):
+            print("Cannot continue. Run: brew install libimobiledevice")
+            sys.exit(1)
+        if not _brew_install("libimobiledevice"):
+            print("brew install libimobiledevice failed.")
+            sys.exit(1)
+        still_missing = [c for c in ("idevice_id", "idevicesyslog") if not _which(c)]
+        if still_missing:
+            print(f"Install completed but still cannot find: {', '.join(still_missing)}")
+            sys.exit(1)
 
 # --- ANSI colors ---
 GREEN = "\033[1;32m"
@@ -132,6 +224,8 @@ def reader(proc, outfile):
 
 def main():
     from datetime import datetime
+
+    ensure_dependencies()
 
     logdir = Path(__file__).resolve().parent / "brokenblade-logs"
     logdir.mkdir(exist_ok=True)
