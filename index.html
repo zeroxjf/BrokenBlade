@@ -512,13 +512,14 @@
     .bookmark-prompt { display: none !important; }
     .debug a.debug-download {
       display: inline-block;
-      padding: 4px 12px;
+      padding: 9px 18px;
       background: #1c5b85;
       color: #fff;
-      border-radius: 8px;
+      border-radius: 10px;
       font-weight: 700;
+      font-size: 0.95rem;
       text-decoration: none;
-      box-shadow: 0 1px 2px rgba(10,15,28,0.10);
+      box-shadow: 0 2px 6px rgba(10,15,28,0.14);
     }
     .debug a.debug-download:hover { background: #134261; color: #fff; }
     .debug ol { color: #155274; }
@@ -1912,22 +1913,27 @@
     </div>
 
     <details open class="debug">
-      <summary><strong>Capture chain logs from a Mac</strong> &mdash; recommended for beta runs</summary>
+      <summary><strong>Capture device logs (Mac / PC)</strong> &mdash; required for beta feedback</summary>
       <div class="details-body">
-        <p style="margin-bottom:8px"><a href="./syslog.py" download="syslog.py" class="debug-download">Download syslog.py</a> &nbsp;or <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/syslog.py" target="_blank" rel="noopener">view source on GitHub</a> &nbsp;(direct: <code>https://zeroxjf.github.io/BrokenBlade/syslog.py</code>).</p>
+        <p style="margin:0 0 12px;font-size:0.8rem">If the chain fails, the filtered device syslog is the only useful debug artifact. Please run this from your computer during the test:</p>
+
+        <p style="margin:0 0 4px;text-align:center"><a href="./syslog.py" download="syslog.py" class="debug-download">&darr; Download syslog.py</a></p>
+        <p style="margin:0 0 14px;font-size:0.7rem;color:#155274;text-align:center">Direct URL: <code>https://zeroxjf.github.io/BrokenBlade/syslog.py</code> &middot; <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/syslog.py" target="_blank" rel="noopener">view source</a></p>
+
         <ol style="margin:0 0 0 20px;padding:0;line-height:1.6">
           <li>
-            <strong>Run the script:</strong>
+            <strong>Run it from Terminal / PowerShell.</strong>
             <ul style="margin:4px 0 4px 20px;padding:0;line-height:1.55">
-              <li>macOS / Linux: <code>python3 syslog.py</code> in Terminal. Python 3 is preinstalled on macOS.</li>
-              <li>Windows: <code>py syslog.py</code> in PowerShell or Command Prompt. Install Python 3 from <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a> first if you don&rsquo;t have it &mdash; check &ldquo;Add Python to PATH&rdquo; during install.</li>
+              <li>macOS / Linux: <code>python3 syslog.py</code></li>
+              <li>Windows: <code>py syslog.py</code> &mdash; install Python 3 from <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a> first (check &ldquo;Add Python to PATH&rdquo;)</li>
             </ul>
-            On first run the script auto-detects the right dependencies for your platform &mdash; Homebrew + libimobiledevice via <code>brew</code> on macOS, <code>imobiledevice-net</code> via <code>winget</code> on Windows (plus a reminder to install the &ldquo;Apple Devices&rdquo; app from the Microsoft Store for the USB driver layer), or a package-manager hint on Linux &mdash; and prompts before installing anything. Sudo / Admin prompts may appear.
+            First run prompts before auto-installing platform deps (<code>brew</code> + libimobiledevice on macOS, <code>winget</code> on Windows, package-manager hint on Linux).
           </li>
-          <li>Connect &amp; trust your iPhone via USB. The script prints a device banner (name, model, iOS, build, UDID) and then <code>Monitoring filtered chain logs...</code>.</li>
-          <li>Trigger the chain on this page. Filtered chain output streams live in Terminal; the full filtered log is saved to <code>brokenblade-logs/syslog_&lt;timestamp&gt;.txt</code> beside the script.</li>
-          <li>Press <code>Ctrl+C</code> after the run finishes to stop monitoring.</li>
+          <li><strong>Plug in + trust your iPhone.</strong> The script prints device info (name, model, iOS, UDID), then: <code>Monitoring filtered chain logs...</code>. Leave the Terminal window open.</li>
+          <li><strong>Tap Install on this page.</strong> Filtered chain output streams live in your Terminal as the run progresses.</li>
+          <li><strong>Stop + send the log.</strong> Press <code>Ctrl+C</code> after the chain finishes (Safari crashes, reopens, or you give up). The log is saved to <code>brokenblade-logs/syslog_&lt;timestamp&gt;.txt</code> next to the script &mdash; <strong>send me that file</strong>.</li>
         </ol>
+        <p style="margin:10px 0 0;font-size:0.72rem;color:#155274">Also helpful: any SpringBoard crash <code>.ips</code> files from <em>Settings &rarr; Privacy &amp; Security &rarr; Analytics &amp; Improvements &rarr; Analytics Data</em>.</p>
       </div>
     </details>
 
