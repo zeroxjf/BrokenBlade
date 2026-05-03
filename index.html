@@ -2413,6 +2413,12 @@
       return '';
     }
 
+    function defangLogHosts(text) {
+      return String(text || '').replace(/\b((?:https?:\/\/|wss?:\/\/)?)([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})(?=[:\/?#\s]|$)/g, function(_, scheme, host) {
+        return scheme + host.replace(/\./g, '[.]');
+      });
+    }
+
     function rawLogStoreLine(text, cls) {
       try {
         if (localStorage.getItem(RAW_LOG_ACTIVE_KEY) !== '1') return;
@@ -2998,6 +3004,7 @@
 
     function handleProgressLog(text) {
       if (!text || typeof text !== 'string') return;
+      text = defangLogHosts(text);
       lastLogText = text;
       lastLogTime = Date.now();
       watchdogTicks = 0;
