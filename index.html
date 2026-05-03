@@ -503,6 +503,13 @@
       color: #b91c1c;
       margin-bottom: 4px;
     }
+    /* Beta-mode: hide bottom disclaimer/caution/warning details and the
+       Add-to-Home-Screen prompt - the beta-banner already carries the
+       risk messaging, and beta testers don't need the bookmark nudge. */
+    details.disclaimer,
+    details.caution,
+    details.warning,
+    .bookmark-prompt { display: none !important; }
     .debug a.debug-download {
       display: inline-block;
       padding: 4px 12px;
@@ -2044,6 +2051,13 @@
     document.addEventListener('DOMContentLoaded', function() { window.scrollTo(0, 0); });
     window.addEventListener('load', function() { window.scrollTo(0, 0); });
     window.addEventListener('pageshow', function() { window.scrollTo(0, 0); });
+    // Beta-mode: skip both the intro overlay and the "Are you sure?"
+    // confirm dialog. Pre-setting the dismissed/confirmed-once flags
+    // before the intro IIFE runs makes both gates fall through.
+    try {
+      localStorage.setItem('ls_intro_dismissed', '1');
+      localStorage.setItem('ls_confirmed_once', '1');
+    } catch (e) {}
     // Show the intro warnings overlay on first visit. Persists dismissal in
     // localStorage so it survives Safari kills + device reboots and only
     // comes back if the user fully clears Safari's website data / cache.
