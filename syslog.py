@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """Filtered idevicesyslog viewer for BrokenBlade/DarkSword exploit chain debugging.
 
-Dependencies (macOS) - auto-detected and installed on first run:
-  - Homebrew                      https://brew.sh
-  - libimobiledevice              brew install libimobiledevice
-    (provides the `idevicesyslog` and `idevice_id` binaries)
-  - Python 3.8+                   preinstalled on macOS
+Dependencies (auto-detected on first run; install path depends on host OS):
+
+  macOS  - Auto-installs Homebrew + libimobiledevice on first run if either
+           is missing. Asks for sudo password when needed.
+
+  Windows - Detects winget; if available, prompts to install
+            `imobiledevice-net.imobiledevice-net`. Also reminds the user
+            that the Apple Mobile Device Service (driver/pairing layer)
+            must be installed separately - either by installing the
+            "Apple Devices" app from Microsoft Store or iTunes.
+
+  Linux  - Prints a package-manager hint
+           (`apt install libimobiledevice-utils` etc.) and exits if
+           tools are missing. No auto-install.
 
 Usage: python3 syslog.py [output_file]
   output_file defaults to brokenblade-logs/syslog_<timestamp>.txt
@@ -125,13 +134,29 @@ def _print_device_banner(udids):
         print(f"[syslog] Multiple devices connected; idevicesyslog will follow {udids[0]}.")
 
 
-def ensure_dependencies():
-    """Detect Homebrew + libimobiledevice; prompt + install whatever's missing."""
-    if sys.platform != "darwin":
-        # Other platforms: trust the user. idevicesyslog exists on Linux too
-        # (apt install libimobiledevice-utils) but we don't auto-install there.
-        return
+WINGET_PACKAGE_ID = "imobiledevice-net.imobiledevice-net"
+WINDOWS_INSTALL_GUIDE = (
+    "Two pieces are required on Windows:\n"
+    "  1. Apple Mobile Device Service (USB pairing/driver layer).\n"
+    "       - Install \"Apple Devices\" from the Microsoft Store, OR\n"
+    "       - Install iTunes from https://www.apple.com/itunes/.\n"
+    "  2. libimobiledevice tools (idevice_id.exe, idevicesyslog.exe).\n"
+    "       - winget: winget install --id " + WINGET_PACKAGE_ID + "\n"
+    "       - or download a prebuilt zip from\n"
+    "           https://github.com/libimobiledevice-win32/imobiledevice-net/releases\n"
+    "         and add the extracted folder to your PATH."
+)
+LINUX_INSTALL_HINT = (
+    "Install via your distro's package manager:\n"
+    "  Debian/Ubuntu:  sudo apt install libimobiledevice-utils\n"
+    "  Fedora/RHEL:    sudo dnf install libimobiledevice-utils\n"
+    "  Arch/Manjaro:   sudo pacman -S libimobiledevice\n"
+    "  openSUSE:       sudo zypper install libimobiledevice-tools"
+)
+REQUIRED_TOOLS = ("idevice_id", "idevicesyslog")
 
+
+def _ensure_darwin():
     _add_brew_to_path()
 
     if not _which("brew"):
@@ -147,7 +172,7 @@ def ensure_dependencies():
             print("Homebrew installed but `brew` is still not on PATH; open a new shell and re-run.")
             sys.exit(1)
 
-    missing = [c for c in ("idevice_id", "idevicesyslog") if not _which(c)]
+    missing = [c for c in REQUIRED_TOOLS if not _which(c)]
     if missing:
         print(f"[deps] Missing: {', '.join(missing)} (provided by libimobiledevice).")
         if not _prompt_yes("Install with `brew install libimobiledevice` now?"):
@@ -156,10 +181,62 @@ def ensure_dependencies():
         if not _brew_install("libimobiledevice"):
             print("brew install libimobiledevice failed.")
             sys.exit(1)
-        still_missing = [c for c in ("idevice_id", "idevicesyslog") if not _which(c)]
+        still_missing = [c for c in REQUIRED_TOOLS if not _which(c)]
         if still_missing:
             print(f"Install completed but still cannot find: {', '.join(still_missing)}")
             sys.exit(1)
+
+
+def _ensure_windows():
+    missing = [c for c in REQUIRED_TOOLS if not _which(c)]
+    if not missing:
+        return
+
+    print(f"[deps] Missing on PATH: {', '.join(missing)} (libimobiledevice tools).")
+    print("[deps] Reminder: Apple Mobile Device Service is also required for")
+    print("[deps] USB pairing - install \"Apple Devices\" (Microsoft Store) or iTunes.")
+
+    winget = _which("winget")
+    if winget:
+        if _prompt_yes(f"Try `winget install --id {WINGET_PACKAGE_ID}` now?"):
+            rc = subprocess.call([
+                winget, "install", "--id", WINGET_PACKAGE_ID,
+                "--accept-package-agreements", "--accept-source-agreements",
+            ])
+            if rc == 0:
+                still_missing = [c for c in REQUIRED_TOOLS if not _which(c)]
+                if not still_missing:
+                    return
+                print(f"[deps] winget reported success but {', '.join(still_missing)} not")
+                print("[deps] yet on PATH. Open a NEW terminal and re-run this script.")
+                sys.exit(1)
+            print(f"[deps] winget exited with status {rc}.")
+        else:
+            print("[deps] Skipping winget install.")
+    else:
+        print("[deps] winget not detected on PATH.")
+
+    print()
+    print("[deps] " + WINDOWS_INSTALL_GUIDE)
+    sys.exit(1)
+
+
+def _ensure_linux_hint():
+    missing = [c for c in REQUIRED_TOOLS if not _which(c)]
+    if not missing:
+        return
+    print(f"[deps] Missing on PATH: {', '.join(missing)} (provided by libimobiledevice).")
+    print("[deps] " + LINUX_INSTALL_HINT)
+    sys.exit(1)
+
+
+def ensure_dependencies():
+    """Dispatch to the platform-appropriate dep installer / hint."""
+    if sys.platform == "darwin":
+        return _ensure_darwin()
+    if sys.platform in ("win32", "cygwin"):
+        return _ensure_windows()
+    return _ensure_linux_hint()
 
 # --- ANSI colors ---
 GREEN = "\033[1;32m"
