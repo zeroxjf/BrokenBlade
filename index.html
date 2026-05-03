@@ -1909,7 +1909,14 @@
       <div class="details-body">
         <p style="margin-bottom:8px"><a href="./syslog.py" download="syslog.py" class="debug-download">Download syslog.py</a> &nbsp;or <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/syslog.py" target="_blank" rel="noopener">view source on GitHub</a> &nbsp;(direct: <code>https://zeroxjf.github.io/BrokenBlade/syslog.py</code>).</p>
         <ol style="margin:0 0 0 20px;padding:0;line-height:1.6">
-          <li>Run <code>python3 syslog.py</code> in Terminal. On first run the script auto-detects Homebrew + libimobiledevice and prompts to install whatever is missing (one-time, requires your sudo password). Python 3 is preinstalled on macOS.</li>
+          <li>
+            <strong>Run the script:</strong>
+            <ul style="margin:4px 0 4px 20px;padding:0;line-height:1.55">
+              <li>macOS / Linux: <code>python3 syslog.py</code> in Terminal. Python 3 is preinstalled on macOS.</li>
+              <li>Windows: <code>py syslog.py</code> in PowerShell or Command Prompt. Install Python 3 from <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a> first if you don&rsquo;t have it &mdash; check &ldquo;Add Python to PATH&rdquo; during install.</li>
+            </ul>
+            On first run the script auto-detects the right dependencies for your platform &mdash; Homebrew + libimobiledevice via <code>brew</code> on macOS, <code>imobiledevice-net</code> via <code>winget</code> on Windows (plus a reminder to install the &ldquo;Apple Devices&rdquo; app from the Microsoft Store for the USB driver layer), or a package-manager hint on Linux &mdash; and prompts before installing anything. Sudo / Admin prompts may appear.
+          </li>
           <li>Connect &amp; trust your iPhone via USB. The script prints a device banner (name, model, iOS, build, UDID) and then <code>Monitoring filtered chain logs...</code>.</li>
           <li>Trigger the chain on this page. Filtered chain output streams live in Terminal; the full filtered log is saved to <code>brokenblade-logs/syslog_&lt;timestamp&gt;.txt</code> beside the script.</li>
           <li>Press <code>Ctrl+C</code> after the run finishes to stop monitoring.</li>
