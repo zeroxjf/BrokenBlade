@@ -468,6 +468,24 @@
     }
     .debug strong { color: #0c3954; font-weight: 700; }
     .debug a { color: #155274; text-decoration: underline; }
+    .debug a.debug-download {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #1c5b85;
+      color: #fff;
+      border-radius: 8px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 1px 2px rgba(10,15,28,0.10);
+    }
+    .debug a.debug-download:hover { background: #134261; color: #fff; }
+    .debug ol { color: #155274; }
+    .debug code {
+      background: rgba(28,91,133,0.12);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
     /* Collapsible <details>/<summary> versions of the three warning boxes
        on the page itself. The intro overlay still shows the full text;
        these inline boxes start collapsed and can be tapped to expand. */
@@ -1846,10 +1864,16 @@
       </div>
     </div>
 
-    <details class="debug">
-      <summary><strong>Extra debugging</strong> &mdash; capture device logs from a Mac</summary>
+    <details open class="debug">
+      <summary><strong>Capture chain logs from a Mac</strong> &mdash; recommended for beta runs</summary>
       <div class="details-body">
-        Requires <a href="https://brew.sh" target="_blank" rel="noopener">Homebrew</a> + <code>brew install libimobiledevice</code> (provides <code>idevicesyslog</code>) and Python 3 (preinstalled on macOS). Download <a href="./syslog.py" download="syslog.py">syslog.py</a> (<a href="https://github.com/zeroxjf/BrokenBlade/blob/main/syslog.py" target="_blank" rel="noopener">source</a>), connect and trust your iPhone, then run <code>python3 syslog.py</code> from Terminal. Press <code>Ctrl+C</code> after a run; the filtered log is saved under <code>brokenblade-logs/</code>.
+        <p style="margin-bottom:8px"><a href="./syslog.py" download="syslog.py" class="debug-download">Download syslog.py</a> &nbsp;or <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/syslog.py" target="_blank" rel="noopener">view source on GitHub</a> &nbsp;(direct: <code>https://zeroxjf.github.io/BrokenBlade/syslog.py</code>).</p>
+        <ol style="margin:0 0 0 20px;padding:0;line-height:1.6">
+          <li>Run <code>python3 syslog.py</code> in Terminal. On first run the script auto-detects Homebrew + libimobiledevice and prompts to install whatever is missing (one-time, requires your sudo password). Python 3 is preinstalled on macOS.</li>
+          <li>Connect &amp; trust your iPhone via USB. The script prints a device banner (name, model, iOS, build, UDID) and then <code>Monitoring filtered chain logs...</code>.</li>
+          <li>Trigger the chain on this page. Filtered chain output streams live in Terminal; the full filtered log is saved to <code>brokenblade-logs/syslog_&lt;timestamp&gt;.txt</code> beside the script.</li>
+          <li>Press <code>Ctrl+C</code> after the run finishes to stop monitoring.</li>
+        </ol>
       </div>
     </details>
 
