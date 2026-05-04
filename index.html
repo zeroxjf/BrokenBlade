@@ -2056,6 +2056,7 @@
       <p>Safari is in a dirty state from a previous run. From the app switcher, swipe up on Safari to kill it, then reopen this page and try again.</p>
       <p style="font-size:0.78rem;color:var(--subtle);margin-top:8px">If this keeps happening, clear Safari's cache (Settings &rarr; Apps &rarr; Safari &rarr; Clear History and Website Data) and/or reboot your device before retrying. A reboot gives you a fresh kernel state and the cleanest chance of success.</p>
       <div class="dialog-btns">
+        <button type="button" class="btn-cancel" id="killSafariCopyLogBtn" onclick="copyWebLog(this)">Copy Web Log</button>
         <button class="btn-confirm" onclick="dismissKillSafari()">Got it</button>
       </div>
     </div>
