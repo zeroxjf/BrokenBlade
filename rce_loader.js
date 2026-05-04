@@ -70,6 +70,10 @@ try {
     var __mode = (__lsParams5.get('mode') || 'install').toLowerCase().trim();
     globalThis.__ls_run_mode = (__mode === 'cleanup') ? 'cleanup' : 'install';
 } catch (e) { globalThis.__ls_run_mode = 'install'; }
+try {
+    var __lsParams6 = new URLSearchParams(location.search || '');
+    globalThis.__ls_build_version = __lsParams6.get('build') || 'v0.0.130';
+} catch (e) { globalThis.__ls_build_version = 'v0.0.130'; }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 if (!basePrefix && location.pathname && location.pathname !== '/' && location.pathname.indexOf('.') < 0) basePrefix = location.pathname;
 var localHost = location.origin + basePrefix;
@@ -185,6 +189,7 @@ const dlopen_worker_blob = new Blob([dlopen_worker], { type: 'application/javasc
 const dlopen_worker_url = URL.createObjectURL(dlopen_worker_blob);
 const ios_version = (function() {
     print("UserAgent: " + navigator.userAgent);
+    print("Build version: " + (globalThis.__ls_build_version || 'v0.0.130'));
     let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
     if (version) {
         let parsed = version.split('_').map(part => parseInt(part));

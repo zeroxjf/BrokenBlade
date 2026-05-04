@@ -1,0 +1,8 @@
+---
+layout: null
+---
+{
+  "version": "v0.0.130",
+  "revision": "{{ site.github.build_revision | default: '' }}",
+  "generated_at": "{{ site.time | date_to_xmlschema }}"
+}
