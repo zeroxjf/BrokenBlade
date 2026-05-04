@@ -15228,6 +15228,9 @@ async function main() {
           const signed_pthread_create = await slow_dlsym(libsystem_pthread, 'pthread_create');
           offsets.pthread_create = signed_pthread_create.noPAC();
           print(`signed_pthread_create: ${signed_pthread_create.hex()}`);
+          const signed_pthread_exit = await slow_dlsym(libsystem_pthread, 'pthread_exit');
+          offsets.pthread_exit = signed_pthread_exit.noPAC();
+          print(`signed_pthread_exit: ${signed_pthread_exit.hex()}`);
           const paciza_malloc = await slow_dlsym(libsystem_malloc, 'malloc');
           offsets.malloc = paciza_malloc.noPAC();
           print(`paciza_malloc: ${paciza_malloc.hex()}`);
