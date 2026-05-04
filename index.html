@@ -2881,11 +2881,14 @@
     } catch (e) {}
 
     // Auto-show kill Safari prompt if a previous chain run left dirty state
-    try {
-      if (sessionStorage.getItem('ls_running')) {
-        showKillSafari();
-      }
-    } catch(e) {}
+    // Disabled for now - the ls_running flag was firing too eagerly and
+    // blocking legitimate retries before the user had a chance to copy
+    // the web log.
+    // try {
+    //   if (sessionStorage.getItem('ls_running')) {
+    //     showKillSafari();
+    //   }
+    // } catch(e) {}
     ['tweakFiveicon','tweakPowercuff','powercuffLevel','sbcHideLabels','sbcStatbar','tweakMgpatcher','tweakApplimit','mgBootChime','mgChargeLimit','mgTapToWake','mgCollisionSOS','mgPencil','mgActionButton','mgAOD','mgStageManager','mgInternalInstall','mgSRD','mgShutter','mgiPadApps'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', lsSaveState);
@@ -3136,12 +3139,13 @@
       // state and the user has to force-quit it before anything else will
       // work. Skip the "Are you sure?" confirm in that case and go straight
       // to the kill-safari prompt - that's the only useful action available.
-      try {
-        if (sessionStorage.getItem('ls_running')) {
-          showKillSafari();
-          return;
-        }
-      } catch(e) {}
+      // Disabled for now - flag was firing too eagerly.
+      // try {
+      //   if (sessionStorage.getItem('ls_running')) {
+      //     showKillSafari();
+      //     return;
+      //   }
+      // } catch(e) {}
       try {
         if (localStorage.getItem('ls_confirmed_once')) {
           var sel2 = gatherSelection();
@@ -3198,14 +3202,16 @@
       mg_unflags = mg_unflags || '';
       var installStatusEl = document.getElementById('installStatus');
       try {
-        if (mode !== 'cleanup' && sessionStorage.getItem('ls_running')) {
-          if (installStatusEl) {
-            installStatusEl.className = 'install-status';
-            installStatusEl.textContent = '';
-          }
-          showKillSafari();
-          return;
-        }
+        // Disabled for now - ls_running was firing too eagerly and
+        // blocking legitimate retries.
+        // if (mode !== 'cleanup' && sessionStorage.getItem('ls_running')) {
+        //   if (installStatusEl) {
+        //     installStatusEl.className = 'install-status';
+        //     installStatusEl.textContent = '';
+        //   }
+        //   showKillSafari();
+        //   return;
+        // }
         if (mode === 'cleanup') sessionStorage.removeItem('ls_running');
       } catch(e) {}
       doneSignal = false;
