@@ -24,3 +24,10 @@ firmware/work/ios*_rce_runtime_*_audit.json
 firmware/work/ios*_target_manifest.json
 firmware/work/ios*_remaining_target_manifest.json
 firmware/work/ios*_local_manifest.json
+
+# Local research artifacts, large extracted caches, and one-off run outputs.
+brokenblade-*-work/
+brokenblade-jsc-path-audit/
+firmware/work/*_completion_checklist.json
+firmware/work/*_remote_concurrent_*.log
+firmware/work/*_remote_concurrent_*manifest*.json

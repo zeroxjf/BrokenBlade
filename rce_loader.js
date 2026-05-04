@@ -197,20 +197,19 @@ const ios_version = (function() {
 function iosVersionString(version) {
     return Array.isArray(version) ? version.join('.') : String(version || '');
 }
-function iosVersionKey(version) {
-    return Array.isArray(version) ? version.join(',') : String(version || '');
-}
-function isIos186Path(version) {
-    const key = iosVersionKey(version);
-    return key === '18,6' || key === '18,6,1' || key === '18,6,2';
+function isLateIos18WorkerPath(version) {
+    return Array.isArray(version) && version[0] === 18 && version[1] >= 6 && version[1] <= 7;
 }
 function isEarlyIos18Path(version) {
-    return Array.isArray(version) && version[0] === 18 && version[1] <= 3;
+    return Array.isArray(version) && version[0] === 18 && version[1] >= 0 && version[1] <= 3;
 }
 function isWorkerRcePath(version) {
-    return false;
+    return isEarlyIos18Path(version) || isLateIos18WorkerPath(version);
 }
 function rcePathName(version) {
+    if (isWorkerRcePath(version)) {
+        return "iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path";
+    }
     return "iOS 18.x check_attempt RCE path";
 }
 print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
