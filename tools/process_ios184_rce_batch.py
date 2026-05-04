@@ -53,7 +53,7 @@ def safe_name(entry):
 
 def extracted_dsc(entry):
     base = FIRMWARE / "extracted" / safe_name(entry)
-    matches = sorted(base.glob(f"{entry['build']}__*/dyld_shared_cache_arm64e"))
+    matches = sorted(base.glob("**/dyld_shared_cache_arm64e"))
     if len(matches) != 1:
         raise RuntimeError(f"expected one dyld cache under {base}, got {matches}")
     return matches[0]
@@ -69,12 +69,13 @@ def extract_remote_dyld(entry):
         return extracted_dsc(entry)
     out_dir.mkdir(parents=True, exist_ok=True)
     run([
-        "ipsw", "extract",
-        "--remote",
+        "ipsw", "download", "ipsw",
+        "--device", entry["device"],
+        "--build", entry["build"],
         "--dyld",
         "--dyld-arch", "arm64e",
         "--output", str(out_dir),
-        entry["url"],
+        "--confirm",
         "--no-color",
     ])
     return extracted_dsc(entry)
@@ -212,7 +213,6 @@ def cleanup(entry):
         WORK / f"{entry['tag']}_symaddr_all.txt",
         WORK / f"{entry['tag']}_libsystem_pthread_image.txt",
     ]
-    paths.extend(FIRMWARE.glob("ipsw/*.ipsw"))
     paths = [str(path) for path in paths if path.exists()]
     if paths:
         run(["trash", *paths])

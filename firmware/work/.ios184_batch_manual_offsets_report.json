@@ -1,7 +1,7 @@
 {
-  "22E240__iPhone12,8": {
-    "device_key": "iPhone12,8_22E240",
-    "ios": "18.4",
+  "22E252__iPhone12,8": {
+    "device_key": "iPhone12,8_22E252",
+    "ios": "18.4.1",
     "manual_offsets": {
       "HOMEUI_cstring": "0x182f8b696n",
       "PerfPowerServicesReader_cstring": "0x25706de60n",

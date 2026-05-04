@@ -149,7 +149,7 @@
   let add_x22_0x90 = 0n;
   if (integrated) {
     sbx1_offsets = {
-"iPhone15,3_22D60": {
+   "iPhone15,3_22D60": {
       _4_fcalls: 0x1c659eca0n,
       _CFObjectCopyProperty: 0x18e33c768n,
       add_x22_0x90: 0x23c563c4cn,

@@ -1,7 +1,7 @@
 {
-  "22E240__iPhone12,8": {
-    "device_key": "iPhone12,8_22E240",
-    "ios": "18.4",
+  "22E252__iPhone12,8": {
+    "device_key": "iPhone12,8_22E252",
+    "ios": "18.4.1",
     "manual_required": [
       "JOP gadget byte-pattern matches: gadget_control_*, gadget_loop_*, gadget_set_all_registers_*",
       "non-symbol string/data anchors such as HOMEUI_cstring, PerfPowerServicesReader_cstring, libARI_cstring, libGPUCompilerImplLazy_cstring"
@@ -61,7 +61,7 @@
       "libsystem_c__atexit_mutex": "0x1ee6c4f58n",
       "libsystem_kernel__thread_suspend": "0x1d37991c0n",
       "libsystem_pthread_base": "0x20d0fd000n",
-      "libsystem_pthread_linkedit": "0x270794000n",
+      "libsystem_pthread_linkedit": "0x270790000n",
       "pthread_create": "0x20d102864n",
       "pthread_create_auth_stubs_offset": "0x2c67640n",
       "pthread_create_jsc": "0x19b94b640n",

