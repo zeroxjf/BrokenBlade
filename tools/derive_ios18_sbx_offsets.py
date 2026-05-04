@@ -88,11 +88,13 @@ SBX1_SEARCHES = {
     "tcall_DSSG": {
         "image": "/System/Library/PrivateFrameworks/WeatherDaemon.framework/WeatherDaemon",
         "pattern": "5f 03 00 91 c0 03 5f d6",
+        "select": 0,
     },
     "tcall_DG": {
         "image": "/System/Library/PrivateFrameworks/MusicKitInternal.framework/MusicKitInternal",
         "pattern": "b1 e8 e1 f2 d1 0a 3f d7",
         "adjust": -4,
+        "select": 0,
     },
     "load_x1x3x8": {
         "image": "/usr/lib/libHSFilerDynamic.dylib",

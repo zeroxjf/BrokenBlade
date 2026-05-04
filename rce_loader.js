@@ -215,29 +215,6 @@ function rcePathName(version) {
     if (isIos186Path(version)) return "iOS 18.6.x worker RCE path";
     return "iOS 18.4-18.5 check_attempt RCE path";
 }
-function hasBundledOffsetSupport(version) {
-    if (!Array.isArray(version) || version.length < 2) return false;
-    const major = version[0];
-    const minor = version[1];
-    const patch = version.length > 2 ? version[2] : 0;
-    if (major !== 18) return false;
-    if (minor === 0) return patch <= 1;
-    if (minor === 1) return patch <= 1;
-    if (minor === 2) return patch <= 1;
-    if (minor === 3) return patch <= 2;
-    return minor < 6 || (minor === 6 && patch <= 2);
-}
-function isTheoreticalIos18Window(version) {
-    if (!Array.isArray(version) || version.length < 2) return false;
-    const major = version[0];
-    const minor = version[1];
-    const patch = version.length > 2 ? version[2] : 0;
-    return major === 18 && (minor < 6 || (minor === 6 && patch <= 2));
-}
-if (isTheoreticalIos18Window(ios_version) && !hasBundledOffsetSupport(ios_version)) {
-    fail("iOS " + iosVersionString(ios_version) + " is in the theoretical CVE window, but BrokenBlade does not yet bundle offsets/RCE config for this build");
-    throw new Error("missing bundled offsets for theoretical iOS 18 target");
-}
 print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
 print("Selected RCE route: " + rcePathName(ios_version) + " for detected iOS " + iosVersionString(ios_version));
 print("Loading worker code...");

@@ -1,0 +1,71 @@
+{
+  "22G100__iPhone16,1": {
+    "device_key": "iPhone16,1_22G100",
+    "ios": "18.6.2",
+    "manual_offsets": {
+      "HOMEUI_cstring": "0x182f7a4e6n",
+      "PerfPowerServicesReader_cstring": "0x25813fe60n",
+      "gadget_control_1_ios184": "0x23ed792ecn",
+      "gadget_control_2_ios184": "0x1a962e780n",
+      "gadget_control_3_ios184": "0x21f03a150n",
+      "gadget_loop_1_ios184": "0x18660c5dcn",
+      "gadget_loop_2_ios184": "0x20cff5ce8n",
+      "gadget_loop_3_ios184": "0x184d3df1cn",
+      "gadget_set_all_registers_ios184": "0x20dd6e16cn",
+      "libARI_cstring": "0x218885820n",
+      "libGPUCompilerImplLazy__invoker": "0x23cb1b8b4n",
+      "libGPUCompilerImplLazy_cstring": "0x23bc65870n"
+    },
+    "notes": {
+      "gadget_control_2_ios184": "derived as libdyld__dlopen - 0x1b90, matching bundled 18.5/18.6 tables",
+      "gadget_set_all_registers_ios184": "byte pattern matches the str-x0 resolver body; gadget starts 8 bytes before the match",
+      "libGPUCompilerImplLazy__invoker": "byte pattern matches ldp x8,x0; blraaz x8; mov w0,#0 body; function starts 12 bytes before the match"
+    }
+  },
+  "22G86__iPhone16,1": {
+    "device_key": "iPhone16,1_22G86",
+    "ios": "18.6",
+    "manual_offsets": {
+      "HOMEUI_cstring": "0x182f7a4e6n",
+      "PerfPowerServicesReader_cstring": "0x25812fe60n",
+      "gadget_control_1_ios184": "0x23ed712ecn",
+      "gadget_control_2_ios184": "0x1a962e780n",
+      "gadget_control_3_ios184": "0x21f039150n",
+      "gadget_loop_1_ios184": "0x18660c5dcn",
+      "gadget_loop_2_ios184": "0x20cff5ce8n",
+      "gadget_loop_3_ios184": "0x184d3df1cn",
+      "gadget_set_all_registers_ios184": "0x20dd6e16cn",
+      "libARI_cstring": "0x218885820n",
+      "libGPUCompilerImplLazy__invoker": "0x23cb138b4n",
+      "libGPUCompilerImplLazy_cstring": "0x23bc5d870n"
+    },
+    "notes": {
+      "gadget_control_2_ios184": "derived as libdyld__dlopen - 0x1b90, matching bundled 18.5/18.6 tables",
+      "gadget_set_all_registers_ios184": "byte pattern matches the str-x0 resolver body; gadget starts 8 bytes before the match",
+      "libGPUCompilerImplLazy__invoker": "byte pattern matches ldp x8,x0; blraaz x8; mov w0,#0 body; function starts 12 bytes before the match"
+    }
+  },
+  "22G90__iPhone16,1": {
+    "device_key": "iPhone16,1_22G90",
+    "ios": "18.6.1",
+    "manual_offsets": {
+      "HOMEUI_cstring": "0x182f7a4e6n",
+      "PerfPowerServicesReader_cstring": "0x25813fe60n",
+      "gadget_control_1_ios184": "0x23ed792ecn",
+      "gadget_control_2_ios184": "0x1a962e780n",
+      "gadget_control_3_ios184": "0x21f03a150n",
+      "gadget_loop_1_ios184": "0x18660c5dcn",
+      "gadget_loop_2_ios184": "0x20cff5ce8n",
+      "gadget_loop_3_ios184": "0x184d3df1cn",
+      "gadget_set_all_registers_ios184": "0x20dd6e16cn",
+      "libARI_cstring": "0x218885820n",
+      "libGPUCompilerImplLazy__invoker": "0x23cb1b8b4n",
+      "libGPUCompilerImplLazy_cstring": "0x23bc65870n"
+    },
+    "notes": {
+      "gadget_control_2_ios184": "derived as libdyld__dlopen - 0x1b90, matching bundled 18.5/18.6 tables",
+      "gadget_set_all_registers_ios184": "byte pattern matches the str-x0 resolver body; gadget starts 8 bytes before the match",
+      "libGPUCompilerImplLazy__invoker": "byte pattern matches ldp x8,x0; blraaz x8; mov w0,#0 body; function starts 12 bytes before the match"
+    }
+  }
+}
