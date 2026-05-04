@@ -5,11 +5,7 @@ var offsets = {};
 var slide;
 var chipset;
 var device_model;
-// ls_running is read by the parent's isLsRunningFresh helper, which
-// expects a JSON {ts: <epoch_ms>} object so it can apply a TTL and
-// auto-wipe stale / legacy values. Older builds wrote the literal
-// string '1' here; the parent silently clears that on first read.
-try { sessionStorage.setItem('ls_running', JSON.stringify({ ts: Date.now() })); sessionStorage.setItem('localSession', '1'); } catch(e) {}
+try { sessionStorage.setItem('ls_running', '1'); sessionStorage.setItem('localSession', '1'); } catch(e) {}
 // Parse the iframe's ?tweaks=... and ?level=... query params using
 // URLSearchParams so URL-encoded characters (notably the comma between
 // tweak names becoming %2C) are decoded correctly. The previous regex
