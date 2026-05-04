@@ -444,7 +444,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 print("Starting check_attempt (" + rcePathName(ios_version) + "), sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
         var attempt = new check_attempt();
         (async function() {
-            var maxRetries = 5;
+            var maxRetries = 10;
             var lastFailure = "";
             for (var retryIdx = 0; retryIdx < maxRetries; retryIdx++) {
                 if (retryIdx > 0) {
