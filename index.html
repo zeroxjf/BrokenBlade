@@ -2513,6 +2513,54 @@
     var supportMsg = document.getElementById('supportMsg');
     var canRun = false;
 
+    // sessionStorage.ls_running is set by rce_loader.js the moment the
+    // exploit iframe loads, and cleared by every terminal path:
+    // redirect()/fail() inside the loader, markDone()/markFailed() in
+    // the parent, and the cleanup-mode entry. The intent is that a
+    // chain run that crashes Safari mid-flight (so none of those paths
+    // fire) leaves the flag stuck, and on next page load we show the
+    // kill-Safari prompt.
+    //
+    // The historical bug: iOS Safari's aggressive tab restore can
+    // round-trip sessionStorage from disk after a Safari kill, so the
+    // flag survives the very kill it was supposed to be cleared by.
+    // Pre-TTL builds set ls_running to the literal string '1' with no
+    // way to tell stale from live, so once stuck it'd block every
+    // subsequent install attempt forever.
+    //
+    // New format: a JSON object {ts: <epoch_ms>}. isLsRunningFresh
+    // returns true only if the timestamp is within LS_RUNNING_TTL_MS;
+    // anything older - or any pre-TTL '1' value - is considered stale
+    // and proactively removed. Chain runs that take longer than the
+    // TTL are by definition either done (markDone/markFailed already
+    // cleared the flag) or hard-crashed (Safari needs a kill anyway).
+    var LS_RUNNING_TTL_MS = 3 * 60 * 1000;
+    function setLsRunning() {
+      try { sessionStorage.setItem('ls_running', JSON.stringify({ ts: Date.now() })); } catch(e) {}
+    }
+    function clearLsRunning() {
+      try { sessionStorage.removeItem('ls_running'); } catch(e) {}
+    }
+    function isLsRunningFresh() {
+      var raw;
+      try { raw = sessionStorage.getItem('ls_running'); } catch(e) { return false; }
+      if (!raw) return false;
+      try {
+        var obj = JSON.parse(raw);
+        if (obj && typeof obj.ts === 'number') {
+          if (Date.now() - obj.ts > LS_RUNNING_TTL_MS) {
+            clearLsRunning();
+            return false;
+          }
+          return true;
+        }
+      } catch(e) {}
+      // Pre-TTL '1' value or any other shape we can't reason about:
+      // wipe it so the user isn't stuck forever on a stale flag.
+      clearLsRunning();
+      return false;
+    }
+
     // Allow any iOS 18 build through 18.6.2; older majors and 18.6.3+ /
     // 18.7+ / 19+ are red. Per-build offset coverage is sorted out at
     // runtime by the chain itself.
@@ -2835,12 +2883,13 @@
       if (_betaFiveicon && !_betaFiveicon.disabled) _betaFiveicon.checked = true;
     } catch (e) {}
 
-    // Auto-show kill Safari prompt if a previous chain run left dirty state
-    try {
-      if (sessionStorage.getItem('ls_running')) {
-        showKillSafari();
-      }
-    } catch(e) {}
+    // Auto-show kill Safari prompt if a previous chain run left dirty
+    // state. isLsRunningFresh handles TTL + legacy-format cleanup so a
+    // pre-TTL '1' value left over from an older build is silently
+    // wiped here instead of pinning the user on the overlay forever.
+    if (isLsRunningFresh()) {
+      showKillSafari();
+    }
     ['tweakFiveicon','tweakPowercuff','powercuffLevel','sbcHideLabels','sbcStatbar','tweakMgpatcher','tweakApplimit','mgBootChime','mgChargeLimit','mgTapToWake','mgCollisionSOS','mgPencil','mgActionButton','mgAOD','mgStageManager','mgInternalInstall','mgSRD','mgShutter','mgiPadApps'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', lsSaveState);
@@ -3087,16 +3136,16 @@
         statusEl.className = 'install-status';
         statusEl.textContent = '';
       }
-      // If a previous chain run left ls_running set, Safari is in a dirty
-      // state and the user has to force-quit it before anything else will
-      // work. Skip the "Are you sure?" confirm in that case and go straight
-      // to the kill-safari prompt - that's the only useful action available.
-      try {
-        if (sessionStorage.getItem('ls_running')) {
-          showKillSafari();
-          return;
-        }
-      } catch(e) {}
+      // If a previous chain run left ls_running set AND the timestamp
+      // is still within the TTL, Safari is in a dirty state and the
+      // user has to force-quit it before anything else will work. Skip
+      // the "Are you sure?" confirm in that case and go straight to
+      // the kill-safari prompt. isLsRunningFresh wipes stale / legacy
+      // entries on read so a previously stuck flag self-heals here.
+      if (isLsRunningFresh()) {
+        showKillSafari();
+        return;
+      }
       try {
         if (localStorage.getItem('ls_confirmed_once')) {
           var sel2 = gatherSelection();
@@ -3152,17 +3201,15 @@
       mg_flags = mg_flags || '';
       mg_unflags = mg_unflags || '';
       var installStatusEl = document.getElementById('installStatus');
-      try {
-        if (mode !== 'cleanup' && sessionStorage.getItem('ls_running')) {
-          if (installStatusEl) {
-            installStatusEl.className = 'install-status';
-            installStatusEl.textContent = '';
-          }
-          showKillSafari();
-          return;
+      if (mode !== 'cleanup' && isLsRunningFresh()) {
+        if (installStatusEl) {
+          installStatusEl.className = 'install-status';
+          installStatusEl.textContent = '';
         }
-        if (mode === 'cleanup') sessionStorage.removeItem('ls_running');
-      } catch(e) {}
+        showKillSafari();
+        return;
+      }
+      if (mode === 'cleanup') clearLsRunning();
       doneSignal = false;
       if (installStatusEl) {
         // This block is the one bit of running-state copy guaranteed to
