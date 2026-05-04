@@ -14501,9 +14501,10 @@ const device_chipset = {
         const getStage0Mode = () => {
             try {
                 let params = new URLSearchParams(location.search || "");
-                return (params.get("stage0") || "orig").toLowerCase().trim();
+                let raw = params.get("stage0");
+                return raw === null ? "" : raw.toLowerCase().trim();
             } catch(e) {
-                return "orig";
+                return "";
             }
         }
         const supportsStage0Probe = () => {
@@ -14516,7 +14517,7 @@ const device_chipset = {
         const stage0_modes = ["orig", "keep-result", "call-keep-result", "jit-ignore", "jit-extract"];
         let requested_stage0_mode = getStage0Mode();
         let stage0_probe_allowed = supportsStage0Probe();
-        let stage0_mode = stage0_probe_allowed ? requested_stage0_mode : "orig";
+        let stage0_mode = stage0_probe_allowed ? (requested_stage0_mode || "probe") : "orig";
         if (stage0_mode == "probe") {
             stage0_mode = stage0_modes[attempt_idx % stage0_modes.length];
         } else if (stage0_modes.indexOf(stage0_mode) < 0) {
