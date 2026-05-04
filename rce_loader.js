@@ -208,12 +208,10 @@ function isEarlyIos18Path(version) {
     return Array.isArray(version) && version[0] === 18 && version[1] <= 3;
 }
 function isWorkerRcePath(version) {
-    return isEarlyIos18Path(version) || isIos186Path(version);
+    return false;
 }
 function rcePathName(version) {
-    if (isEarlyIos18Path(version)) return "iOS 18.0-18.3 worker RCE path";
-    if (isIos186Path(version)) return "iOS 18.6.x worker RCE path";
-    return "iOS 18.4-18.5 check_attempt RCE path";
+    return "iOS 18.x check_attempt RCE path";
 }
 print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
 print("Selected RCE route: " + rcePathName(ios_version) + " for detected iOS " + iosVersionString(ios_version));
@@ -412,8 +410,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         // load timeout, URL parse throw, missing offsets, worker
         // construction error, etc. - left the kill-Safari overlay stuck
         // on the next page load even though Safari was never actually
-        // touched. From this point on (worker.postMessage stage1_rce
-        // for the 18.6 path, new check_attempt() for 18.4-18.5), Safari
+        // touched. From this point on (new check_attempt()), Safari
         // is committed to running the exploit and any abort really
         // does require the user to force-quit Safari.
         try { sessionStorage.setItem('ls_running', '1'); } catch(e) {}
