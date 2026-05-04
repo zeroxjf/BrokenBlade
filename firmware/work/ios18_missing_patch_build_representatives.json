@@ -1,0 +1,65 @@
+[
+  {
+    "build": "22B91",
+    "device": "iPhone11,8",
+    "device_key": "iPhone11,8_22B91",
+    "filename": "iPhone11,8_18.1.1_22B91_Restore.ipsw",
+    "group": "iPhone11,8",
+    "ios": "18.1.1",
+    "url": "https://updates.cdn-apple.com/2024FallFCS/fullrestores/072-30373/1475F365-0E85-4EFA-9D36-E126E032696D/iPhone11,8_18.1.1_22B91_Restore.ipsw"
+  },
+  {
+    "build": "22C161",
+    "device": "iPhone11,8",
+    "device_key": "iPhone11,8_22C161",
+    "filename": "iPhone11,8_18.2.1_22C161_Restore.ipsw",
+    "group": "iPhone11,8",
+    "ios": "18.2.1",
+    "url": "https://updates.cdn-apple.com/2024FallFCS/fullrestores/072-55870/963004F7-4F26-4FAF-AD13-65B83F4B8D42/iPhone11,8_18.2.1_22C161_Restore.ipsw"
+  },
+  {
+    "build": "22D64",
+    "device": "iPhone12,1",
+    "device_key": "iPhone12,1_22D64",
+    "filename": "iPhone12,1_18.3_22D64_Restore.ipsw",
+    "group": "iPhone12,1",
+    "ios": "18.3",
+    "url": "https://updates.cdn-apple.com/2025WinterFCS/fullrestores/072-71860/881E6C41-D97C-4C5B-8881-8FF1B3DC426E/iPhone12,1_18.3_22D64_Restore.ipsw"
+  },
+  {
+    "build": "22D72",
+    "device": "iPhone11,8",
+    "device_key": "iPhone11,8_22D72",
+    "filename": "iPhone11,8_18.3.1_22D72_Restore.ipsw",
+    "group": "iPhone11,8",
+    "ios": "18.3.1",
+    "url": "https://updates.cdn-apple.com/2025WinterFCS/fullrestores/072-84683/5651A1D0-0719-4905-B577-BEF74454E8E7/iPhone11,8_18.3.1_22D72_Restore.ipsw"
+  },
+  {
+    "build": "22D8075",
+    "device": "iPhone17,5",
+    "device_key": "iPhone17,5_22D8075",
+    "filename": "iPhone17,5_18.3.1_22D8075_Restore.ipsw",
+    "group": "iPhone17,5",
+    "ios": "18.3.1",
+    "url": "https://updates.cdn-apple.com/2025WinterFCS/fullrestores/072-35515/856AC7E0-C306-4F4D-9430-962B6BBB4A95/iPhone17,5_18.3.1_22D8075_Restore.ipsw"
+  },
+  {
+    "build": "22D82",
+    "device": "iPhone11,8",
+    "device_key": "iPhone11,8_22D82",
+    "filename": "iPhone11,8_18.3.2_22D82_Restore.ipsw",
+    "group": "iPhone11,8",
+    "ios": "18.3.2",
+    "url": "https://updates.cdn-apple.com/2025WinterFCS/fullrestores/082-02582/C7F72907-6882-4EF1-A1C2-EFC85D76D1D2/iPhone11,8_18.3.2_22D82_Restore.ipsw"
+  },
+  {
+    "build": "22D8082",
+    "device": "iPhone17,5",
+    "device_key": "iPhone17,5_22D8082",
+    "filename": "iPhone17,5_18.3.2_22D8082_Restore.ipsw",
+    "group": "iPhone17,5",
+    "ios": "18.3.2",
+    "url": "https://updates.cdn-apple.com/2025WinterFCS/fullrestores/082-04000/58B9B6CB-1E28-44BD-A940-3E7EB0993221/iPhone17,5_18.3.2_22D8082_Restore.ipsw"
+  }
+]
