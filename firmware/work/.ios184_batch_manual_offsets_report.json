@@ -1,20 +1,20 @@
 {
-  "22E240__iPhone14,7": {
-    "device_key": "iPhone14,7_22E240",
+  "22E240__iPhone17,5": {
+    "device_key": "iPhone17,5_22E240",
     "ios": "18.4",
     "manual_offsets": {
       "HOMEUI_cstring": "0x182f8f696n",
-      "PerfPowerServicesReader_cstring": "0x2573a5e60n",
-      "gadget_control_1_ios184": "0x23eacd2ecn",
+      "PerfPowerServicesReader_cstring": "0x25748be60n",
+      "gadget_control_1_ios184": "0x23eb052ecn",
       "gadget_control_2_ios184": "0x1a964def8n",
-      "gadget_control_3_ios184": "0x21ed9df24n",
+      "gadget_control_3_ios184": "0x21ed99f24n",
       "gadget_loop_1_ios184": "0x18660a5a4n",
-      "gadget_loop_2_ios184": "0x20d0cab28n",
+      "gadget_loop_2_ios184": "0x20d0c6b28n",
       "gadget_loop_3_ios184": "0x184d6ad9cn",
-      "gadget_set_all_registers_ios184": "0x20db4a20cn",
-      "libARI_cstring": "0x218612820n",
-      "libGPUCompilerImplLazy__invoker": "0x23c87435cn",
-      "libGPUCompilerImplLazy_cstring": "0x23b9be870n"
+      "gadget_set_all_registers_ios184": "0x20db4620cn",
+      "libARI_cstring": "0x21860e820n",
+      "libGPUCompilerImplLazy__invoker": "0x23c8ac35cn",
+      "libGPUCompilerImplLazy_cstring": "0x23b9f6870n"
     },
     "notes": {
       "gadget_control_2_ios184": "derived as libdyld__dlopen - 0x1b90, matching bundled 18.5/18.6 tables",
