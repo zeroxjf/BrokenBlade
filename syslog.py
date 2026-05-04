@@ -290,19 +290,49 @@ CHAIN_TAGS = re.compile(
 )
 
 # --- Interesting patterns (colored) ---
+# Order matters: error patterns at the bottom override the WebContent
+# chain-print yellow so a "TypeError" line out of WebContent renders
+# red instead of yellow.
 INTERESTING_PATTERNS = [
     (re.compile(r'\[PE\]|\[PE-DBG\]|kernel_base|kernel_slide', re.IGNORECASE), GREEN),
     (re.compile(r'\[SBX1\]|SBX0|SBX1|sbx0:|sbx1:', re.IGNORECASE), MAGENTA),
     (re.compile(r'\[SBC\]|\[POWERCUFF\]|\[CHAIN-OVL\]|\[MG\]|\[APPLIMIT\]|\[THREEAPP\]|\[THREEAPP-AUDIT\]|\[SAFARI-CLEAN\]', re.IGNORECASE), CYAN),
     (re.compile(r'\[FILE-DL\]|\[HTTP-UPLOAD\]|\[APP\]|\[ICLOUD\]|\[KEYCHAIN\]|\[WIFI\]', re.IGNORECASE), CYAN),
     (re.compile(r'MIG_FILTER_BYPASS|INJECTJS|CHAIN |DRIVER-POSTEXPL|DRIVER-NEWTHREAD', re.IGNORECASE), YELLOW),
+    (re.compile(r'\[\d+ms\]\s'), YELLOW),
     (re.compile(r'SIGBUS|SIGSEGV|EXC_BAD|EXC_CRASH|pac_exception|pac.violation', re.IGNORECASE), RED),
-    (re.compile(r'threw|SyntaxError|TypeError|ReferenceError', re.IGNORECASE), RED),
+    (re.compile(r'threw|SyntaxError|TypeError|ReferenceError|RangeError|EvalError|URIError', re.IGNORECASE), RED),
 ]
 
-# --- ReportCrash: only if SpringBoard crashed ---
+# --- ReportCrash: SpringBoard or WebContent / Safari ---
 REPORTCRASH_SB = re.compile(r'ReportCrash.*SpringBoard|SpringBoard.*ReportCrash', re.IGNORECASE)
+REPORTCRASH_WEBCONTENT = re.compile(
+    r'ReportCrash.*(?:WebContent|MobileSafari|JavaScriptCore)|'
+    r'(?:WebContent|MobileSafari|JavaScriptCore).*ReportCrash',
+    re.IGNORECASE,
+)
 PE_SHORTHAND_TAGS = re.compile(r'mediaplaybackd(?:\([^)]*\))?\[\d+\].*(?:\[\+\]|\[-\]|\[!\]|\[i\])')
+
+# --- WebContent chain output ---
+# rce_loader.js / rce_worker*.js / rce_module*.js all log through a
+# shared print() helper that prefixes every message with "[<ms>] "
+# (millisecond delta from chain start). Matching that prefix captures
+# all WebContent-side chain output - loader setup, worker progress,
+# fetch durations, "Sending stage1_rce", "Starting check_attempt",
+# "WORKER ERROR:", "check_attempt threw", "All N retries exhausted",
+# the [MSG] message-handler prints, etc. - without dragging in the
+# WebContent process's normal background noise (memory pressure,
+# cache flushes, layout/paint events).
+WEBCONTENT_CHAIN_PRINT = re.compile(r'\[\d+ms\]\s')
+
+# JS-side uncaught exceptions don't go through print() so they lack
+# the [<ms>] prefix; catch them by name so a TypeError from inside
+# the iframe (e.g. a missing offset, bad pointer math) still shows
+# up in the filtered log alongside the chain progress lines.
+WEBCONTENT_JS_ERROR = re.compile(
+    r'\b(?:TypeError|ReferenceError|SyntaxError|RangeError|'
+    r'EvalError|URIError|InternalError):\s',
+)
 
 TIMESTAMP_PATTERN = re.compile(r'^[A-Z][a-z]{2}\s+\d+\s+\d+:\d+:\d+\.\d+\s+\S+\[\d+\]\s*')
 PROCESS_PATTERN = re.compile(r'^[A-Z][a-z]{2}\s+\d+\s+\d+:\d+:\d+\.\d+\s+([A-Za-z0-9_.-]+)(?:\([^)]*\))?\[\d+\]')
@@ -324,12 +354,18 @@ def is_duplicate(line):
 
 
 def should_show(line):
-    """Only show lines matching chain tags or SpringBoard ReportCrash."""
+    """Show chain tags, SB/WebContent crash reports, and WebContent chain logs."""
     if CHAIN_TAGS.search(line):
         return True
     if PE_SHORTHAND_TAGS.search(line):
         return True
     if REPORTCRASH_SB.search(line):
+        return True
+    if REPORTCRASH_WEBCONTENT.search(line):
+        return True
+    if WEBCONTENT_CHAIN_PRINT.search(line):
+        return True
+    if WEBCONTENT_JS_ERROR.search(line):
         return True
     return False
 
