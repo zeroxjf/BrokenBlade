@@ -5,7 +5,7 @@ var offsets = {};
 var slide;
 var chipset;
 var device_model;
-try { sessionStorage.setItem('ls_running', '1'); sessionStorage.setItem('localSession', '1'); } catch(e) {}
+try { sessionStorage.setItem('localSession', '1'); } catch(e) {}
 // Parse the iframe's ?tweaks=... and ?level=... query params using
 // URLSearchParams so URL-encoded characters (notably the comma between
 // tweak names becoming %2C) are decoded correctly. The previous regex
@@ -406,6 +406,17 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         let desiredHost = "";
         desiredHost = localHost;
         print("desiredHost = " + desiredHost);
+        // Mark ls_running NOW, just before the chain actually dispatches
+        // its first dirty-Safari operation. Setting it at script entry
+        // (the previous behavior) meant any earlier failure - script
+        // load timeout, URL parse throw, missing offsets, worker
+        // construction error, etc. - left the kill-Safari overlay stuck
+        // on the next page load even though Safari was never actually
+        // touched. From this point on (worker.postMessage stage1_rce
+        // for the 18.6 path, new check_attempt() for 18.4-18.5), Safari
+        // is committed to running the exploit and any abort really
+        // does require the user to force-quit Safari.
+        try { sessionStorage.setItem('ls_running', '1'); } catch(e) {}
             if(isWorkerRcePath(ios_version))
             {
                 print("Sending stage1_rce to worker (" + rcePathName(ios_version) + ") tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
