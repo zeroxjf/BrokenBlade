@@ -6,58 +6,6 @@ var slide;
 var chipset;
 var device_model;
 try { sessionStorage.setItem('localSession', '1'); } catch(e) {}
-var __ls_raw_log_active_key = 'ls_raw_log_active_v1';
-var __ls_raw_log_fast_key = 'ls_raw_log_fast_lines_v1';
-var __ls_raw_log_last_key = 'ls_raw_log_last_v1';
-var __ls_raw_log_fast_limit = 360;
-var __ls_raw_log_fast_cache = null;
-var __ls_raw_log_fast_armed = false;
-function __lsFastLogClass(text, reportError) {
-    if (reportError) return 'err';
-    let s = String(text || '').toLowerCase();
-    if (s.indexOf('error') !== -1 || s.indexOf('exception') !== -1 || s.indexOf('failed') !== -1) return 'err';
-    if (s.indexOf('[msg]') !== -1 || s.indexOf('[ui]') !== -1 || s.indexOf('worker') !== -1 || s.indexOf('webcontent') !== -1) return 'device';
-    return '';
-}
-function __lsFastDefangLogHosts(text) {
-    return String(text || '').replace(/\b((?:https?:\/\/|wss?:\/\/)?)([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})(?=[:\/?#\s]|$)/g, function(_, scheme, host) {
-        return scheme + host.replace(/\./g, '[.]');
-    });
-}
-function __lsFastShouldStoreLog(text, cls) {
-    if (cls === 'err') return true;
-    let s = String(text || '');
-    if (!__ls_raw_log_fast_armed) {
-        if (s.indexOf("Finished stage2 prims") !== -1 ||
-            s.indexOf("[MSG] prepare_dlopen_workers") !== -1 ||
-            s.indexOf("dlopen prepared") !== -1 ||
-            s.indexOf("worker resolver:") !== -1 ||
-            s.indexOf("Load TextToSpeech") !== -1 ||
-            s.indexOf("loadObjcClass") !== -1) {
-            __ls_raw_log_fast_armed = true;
-        } else {
-            return false;
-        }
-    }
-    return true;
-}
-function __lsFastStoreLog(text, cls) {
-    try {
-        if (!__lsFastShouldStoreLog(text, cls || '')) return;
-        if (localStorage.getItem(__ls_raw_log_active_key) !== '1') return;
-        if (__ls_raw_log_fast_cache === null) {
-            __ls_raw_log_fast_cache = JSON.parse(localStorage.getItem(__ls_raw_log_fast_key) || '[]');
-            if (!__ls_raw_log_fast_cache || typeof __ls_raw_log_fast_cache.length !== 'number') __ls_raw_log_fast_cache = [];
-        }
-        let entry = { text: __lsFastDefangLogHosts(text), cls: cls || '', t: Date.now(), source: 'iframe' };
-        __ls_raw_log_fast_cache.push(entry);
-        if (__ls_raw_log_fast_cache.length > __ls_raw_log_fast_limit) {
-            __ls_raw_log_fast_cache = __ls_raw_log_fast_cache.slice(__ls_raw_log_fast_cache.length - __ls_raw_log_fast_limit);
-        }
-        localStorage.setItem(__ls_raw_log_fast_key, JSON.stringify(__ls_raw_log_fast_cache));
-        localStorage.setItem(__ls_raw_log_last_key, JSON.stringify(entry));
-    } catch(e) {}
-}
 // Parse the iframe's ?tweaks=... and ?level=... query params using
 // URLSearchParams so URL-encoded characters (notably the comma between
 // tweak names becoming %2C) are decoded correctly. The previous regex
@@ -146,7 +94,6 @@ var __ls_terminal_sent = false;
 function print(x, reportError = false, dumphex = false) {
     let out = ('[' + (new Date().getTime() - logStart) + 'ms] ').padEnd(10) + x;
     console.log(out);
-    __lsFastStoreLog(out, __lsFastLogClass(out, reportError));
     try {
         window.parent.postMessage({
             type: 'lightsaber_log',
@@ -489,7 +436,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
             case 'log':
             {
                 if (data.text) {
-                    __lsFastStoreLog(data.text, __lsFastLogClass(data.text, !!data.reportError));
                     try {
                         window.parent.postMessage({
                             type: 'lightsaber_log',

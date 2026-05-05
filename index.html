@@ -2231,10 +2231,8 @@
     var currentStage = '';
     var currentStageName = '';
     var RAW_LOG_STORE_KEY = 'ls_raw_log_lines_v1';
-    var RAW_LOG_FAST_STORE_KEY = 'ls_raw_log_fast_lines_v1';
-    var RAW_LOG_LAST_KEY = 'ls_raw_log_last_v1';
     var RAW_LOG_ACTIVE_KEY = 'ls_raw_log_active_v1';
-    var RAW_LOG_STORE_LIMIT = 360;
+    var RAW_LOG_STORE_LIMIT = 260;
     var APP_VERSION = 'v0.0.130';
     var buildInfo = { version: APP_VERSION, revision: '', generated_at: '' };
 
@@ -2547,62 +2545,15 @@
       });
     }
 
-    function rawLogReadStoredLines(key) {
-      try {
-        var lines = JSON.parse(localStorage.getItem(key) || '[]');
-        if (!lines || typeof lines.length !== 'number') return [];
-        return lines;
-      } catch (e) {
-        return [];
-      }
-    }
-
     function rawLogStoreLine(text, cls) {
       try {
         if (localStorage.getItem(RAW_LOG_ACTIVE_KEY) !== '1') return;
-        var entry = { text: String(text), cls: cls || '', t: Date.now() };
-        var lines = rawLogReadStoredLines(RAW_LOG_STORE_KEY);
-        lines.push(entry);
+        var lines = JSON.parse(localStorage.getItem(RAW_LOG_STORE_KEY) || '[]');
+        if (!lines || typeof lines.length !== 'number') lines = [];
+        lines.push({ text: String(text), cls: cls || '' });
         if (lines.length > RAW_LOG_STORE_LIMIT) lines = lines.slice(lines.length - RAW_LOG_STORE_LIMIT);
         localStorage.setItem(RAW_LOG_STORE_KEY, JSON.stringify(lines));
-        localStorage.setItem(RAW_LOG_LAST_KEY, JSON.stringify(entry));
       } catch (e) {}
-    }
-
-    function rawLogMergedStoredLines() {
-      var combined = [];
-      function collect(line) {
-        if (!line || line.text == null) return;
-        var text = String(line.text);
-        if (!text.replace(/\s+/g, '').length) return;
-        combined.push({
-          text: text,
-          cls: line.cls || '',
-          t: Number(line.t) || 0,
-          order: combined.length
-        });
-      }
-      var primary = rawLogReadStoredLines(RAW_LOG_STORE_KEY);
-      var fast = rawLogReadStoredLines(RAW_LOG_FAST_STORE_KEY);
-      for (var i = 0; i < primary.length; i++) collect(primary[i]);
-      for (var j = 0; j < fast.length; j++) collect(fast[j]);
-      try { collect(JSON.parse(localStorage.getItem(RAW_LOG_LAST_KEY) || 'null')); } catch (e) {}
-      combined.sort(function(a, b) {
-        if (a.t && b.t && a.t !== b.t) return a.t - b.t;
-        if (a.t && !b.t) return 1;
-        if (!a.t && b.t) return -1;
-        return a.order - b.order;
-      });
-      var seen = {};
-      var merged = [];
-      for (var k = 0; k < combined.length; k++) {
-        var key = combined[k].text;
-        if (seen[key]) continue;
-        seen[key] = 1;
-        merged.push({ text: combined[k].text, cls: combined[k].cls });
-      }
-      if (merged.length > RAW_LOG_STORE_LIMIT) merged = merged.slice(merged.length - RAW_LOG_STORE_LIMIT);
-      return merged;
     }
 
     var rawLogScrollPending = false;
@@ -2620,15 +2571,14 @@
     }
 
     function rawLogAppend(text, cls, skipStore) {
+      var el = document.getElementById('rawLogScroll');
+      if (!el) return;
       // Drop empty / whitespace-only messages so we never inject a blank
       // div into the scroll. Some iframe paths emit zero-length entries
       // when a stage has nothing to print, and those rendered as
       // 2px-tall blanks that the user read as "blank lines on scroll".
       var s = (text == null) ? '' : String(text);
       if (!s.replace(/\s+/g, '').length) return;
-      if (!skipStore) rawLogStoreLine(s, cls);
-      var el = document.getElementById('rawLogScroll');
-      if (!el) return;
       var empty = document.getElementById('rawLogEmpty');
       if (empty && empty.parentNode) empty.parentNode.removeChild(empty);
       var line = document.createElement('div');
@@ -2638,6 +2588,7 @@
       // Batch scroll-to-bottom into a single rAF callback so a burst of
       // lines doesn't thrash scrollTop on every append.
       if (rawLogStickyBottom) scheduleRawLogScrollToBottom();
+      if (!skipStore) rawLogStoreLine(s, cls);
     }
 
     // Watch the scroll position so manual scroll-up disables autoscroll
@@ -2659,8 +2610,6 @@
       rawLogStickyBottom = true;
       try {
         localStorage.removeItem(RAW_LOG_STORE_KEY);
-        localStorage.removeItem(RAW_LOG_FAST_STORE_KEY);
-        localStorage.removeItem(RAW_LOG_LAST_KEY);
         if (!keepActive) localStorage.removeItem(RAW_LOG_ACTIVE_KEY);
       } catch (e) {}
     }
@@ -2668,7 +2617,7 @@
     function restoreRawLogView() {
       try {
         if (localStorage.getItem(RAW_LOG_ACTIVE_KEY) !== '1') return;
-        var lines = rawLogMergedStoredLines();
+        var lines = JSON.parse(localStorage.getItem(RAW_LOG_STORE_KEY) || '[]');
         if (!lines || !lines.length) return;
         rawLogAppend('[UI] Previous run was interrupted. Last WebContent log follows:', 'device', true);
         for (var i = 0; i < lines.length; i++) {
@@ -3141,16 +3090,7 @@
       var btn = srcBtn;
       var lines = scroll ? scroll.querySelectorAll('.raw-log-line') : [];
       var arr = [];
-      var seen = {};
-      function pushText(text) {
-        text = text || '';
-        if (!text || seen[text]) return;
-        seen[text] = 1;
-        arr.push(text);
-      }
-      for (var i = 0; i < lines.length; i++) pushText(lines[i].textContent || '');
-      var stored = rawLogMergedStoredLines();
-      for (var j = 0; j < stored.length; j++) pushText(stored[j].text || '');
+      for (var i = 0; i < lines.length; i++) arr.push(lines[i].textContent || '');
       var text = arr.join('\n');
       function flash(label) {
         if (!btn) return;
