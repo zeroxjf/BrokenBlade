@@ -256,6 +256,9 @@ function isLateIos18WorkerPath(version) {
 function isEarlyIos18Path(version) {
     return Array.isArray(version) && version[0] === 18 && version[1] >= 0 && version[1] <= 3;
 }
+function isIos183Path(version) {
+    return Array.isArray(version) && version[0] === 18 && version[1] === 3;
+}
 function isWorkerRcePath(version) {
     return isEarlyIos18Path(version) || isLateIos18WorkerPath(version);
 }
@@ -271,8 +274,9 @@ print("Cache token: " + (globalThis.__ls_cache_bust || '(none)'));
 print("Loading worker code...");
 let workerCode = "";
 if(isWorkerRcePath(ios_version)) {
-    print("Using rce_worker_18.6.js for " + rcePathName(ios_version));
-    workerCode = getJS(cacheBustURL('rce_worker_18.6.js')); // local version
+    let workerName = isIos183Path(ios_version) ? 'rce_worker_18.3.js' : 'rce_worker_18.6.js';
+    print("Using " + workerName + " for " + rcePathName(ios_version));
+    workerCode = getJS(cacheBustURL(workerName)); // local version
     if (!workerCode || !workerCode.trim()) {
         workerCode = getJS(cacheBustURL('rce_worker.js'));
     }
