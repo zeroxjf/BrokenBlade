@@ -1,9 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title></title>
 </head>
 <body>
-  <script type="text/javascript">document.write('<script defer=\"defer\" src=\"rce_loader.js?'+Date.now()+'\"\>\<\/script\>');</script>
+  <script type="text/javascript">
+    (function() {
+      var params = new URLSearchParams(location.search || '');
+      var build = params.get('build') || '';
+      var cb = params.get('cb') || params.get('_') || Date.now().toString();
+      var src = 'rce_loader.js?build=' + encodeURIComponent(build) + '&cb=' + encodeURIComponent(cb) + '&_=' + Date.now();
+      document.write('<script defer=\"defer\" src=\"' + src + '\"\>\<\/script\>');
+    })();
+  </script>
 </body>
 </html>

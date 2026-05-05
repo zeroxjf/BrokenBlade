@@ -74,6 +74,10 @@ try {
     var __lsParams6 = new URLSearchParams(location.search || '');
     globalThis.__ls_build_version = __lsParams6.get('build') || 'v0.0.130';
 } catch (e) { globalThis.__ls_build_version = 'v0.0.130'; }
+try {
+    var __lsParams7 = new URLSearchParams(location.search || '');
+    globalThis.__ls_cache_bust = __lsParams7.get('cb') || __lsParams7.get('_') || (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+} catch (e) { globalThis.__ls_cache_bust = Date.now().toString(36); }
 var basePrefix = location.pathname.replace(/\/[^\/]*$/, '');
 if (!basePrefix && location.pathname && location.pathname !== '/' && location.pathname.indexOf('.') < 0) basePrefix = location.pathname;
 var localHost = location.origin + basePrefix;
@@ -140,6 +144,11 @@ function fail(reason)
     // try { sessionStorage.removeItem('ls_running'); } catch(e) {}
     try { window.parent.postMessage({ type: 'lightsaber_failed', reason: text }, '*'); } catch (e) {}
 }
+function cacheBustURL(fname)
+{
+    let sep = fname.indexOf('?') >= 0 ? '&' : '?';
+    return fname + sep + 'build=' + encodeURIComponent(globalThis.__ls_build_version || 'v0.0.130') + '&cb=' + encodeURIComponent(globalThis.__ls_cache_bust || Date.now().toString()) + '&_=' + Date.now();
+}
 function getJS(fname,method = 'GET')
 {
     try
@@ -150,6 +159,10 @@ function getJS(fname,method = 'GET')
         let t0 = Date.now();
         let xhr = new XMLHttpRequest();
         xhr.open(method, `${url}` , false);
+        try {
+            xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, max-age=0');
+            xhr.setRequestHeader('Pragma', 'no-cache');
+        } catch (e) {}
         xhr.send(null);
         let elapsed = Date.now() - t0;
         if (xhr.status < 200 || xhr.status >= 300) {
@@ -221,17 +234,18 @@ function rcePathName(version) {
 }
 print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
 print("Selected RCE route: " + rcePathName(ios_version) + " for detected iOS " + iosVersionString(ios_version));
+print("Cache token: " + (globalThis.__ls_cache_bust || '(none)'));
 print("Loading worker code...");
 let workerCode = "";
 if(isWorkerRcePath(ios_version)) {
     print("Using rce_worker_18.6.js for " + rcePathName(ios_version));
-    workerCode = getJS(`rce_worker_18.6.js?${Date.now()}`); // local version
+    workerCode = getJS(cacheBustURL('rce_worker_18.6.js')); // local version
     if (!workerCode || !workerCode.trim()) {
-        workerCode = getJS(`rce_worker.js?${Date.now()}`);
+        workerCode = getJS(cacheBustURL('rce_worker.js'));
     }
 } else {
     print("Using rce_worker.js for " + rcePathName(ios_version));
-    workerCode = getJS(`rce_worker.js?${Date.now()}`); // local version
+    workerCode = getJS(cacheBustURL('rce_worker.js')); // local version
 }
 if (!workerCode || !workerCode.trim()) {
     throw new Error("worker code load failed");
@@ -389,9 +403,9 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         {
         let rceCode = "";
         if(isWorkerRcePath(ios_version)) {
-                rceCode = getJS(`rce_module_18.6.js?${Date.now()}`); // local version
+                rceCode = getJS(cacheBustURL('rce_module_18.6.js')); // local version
             } else {
-                rceCode = getJS(`rce_module.js?${Date.now()}`); // local version
+                rceCode = getJS(cacheBustURL('rce_module.js')); // local version
             }
         if (!rceCode || !rceCode.trim()) {
             print("RCE module load failed", true);

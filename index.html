@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>BrokenBlade</title>
   <meta name="description" content="iOS 18.0-18.6.2 theoretical CVE window; bundled offsets cover 18.4-18.6.2 plus sampled 18.0-18.3 builds. Open source, derived from DarkSword.">
   <meta property="og:type" content="website">
@@ -2258,6 +2261,10 @@
       try {
         var xhr = new XMLHttpRequest();
         xhr.open('GET', 'build-info.json?_=' + Date.now(), !sync);
+        try {
+          xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, max-age=0');
+          xhr.setRequestHeader('Pragma', 'no-cache');
+        } catch (e) {}
         if (sync) {
           xhr.send(null);
           if ((xhr.status >= 200 && xhr.status < 300) || (xhr.status === 0 && xhr.responseText)) {
@@ -3394,8 +3401,10 @@
       var displayTweaks = tweaks.map(function(t) { return tweakDisplayNames[t] || t; });
       loadBuildInfo(true);
       var runBuildVersion = buildVersionLabel();
+      var runCacheBust = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
       rawLogAppend('[UI] WebContent log armed', 'ok');
       logAppend('Build version: ' + runBuildVersion, 'device');
+      logAppend('Run cache token: ' + runCacheBust, 'device');
       logAppend(mode === 'cleanup' ? 'Starting cleanup-only run' : (displayTweaks.length ? 'Starting install with: ' + displayTweaks.join(', ') : 'Starting chain-only install'), 'ok');
       startLogWatchdog();
       scrollToLog();
@@ -3439,7 +3448,12 @@
           + '&hide_labels=' + encodeURIComponent(sbc.hide_labels || 0)
           + '&statbar=' + encodeURIComponent(sbc.statbar || 0);
         var frame = document.createElement('iframe');
-        frame.src = 'frame.html?mode=' + encodeURIComponent(mode) + '&tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&mg_flags=' + encodeURIComponent(mg_flags) + '&mg_unflags=' + encodeURIComponent(mg_unflags) + '&build=' + encodeURIComponent(runBuildVersion) + '&_=' + Math.random();
+        try {
+          var oldFrame = document.getElementById('exploitFrame');
+          if (oldFrame && oldFrame.parentNode) oldFrame.parentNode.removeChild(oldFrame);
+        } catch (e) {}
+        frame.id = 'exploitFrame';
+        frame.src = 'frame.html?mode=' + encodeURIComponent(mode) + '&tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&mg_flags=' + encodeURIComponent(mg_flags) + '&mg_unflags=' + encodeURIComponent(mg_unflags) + '&build=' + encodeURIComponent(runBuildVersion) + '&cb=' + encodeURIComponent(runCacheBust) + '&_=' + encodeURIComponent(runCacheBust);
         frame.style.width = '1px';
         frame.style.height = '1px';
         frame.style.opacity = '0.01';
