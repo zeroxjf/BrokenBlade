@@ -116,6 +116,29 @@ function rand() {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Build a per-deploy bucket name from meta.build + meta.revision so logs
+// are auto-organized by the page version that produced them. Sanitized
+// so it can't escape the prefix or include unsafe path chars.
+//   meta.build = "v0.0.130", meta.revision = "2c099db8...." (full SHA)
+//     -> "v0.0.130+2c099db"
+//   meta.build = "v0.0.130", revision missing
+//     -> "v0.0.130"
+//   neither set -> "unknown-build"
+function sanitizeBuildTag(meta) {
+  const build = String((meta && meta.build) || '').trim();
+  const rev = String((meta && meta.revision) || '').trim();
+  const shortRev = rev.length >= 7 ? rev.slice(0, 7) : rev;
+  let tag;
+  if (build && shortRev) tag = `${build}+${shortRev}`;
+  else if (build) tag = build;
+  else if (shortRev) tag = `rev-${shortRev}`;
+  else tag = 'unknown-build';
+  // Allow alnum, dot, plus, hyphen, underscore. Replace anything else.
+  tag = tag.replace(/[^A-Za-z0-9._+-]/g, '_').slice(0, 64);
+  if (!tag) tag = 'unknown-build';
+  return tag;
+}
+
 async function handleLogPost(request, env) {
   const origin = request.headers.get('Origin') || '';
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
@@ -183,7 +206,12 @@ async function handleLogPost(request, env) {
 
   const { ymd, full } = ts2();
   const id = `${full}-${rand()}`;
-  const key = `weblogs/${ymd}/${id}.txt`;
+  const buildTag = sanitizeBuildTag(meta);
+  // Auto-organize by build+revision so all uploads from one deploy
+  // sit together. Date stays as a sub-partition so a single build's
+  // logs are still chronological. Old logs at weblogs/<date>/... are
+  // unaffected; lifecycle rule on prefix 'weblogs/' covers both.
+  const key = `weblogs/${buildTag}/${ymd}/${id}.txt`;
 
   const cf = request.cf || {};
   // JSON.stringify can throw on circular refs / exotic values. Wrap so
