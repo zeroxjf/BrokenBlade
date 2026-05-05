@@ -23,17 +23,39 @@
 const DEFAULT_RATE_LIMIT_PER_HOUR = 60;
 const MAX_BODY_BYTES = 1 * 1024 * 1024; // 1 MB
 
+// Browser origins permitted to make CORS requests. Hostile origins get
+// no CORS headers (and POST is rejected outright) to stop drive-by
+// uploads from any random site that learns the worker URL.
+//
+// Non-browser clients (curl, scripted attackers) don't send Origin and
+// hit the no-Origin path, which still has rate-limit + body-cap +
+// admin-token gates as their backstop.
+const ALLOWED_ORIGINS = new Set([
+  'https://zeroxjf.github.io',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
+]);
+
 // Per-isolate fallback cache. Used only when env.RATE_LIMITER (KV) is missing.
 const memRateCache = new Map();
 
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // non-browser clients (no Origin header)
+  return ALLOWED_ORIGINS.has(origin);
+}
+
 function corsHeaders(origin) {
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
+  // Reflect only allowlisted origins. Hostile origins get no CORS
+  // headers, which makes browsers refuse to read the response.
+  const reflected = (origin && ALLOWED_ORIGINS.has(origin)) ? origin : '';
+  const headers = {
     'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Token',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
+  if (reflected) headers['Access-Control-Allow-Origin'] = reflected;
+  return headers;
 }
 
 function jsonResponse(obj, status, origin) {
@@ -97,6 +119,12 @@ function rand() {
 async function handleLogPost(request, env) {
   const origin = request.headers.get('Origin') || '';
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
+  // Browser-origin allowlist. Non-browser clients (Origin == '') still
+  // get through; their gates are rate-limit + body-cap.
+  if (!isAllowedOrigin(origin)) {
+    return jsonResponse({ error: 'origin_not_allowed' }, 403, origin);
+  }
 
   const rl = await checkRate(env, ip);
   if (!rl.allowed) {
@@ -171,6 +199,13 @@ async function handleLogPost(request, env) {
 
 async function handleLogGet(request, env, key) {
   const origin = request.headers.get('Origin') || '';
+  // /log/<key> reads are now admin-only. The page-side flow never
+  // fetches uploaded logs - it only POSTs - so locking this down has
+  // no impact on production behavior. Removes the "anyone with a key
+  // can read someone else's log" disclosure path.
+  if (!adminAuthorized(request, env)) {
+    return jsonResponse({ error: 'unauthorized' }, 401, origin);
+  }
   const obj = await env.LOGS.get(key);
   if (!obj) return new Response('not found', { status: 404, headers: corsHeaders(origin) });
   const text = await obj.text();

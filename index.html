@@ -1078,6 +1078,20 @@
     /* The log scroll lives inside .log-sheet now (no standalone box). Dark
        terminal styling on the scroll itself contrasts with the white card,
        so the raw stream reads like a console panel embedded in the card. */
+    .log-upload-note {
+      padding: 8px 12px 10px;
+      font-size: 0.62rem;
+      color: var(--subtle);
+      background: var(--card-alt);
+      border-top: 1px solid var(--border-soft);
+      line-height: 1.55;
+      letter-spacing: 0.01em;
+    }
+    .log-upload-note a {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+    .log-upload-note a:hover { color: var(--accent-dark); }
     #rawLogScroll {
       max-height: min(320px, 44dvh);
       overflow-y: auto;
@@ -2019,6 +2033,9 @@
         <div id="rawLogScroll">
           <div class="raw-log-empty" id="rawLogEmpty">WebContent log lines will appear here when a run starts.</div>
         </div>
+        <div class="log-upload-note" aria-live="polite">
+          Auto-uploaded to a private Cloudflare R2 bucket for debugging (build, iOS, UA, IP, chain trace). Logs deleted after 30 days. <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/log-worker/worker.js" target="_blank" rel="noopener">Worker source</a>.
+        </div>
       </div>
     </div>
 
@@ -2102,6 +2119,9 @@
       </div>
       <div class="warning">
         <strong>Use caution.</strong> Derived from the <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">DarkSword</a> exploit chain with all malware communication stripped and <a href="https://github.com/zeroxjf/BrokenBlade">fully open source</a>, but this is an inherently unstable chain and is <strong>not recommended for deployment on a daily driver</strong> unless you are willing to accept the risk. The chain may take several tries to succeed, SpringBoard may crash, the kernel may panic. Use at your own risk &mdash; I am not liable for any damage or data loss.
+      </div>
+      <div class="caution">
+        <strong>Diagnostic upload.</strong> When you run the chain, the WebContent log (build version, iOS version, user-agent, IP, and chain trace) is automatically uploaded to a Cloudflare R2 bucket I control, so I can debug failures. No tweak content, no personal data beyond what's listed. Logs are deleted after 30 days.
       </div>
       <div class="dialog-btns">
         <button type="button" class="btn-confirm" onclick="dismissIntro()">I understand</button>
