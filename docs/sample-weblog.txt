@@ -1,26 +1,163 @@
-# BrokenBlade weblog
-# uploaded: 2026-05-05T04:47:36.898Z
-# country: US
-# colo: IAD
-# user-agent: curl/8.7.1
-# meta: {"reason":"replay-after-crash","build":"v0.0.130","revision":"sample0","ua":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1","href":"https://zeroxjf.github.io/BrokenBlade/?tweaks=fiveicon&level=heavy","ts_client":"2026-05-05T04:35:00.000Z","ios":"18.3","line_count":18,"note":"Synthetic but representative sample committed to the repo. Real uploads do not include this note field."}
-# ---
 [UI] Previous run was interrupted. Last WebContent log follows:
 [UI] WebContent log armed
-[UI] Build version: v0.0.130
+[UI] Build version: v0.0.130+a6a13fe
+[UI] Run cache token: mos26ee3-nh8fa9hgrdd
 [UI] Starting install with: SBCustomizer
-[12ms] Tweak selection: mode=install tweaks=fiveicon level=heavy sbc=4/4x6 rawSearch=?tweaks=fiveicon&level=heavy
-[14ms] Selected RCE route: iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path for detected iOS 18.3
-[16ms] Cache token: m7p3xa-q1abc123
-[18ms] Loading worker code...
-[20ms] Using rce_worker_18.6.js for iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path
-[22ms] Fetching rce_worker_18.6.js...
-[287ms] Loaded rce_worker_18.6.js (980318 bytes, 265ms)
-[315ms] Fetching rce_module.js...
-[542ms] Loaded rce_module.js (807490 bytes, 227ms)
-[612ms] RCE module ready (70ms)
-[634ms] desiredHost = https://zeroxjf.github.io/BrokenBlade
-[651ms] Sending stage1_rce to worker (iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path) tweaks=fiveicon level=heavy sbx0FallbackStart=0
-[1240ms] ios_version: 18.3
-[1242ms] device_model: iPhone16,1
-[1247ms] Starting check_attempt (iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path), sbx0FallbackStart=0
+[2ms]     UserAgent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1
+[2ms]     Build version: v0.0.130+a6a13fe
+[2ms]     Detected iOS version: 18.3 (raw: 18_3)
+[2ms]     Tweak selection: mode=install tweaks=fiveicon level=nominal sbc=4/4x6 rawSearch=?mode=install&tweaks=fiveicon&level=nominal&dock_icons=4&hs_cols=4&hs_rows=6&hide_labels=0&statbar=0&mg_flags=&mg_unflags=bootchime%2Cchargelimit%2Ctaptowake%2Ccollisionsos%2Cpencil%2Cactionbutton%2Caod%2Cstagemanager%2Cinternalinstall%2Csrd%2Cshutter%2Cipadapps&build=v0.0.130%2Ba6a13fe&cb=mos26ee3-nh8fa9hgrdd&_=mos26ee3-nh8fa9hgrdd
+[2ms]     Selected RCE route: iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path for detected iOS 18.3
+[2ms]     Cache token: mos26ee3-nh8fa9hgrdd
+[2ms]     Loading worker code...
+[2ms]     Using rce_worker_18.6[.]js for iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path
+[2ms]     Fetching rce_worker_18.6.js...
+[23ms]    Loaded rce_worker_18.6[.]js (1009212 bytes, 21ms)
+[23ms]    Worker code loaded: 1009212 bytes
+[24ms]    === main() started ===
+[24ms]    Origin: https://zeroxjf[.]github[.]io
+[25ms]    Worker created
+[26ms]    Fetching rce_module_18.6.js...
+[40ms]    Loaded rce_module_18.6[.]js (85 bytes, 14ms)
+[40ms]    Evaluating RCE module...
+[40ms]    RCE module ready (0ms)
+[40ms]    desiredHost = https://zeroxjf[.]github[.]io/BrokenBlade
+[40ms]    Sending stage1_rce to worker (iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path) tweaks=fiveicon level=nominal sbx0FallbackStart=0
+[4ms]     inside stage1_rce from worker, mode=install tweaks=fiveicon level=nominal sbc=4/4x6 statbar=0 hideLabels=0 mgpatcherMode=enable site=zeroxjf[.]github[.]io/BrokenBlade
+[4ms]     begin
+[5ms]     try aar/w
+[5ms]     _make_rw: begin
+[8ms]     _make_rw: conversion warmup done
+[14ms]    _make_rw: get_oob training done
+[15ms]    _make_rw: object spray done
+[15ms]    _make_rw: entering stage1 unit attempts
+[17ms]    stage1 unit attempt 1/50
+[84ms]    stage1 unit attempt 5/50
+[139ms]   stage1 unit attempt 10/50
+[236ms]   success with 16 unit tries
+[236ms]   _make_rw: stage1 unit attempts done
+[237ms]   inside stage1_prim
+[237ms]   after setting up prims
+[237ms]   gc disable: version parse begin
+[237ms]   gc disable: version parsed=18,3
+[237ms]   gc disable: skipped for early iOS 18.3
+[237ms]   globalFuncParseFloat: 0x1a9262cdc
+[237ms]   jsc_base now: 0x1a923c000
+[237ms]   resolver: post-jsc-base
+[247ms]   resolver: parser helpers ready
+[257ms]   resolver: pthread candidate maps ready
+[267ms]   resolver: linkedit map ready
+[277ms]   resolver: device chipset map ready
+[287ms]   ios_version: 18,3
+[287ms]   resolver: ios_version parsed=18,3
+[297ms]   resolver: linkedit candidates=8 auth_stub_candidates=0x17661ec,0x17621ec pthread_offset_candidates=0x602c
+[307ms]   resolver: trying auth_stub_offset=0x17661ec addr=0x1aa9a21ec
+[317ms]   resolver: auth_stub_insns=0x74536576,0x74637572
+[327ms]   resolver: candidate_got=0x2516518dd
+[337ms]   resolver: candidate_got rejected as invalid
+[347ms]   resolver: trying auth_stub_offset=0x17621ec addr=0x1aa99e1ec
+[357ms]   resolver: auth_stub_insns=0x6e497349,0x65676574
+[367ms]   resolver: candidate_got=0x23d8099d9
+[377ms]   resolver: candidate_got rejected as invalid
+[387ms]   resolver: auth stub resolver failed; trying offset table fallback
+[397ms]   resolver: fallback candidate=iPhone14,5_22D63 slide=0xfa2c000 base=0x21d351000 linkedit_addr=0x21d351600
+[407ms]   resolver: fallback linkedit=0x5f34364d52415f47 expected=0x272aac000
+[417ms]   resolver: fallback candidate=iPhone16,1_22D63 slide=0xfa2c000 base=0x21d375000 linkedit_addr=0x21d375600
+[427ms]   resolver: fallback linkedit=0xb9400c0c910003fd expected=0x274114000
+[437ms]   resolver: fallback candidate=iPhone14,2_22D63 slide=0xfa2c000 base=0x21d355000 linkedit_addr=0x21d355600
+[447ms]   resolver: fallback linkedit=0x300000003 expected=0x2734dc000
+[457ms]   resolver: fallback candidate=iPhone14,6_22D63 slide=0xfa2c000 base=0x21d335000 linkedit_addr=0x21d335600
+[467ms]   resolver: fallback linkedit=0x97fe7e91aa1603e2 expected=0x272a54000
+[477ms]   resolver: fallback candidate=iPhone14,7_22D63 slide=0xfa2c000 base=0x21d36d000 linkedit_addr=0x21d36d600
+[487ms]   resolver: fallback linkedit=0x74736e6f expected=0x272ea0000
+[497ms]   resolver: fallback candidate=iPhone12,1_22D64 slide=0xfa40000 base=0x21d30d000 linkedit_addr=0x21d30d600
+[507ms]   resolver: fallback linkedit=0xa9095ff8a90867fa expected=0x272400000
+[517ms]   resolver: fallback candidate=iPhone15,3_22D63 slide=0xfa2c000 base=0x21d371000 linkedit_addr=0x21d371600
+[527ms]   resolver: fallback linkedit=0x273c38000 expected=0x273c58000
+[537ms]   resolver: fallback candidate=iPhone15,3_22D60 slide=0xfa30000 base=0x21d371000 linkedit_addr=0x21d371600
+[547ms]   resolver: fallback linkedit=0x273c38000 expected=0x273c38000
+[557ms]   resolver: fallback selected device_model=iPhone15,3_22D60
+[567ms]   resolver: pthread_create_auth_stubs_offset: 0x17661ec
+[577ms]   resolver: pthread_create_offset: 0x602c
+[587ms]   resolver: pthread_create_got: 0x0
+[597ms]   resolver: pthread_create: 0x21d37702c
+[607ms]   resolver: libsystem_pthread_base: 0x21d371000
+[617ms]   resolver: libsystem_pthread_linkedit: 0x273c38000
+[627ms]   resolver: device_model: iPhone15,3_22D60
+[637ms]   resolver: slide: 0xfa30000
+[647ms]   resolver: sliding offsets begin
+[657ms]   resolver: sliding offsets done jitAllowList_once=0x1fae422b8 jitAllowList=0x1fae424a0 contexts=0x1f8e3f718
+[667ms]   resolver: writing jitAllowList_once
+[677ms]   resolver: wrote jitAllowList_once
+[687ms]   resolver: writing jitAllowList flag
+[697ms]   resolver: wrote jitAllowList flag
+[707ms]   resolver: reading allScriptExecutionContextsMap
+[717ms]   resolver: contexts pointer=0x10f1b6d50
+[727ms]   resolver: contexts_lenght:0x10
+[737ms]   resolver: context scan begin max_id=0x0 worker_vtable=0x1fe413f80
+[747ms]   resolver: context[0] entry=0x10f1b6d70
+[757ms]   resolver: context[0] scriptExecutionContext=0x161c000d0
+[767ms]   resolver: context[0] reading vtable at 0x161c000d0
+[777ms]   resolver: context[0] vtable=0x478001fe3598b0 nopac=0x1fe3598b0 code=0x1fe3598b0
+[787ms]   resolver: context[1] entry=0x10f1b6da0
+[797ms]   resolver: context[1] scriptExecutionContext=0x0
+[807ms]   resolver: context[2] entry=0x10f1b6dd0
+[817ms]   resolver: context[2] scriptExecutionContext=0x0
+[827ms]   resolver: context[3] entry=0x10f1b6e00
+[837ms]   resolver: context[3] scriptExecutionContext=0x0
+[847ms]   resolver: context[4] entry=0x10f1b6e30
+[857ms]   resolver: context[4] scriptExecutionContext=0x0
+[867ms]   resolver: context[5] entry=0x10f1b6e60
+[877ms]   resolver: context[5] scriptExecutionContext=0x0
+[887ms]   resolver: context[6] entry=0x10f1b6e90
+[897ms]   resolver: context[6] scriptExecutionContext=0x1611200d0
+[907ms]   resolver: context[6] reading vtable at 0x1611200d0
+[917ms]   resolver: context[6] vtable=0x278001fe347ca0 nopac=0x1fe347ca0 code=0x1fe347ca0
+[927ms]   resolver: context[7] entry=0x10f1b6ec0
+[937ms]   resolver: context[7] scriptExecutionContext=0x161121cd0
+[947ms]   resolver: context[7] reading vtable at 0x161121cd0
+[957ms]   resolver: context[7] vtable=0xa8001fe3598b0 nopac=0x1fe3598b0 code=0x1fe3598b0
+[967ms]   resolver: context[8] entry=0x10f1b6ef0
+[977ms]   resolver: context[8] scriptExecutionContext=0x161122ad0
+[987ms]   resolver: context[8] reading vtable at 0x161122ad0
+[997ms]   resolver: context[8] vtable=0x658001fe3ef8b8 nopac=0x1fe3ef8b8 code=0x1fe3ef8b8
+[1007ms]  resolver: context[9] entry=0x10f1b6f20
+[1017ms]  resolver: context[9] scriptExecutionContext=0x0
+[1027ms]  resolver: context[10] entry=0x10f1b6f50
+[1037ms]  resolver: context[10] scriptExecutionContext=0x0
+[1047ms]  resolver: context[11] entry=0x10f1b6f80
+[1057ms]  resolver: context[11] scriptExecutionContext=0x0
+[1067ms]  resolver: context[12] entry=0x10f1b6fb0
+[1077ms]  resolver: context[12] scriptExecutionContext=0x0
+[1087ms]  resolver: context[13] entry=0x10f1b6fe0
+[1097ms]  resolver: context[13] scriptExecutionContext=0x161120ed0
+[1107ms]  resolver: context[13] reading vtable at 0x161120ed0
+[1117ms]  resolver: context[13] vtable=0x2c8001fe3598b0 nopac=0x1fe3598b0 code=0x1fe3598b0
+[1127ms]  resolver: context[14] entry=0x10f1b7010
+[1137ms]  resolver: context[14] scriptExecutionContext=0x0
+[1147ms]  resolver: context[15] entry=0x10f1b7040
+[1157ms]  resolver: context[15] scriptExecutionContext=0x167051520
+[1167ms]  resolver: context[15] reading vtable at 0x167051520
+[1177ms]  resolver: context[15] vtable=0x600001fe413f80 nopac=0x1fe413f80 code=0x1fe413f80
+[1187ms]  resolver: context[15] dedicated worker candidate; reading id
+[1197ms]  resolver: context[15] id=0x9
+[1207ms]  resolver: context[15] selected worker=0x167051520 max_id=0x9
+[1217ms]  resolver: context scan done
+[1227ms]  resolver: worker selected=0x167051520
+[1237ms]  resolver: reading workerOrWorkletThread at 0x167051680
+[1247ms]  resolver: workerOrWorkletThread=0x10f704700
+[1257ms]  resolver: expected worker globals unboxed_arr=0x10f4e5748 boxed_arr=0x10f4e57d8
+[1267ms]  resolver: script candidate 0x158 addr=0x167051678
+[1277ms]  resolver: script candidate 0x158 raw=0x10f6fc990 ptr=0x10f6fc990
+[1287ms]  resolver: script0x158+0x18 strong=0x161206598
+[1297ms]  resolver: script0x158+0x18 slots unboxed=0x10f4e5748 boxed=0x10f4e57d8
+[1307ms]  resolver: selected script_offset=0x158 strong_offset=0x18 global=0x161216088 butterfly=0x161f9c968
+[1317ms]  resolver: worker global offsets script=0x158 strong=0x18
+[1327ms]  resolver: butterfly:0x161f9c968
+[1337ms]  resolver: unboxed_arr=0x10f4e5748
+[1347ms]  resolver: boxed_arr=0x10f4e57d8
+[1357ms]  resolver: reading butterfly at 0x10f4e57e0
+[1367ms]  resolver: boxed butterfly=0x161a35ea8
+[1377ms]  resolver: writing unboxed_arr butterfly slot at 0x10f4e5750
+[1387ms]  resolver: Finished stage1 prim succesfully
+[1397ms]  setup_stage2: begin
