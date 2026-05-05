@@ -337,7 +337,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         document.body.appendChild(iframe);
         async function message_handler(e) {
         const data = e.data;
-        if (data.type !== 'log' && data.type !== 'log_flush_checkpoint') print("[MSG] " + data.type);
+        if (data.type !== 'log') print("[MSG] " + data.type);
         switch (data.type) {
             case 'redirect':
             {
@@ -481,28 +481,6 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                         }, '*');
                     } catch(e) {}
                 }
-                break;
-            }
-            case 'log_flush_checkpoint':
-            {
-                if (data.text) {
-                    __lsFastStoreLog(data.text, __lsFastLogClass(data.text, !!data.reportError));
-                    try {
-                        window.parent.postMessage({
-                            type: 'lightsaber_log',
-                            text: data.text,
-                            source: 'worker',
-                            reportError: !!data.reportError,
-                            dumphex: !!data.dumphex
-                        }, '*');
-                    } catch(e) {}
-                }
-                try {
-                    worker.postMessage({
-                        type: 'log_flush_checkpoint_ack',
-                        id: data.id || ''
-                    });
-                } catch(e) {}
                 break;
             }
             case 'stage1_failed':

