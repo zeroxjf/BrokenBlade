@@ -18730,7 +18730,8 @@ async function main() {
             return -1;
           }
           function workerResolverCheckpoint(message) {
-            print("worker resolver: " + message);
+            if (message.indexOf("found required") !== -1)
+              print("worker resolver: " + message);
             sleep(10);
           }
           for (let i = 0n; i < contexts_length; ++i) {
@@ -18782,6 +18783,7 @@ async function main() {
                 id: id,
                 bitmap: bitmap
               });
+              print(`worker resolver: accepted dlopen id=${id.hex()} worker=${context.hex()} bitmap=${bitmap.hex()}`);
             } else if (classLoadWorkerIndex(id) !== -1) {
               class_load_workers.push({
                 thread: thread,
@@ -18789,6 +18791,7 @@ async function main() {
                 bitmap: bitmap,
                 index: classLoadWorkerIndex(id)
               });
+              print(`worker resolver: accepted class-load index=${classLoadWorkerIndex(id)} id=${id.hex()} worker=${context.hex()} bitmap=${bitmap.hex()}`);
             }
             if (dlopen_workers.length >= 2 && class_load_workers.length >= 3) {
               workerResolverCheckpoint("found required dlopen/class-load workers");
