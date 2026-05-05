@@ -1918,11 +1918,12 @@
       <details class="callout test-tips" role="note">
         <summary><span class="test-tips-title">How testing works</span></summary>
         <div class="callout-body">
-          <strong>The chain will fail for most runs right now.</strong> I am iteratively improving it &mdash; every run uploads a log automatically (see Privacy below) and even failed runs help me move the chain forward. <strong>Please run the chain a few times in a row.</strong>
+          <strong>Right now we are only debugging the WebKit / JavaScript phase of the chain.</strong> The full exploit chain (sandbox escape, kernel R/W, SpringBoard injection) does <em>not</em> kick off yet &mdash; so don&rsquo;t expect a long page freeze, a Safari crash, or anything visible on the home screen. What I&rsquo;m looking for is <strong>where in the WebKit setup the chain stops</strong>, which the auto-uploaded log captures.
           <ul>
             <li>Each tap of <strong>Run</strong> is one attempt. The chain is non-deterministic; sometimes a retry progresses further than the previous attempt.</li>
-            <li>If the page barely freezes (under ~10 s) or the WebContent log stops well before <em>Starting check_attempt</em>, the chain didn&rsquo;t make it past Safari&rsquo;s setup. <strong>Clear Safari cache</strong> (Settings &rarr; Apps &rarr; Safari &rarr; Clear History and Website Data) and try again.</li>
-            <li>If many tries in a row stall in the same place, <strong>reboot the device</strong> for a fresh kernel and Safari state, then try once more.</li>
+            <li>Expected outcome <em>for now</em>: the WebContent log scrolls a handful of lines, then stops &mdash; usually before <em>Starting check_attempt</em>. That&rsquo;s exactly the data I need. Please run a few times in a row so I get multiple traces.</li>
+            <li>If you get the same stop point on many tries, try <strong>clearing Safari cache</strong> (Settings &rarr; Apps &rarr; Safari &rarr; Clear History and Website Data) and running again. Reboot for a fully fresh state if that doesn&rsquo;t help.</li>
+            <li>If anything <em>does</em> freeze the page for a long time or crash Safari, that&rsquo;s a signal &mdash; please mention it. Otherwise assume the run was useful even when nothing dramatic happens.</li>
           </ul>
         </div>
       </details>
