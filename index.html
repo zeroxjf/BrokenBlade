@@ -726,6 +726,37 @@
       -webkit-tap-highlight-color: transparent;
     }
     .log-sheet-clear:active { opacity: 0.6; }
+    .log-sheet-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .log-sheet-copy {
+      background: #30d158;
+      border: 1px solid #30d158;
+      color: #fff;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 1px 2px rgba(48, 209, 88, 0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .log-sheet-copy:hover {
+      background: #25ad48;
+      border-color: #25ad48;
+    }
+    .log-sheet-copy:active { opacity: 0.75; }
+    .log-sheet-copy svg {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+    }
     .log-sheet-header .tweak-sheet-back {
       background: none;
       border: none;
@@ -1917,7 +1948,16 @@
       <div class="log-sheet" id="logSheet" aria-live="polite">
         <div class="log-sheet-header">
           <span class="log-sheet-title">WebContent Log</span>
-          <button type="button" class="log-sheet-clear" onclick="clearRawLogView()">Clear</button>
+          <div class="log-sheet-actions">
+            <button type="button" class="log-sheet-copy" id="logSheetCopyBtn" onclick="copyWebLog(this)" aria-label="Copy Web Log">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="11" height="11" rx="2"/>
+                <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+              </svg>
+              <span data-copy-label>Copy Log</span>
+            </button>
+            <button type="button" class="log-sheet-clear" onclick="clearRawLogView()">Clear</button>
+          </div>
         </div>
         <div class="log-stage-banner" id="logStageBanner">
           <div class="log-stage-text" id="logStageText">Waiting to start</div>
@@ -2958,10 +2998,11 @@
       var text = arr.join('\n');
       function flash(label) {
         if (!btn) return;
-        var prev = btn.textContent;
-        btn.textContent = label;
+        var labelHost = btn.querySelector('[data-copy-label]') || btn;
+        var prev = labelHost.textContent;
+        labelHost.textContent = label;
         setTimeout(function() {
-          if (btn.textContent === label) btn.textContent = prev;
+          if (labelHost.textContent === label) labelHost.textContent = prev;
         }, 1500);
       }
       if (!text) {
