@@ -149,6 +149,32 @@
   let add_x22_0x90 = 0n;
   if (integrated) {
     sbx1_offsets = {
+   "iPhone14,5_22B91": {
+      _4_fcalls: 0x1c56e9138n,
+      _CFObjectCopyProperty: 0x18e37de14n,
+      add_x22_0x90: 0x2391ec8d0n,
+      dyld_signPointer_gadget: 0x1a87e42a0n,
+      fcall_14_args_write_x8: 0x24b0b80ccn,
+      jsvm_isNAN_fcall_gadget: 0x19dbc4be4n,
+      jsvm_isNAN_fcall_gadget2: 0x1803747e4n,
+      load_x1x3x8: 0x25dc294a0n,
+      malloc_restore_0_gadget: 0x18fb72968n,
+      malloc_restore_1_gadget: 0x1c9ae2888n,
+      malloc_restore_2_gadget: 0x1a87d9300n,
+      malloc_restore_3_gadget: 0x1901008acn,
+      mov_x0_x22: 0x18e6e5f94n,
+      self_loop: 0x18fef4fe0n,
+      store_x0_x0: 0x194221bdcn,
+      str_x1_x2: 0x208f87520n,
+      tcall_CRLG: 0x23d4ab274n,
+      tcall_CSSG: 0x1a87faaf8n,
+      tcall_DG: 0x1df5eea54n,
+      tcall_DSSG: 0x1a8dd1abcn,
+      tcall_RLG: 0x20bca747cn,
+      tcall_X0LG: 0x21d0cdfe8n,
+      transformSurface_gadget: 0x20df376f8n,
+      xpac_gadget: 0x1b584e29cn,
+   },
    "iPhone15,3_22D60": {
       _4_fcalls: 0x1c659eca0n,
       _CFObjectCopyProperty: 0x18e33c768n,
