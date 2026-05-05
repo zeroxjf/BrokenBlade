@@ -11,8 +11,17 @@
 #   2. first line of file at $BB_ADMIN_TOKEN_FILE
 #      (default: ~/Downloads/brokenblade-admin-token.txt)
 #
+# If you reimplement this in Python instead of running it: Cloudflare's
+# edge bot-mitigation 403s the default `User-Agent: Python-urllib/3.x`
+# before requests reach the Worker. Set a non-default UA (anything,
+# e.g. `curl/8.0`) on the request or use curl/requests.
+#
 # Layout: logs land under <repo>/tester-logs/<build-tag>/<YYYY-MM-DD>/<id>.txt
 # matching the worker's R2 key hierarchy.
+#
+# Cleanup: uses `mktemp -d` for a per-run scratch dir and `trash` on
+# EXIT (per repo convention - never `rm`). If `trash` is unavailable
+# the temp dir is left for macOS to age out.
 
 set -euo pipefail
 
@@ -31,9 +40,10 @@ if [ -z "$ADMIN_TOKEN" ]; then
   fi
 fi
 
-LIST_JSON=$(mktemp)
-NEW_KEYS=$(mktemp)
-trap 'rm -f "$LIST_JSON" "$NEW_KEYS"' EXIT
+WORK_DIR=$(mktemp -d)
+LIST_JSON="$WORK_DIR/list.json"
+NEW_KEYS="$WORK_DIR/new_keys.txt"
+trap 'command -v trash >/dev/null && trash "$WORK_DIR" 2>/dev/null || true' EXIT
 
 echo "fetching key list from $WORKER_URL ..."
 curl -fsS -H "X-Admin-Token: $ADMIN_TOKEN" \
@@ -67,15 +77,20 @@ else
     rel="${key#weblogs/}"
     out="$DEST/$rel"
     mkdir -p "$(dirname "$out")"
-    http=$(curl -sS -o "$out" -w '%{http_code}' \
+    # Download into a per-fetch temp file so a failed download never
+    # leaves a partial txt in the mirror. Only `mv` into place on 200,
+    # so we never need to delete on the failure path.
+    tmp_out=$(mktemp "$WORK_DIR/download.XXXXXX")
+    http=$(curl -sS -o "$tmp_out" -w '%{http_code}' \
       -H "X-Admin-Token: $ADMIN_TOKEN" \
       "$WORKER_URL/log/$key" || echo "000")
     if [ "$http" = "200" ]; then
+      mv "$tmp_out" "$out"
       ok=$((ok+1))
     else
       fail=$((fail+1))
       echo "FAIL ($http) $key" >&2
-      rm -f "$out"
+      # tmp_out stays in WORK_DIR; cleaned by the trap.
     fi
   done < "$NEW_KEYS"
   echo "downloaded: $ok  failed: $fail"
