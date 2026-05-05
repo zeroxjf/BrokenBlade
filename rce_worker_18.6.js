@@ -18612,6 +18612,13 @@ async function main() {
     return p.read64(p.addrof(this) + 0x10n);
   };
   async function loadObjcClass(cls) {
+    function dumpClassCandidate(label, candidate) {
+      const isa = p.read64(candidate);
+      const superclass = p.read64(candidate + 8n);
+      const cache = p.read64(candidate + 0x10n);
+      const data = p.read64(candidate + 0x20n);
+      print(`loadObjcClass: ${label} cls=${candidate.hex()} isa=${isa.hex()} super=${superclass.hex()} cache=${cache.hex()} data=${data.hex()}`);
+    }
     print(`loadObjcClass: begin cls=${cls.hex()}`);
     print("loadObjcClass: createImageBitmap begin");
     const bitmap = await createImageBitmap(canvas);
@@ -18624,6 +18631,9 @@ async function main() {
     print("loadObjcClass: class write begin");
     p.write64(imagebuffer + 0x20n, cls);
     print("loadObjcClass: class write done");
+    dumpClassCandidate("selected", cls);
+    dumpClassCandidate("plus0x80", cls + 0x80n);
+    dumpClassCandidate("minus0x80", cls - 0x80n);
     print("loadObjcClass: bitmap close begin");
     bitmap.close();
     print("loadObjcClass: bitmap close done");
