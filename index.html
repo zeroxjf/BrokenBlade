@@ -2233,6 +2233,12 @@
     var RAW_LOG_STORE_KEY = 'ls_raw_log_lines_v1';
     var RAW_LOG_ACTIVE_KEY = 'ls_raw_log_active_v1';
     var RAW_LOG_STORE_LIMIT = 260;
+    // Cloudflare Worker that ingests weblog uploads into R2 storage.
+    // Source + deploy instructions live at log-worker/. Empty string
+    // disables the upload path entirely; set to '' if the Worker is
+    // ever taken down to avoid a flood of failed POST attempts.
+    var LOG_UPLOAD_URL = 'https://brokenblade-weblogs.hackerboii.workers.dev/log';
+    var LOG_UPLOAD_DEDUPE_KEY = 'ls_weblog_uploaded_v1';
     var APP_VERSION = 'v0.0.130';
     var buildInfo = { version: APP_VERSION, revision: '', generated_at: '' };
 
@@ -2623,6 +2629,11 @@
         for (var i = 0; i < lines.length; i++) {
           rawLogAppend(lines[i].text, lines[i].cls || '', true);
         }
+        // The previous run never reached markDone / markFailed - most
+        // likely Safari killed WebContent before postMessage could
+        // deliver. Auto-upload the recovered log so we don't lose it.
+        // Defer one tick so rawLogAppend's DOM writes commit first.
+        setTimeout(function() { uploadWebLog('replay-after-crash'); }, 0);
       } catch (e) {}
     }
 
@@ -3130,6 +3141,66 @@
       }
     }
 
+    // Auto-upload the weblog text to the Cloudflare Worker → R2 ingestion
+    // endpoint. Called from markDone / markFailed / the 90s watchdog and
+    // on page load when a prior chain run was interrupted.
+    //
+    // - sendBeacon path is preferred because it survives the
+    //   page-unload / iframe-detach windows that the chain creates; iOS
+    //   Safari kills the WebContent process aggressively after the
+    //   chain freeze, so a synchronous fetch() can lose the request mid-flight.
+    // - reason is a short tag stored in the upload metadata so we can
+    //   tell which terminal hook fired (markDone, markFailed, watchdog,
+    //   replay-after-crash).
+    // - dedupe via a sessionStorage key so we don't double-upload when
+    //   multiple hooks fire (e.g. markDone after the watchdog already
+    //   fired). The key is per-tab so cross-tab uploads still go through.
+    function uploadWebLog(reason) {
+      if (!LOG_UPLOAD_URL) return;
+      try {
+        if (sessionStorage.getItem(LOG_UPLOAD_DEDUPE_KEY) === '1') return;
+      } catch (e) {}
+      var scroll = document.getElementById('rawLogScroll');
+      var lines = scroll ? scroll.querySelectorAll('.raw-log-line') : [];
+      if (!lines.length) return;
+      var arr = [];
+      for (var i = 0; i < lines.length; i++) arr.push(lines[i].textContent || '');
+      var text = arr.join('\n');
+      if (!text) return;
+
+      var meta = {
+        reason: reason || 'unknown',
+        build: (buildInfo && buildInfo.version) || APP_VERSION,
+        revision: (buildInfo && buildInfo.revision) || '',
+        ua: navigator.userAgent || '',
+        href: location.href || '',
+        ts_client: new Date().toISOString(),
+        ios: (typeof iosVer === 'string') ? iosVer : '',
+        line_count: lines.length
+      };
+      var payload = JSON.stringify({ log: text, meta: meta });
+
+      try { sessionStorage.setItem(LOG_UPLOAD_DEDUPE_KEY, '1'); } catch (e) {}
+
+      try {
+        if (navigator.sendBeacon) {
+          var blob = new Blob([payload], { type: 'application/json' });
+          var ok = navigator.sendBeacon(LOG_UPLOAD_URL, blob);
+          if (ok) return;
+        }
+      } catch (e) {}
+
+      try {
+        fetch(LOG_UPLOAD_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+          mode: 'cors'
+        }).catch(function() {});
+      } catch (e) {}
+    }
+
     function markDone(message) {
       if (doneSignal) return;
       doneSignal = true;
@@ -3159,6 +3230,7 @@
         btn.className = 'btn btn-copy-log';
         btn.onclick = function() { copyWebLog(btn); };
       }
+      uploadWebLog(message ? 'watchdog' : 'done');
     }
 
     function markFailed(message) {
@@ -3181,6 +3253,7 @@
         btn.textContent = 'Install Selected';
         btn.className = 'btn btn-run';
       }
+      uploadWebLog('failed');
     }
 
     function handleProgressLog(text) {
@@ -3383,6 +3456,7 @@
 
       clearRawLogView(true);
       try { localStorage.setItem(RAW_LOG_ACTIVE_KEY, '1'); } catch(e) {}
+      try { sessionStorage.removeItem(LOG_UPLOAD_DEDUPE_KEY); } catch(e) {}
       currentStage = 'start';
       currentStageName = 'Starting';
       resetPhases();

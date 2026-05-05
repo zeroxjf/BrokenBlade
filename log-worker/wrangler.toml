@@ -1,0 +1,10 @@
+name = "brokenblade-weblogs"
+main = "worker.js"
+compatibility_date = "2026-05-01"
+
+# R2 bucket binding. The bucket "brokenblade-weblogs" must exist before
+# `wrangler deploy` will succeed - create with:
+#   wrangler r2 bucket create brokenblade-weblogs
+[[r2_buckets]]
+binding = "LOGS"
+bucket_name = "brokenblade-weblogs"
