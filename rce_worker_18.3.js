@@ -18309,18 +18309,22 @@ const device_chipset = {
         function setup_stage2_prim()
         {
           print("setup_stage2: begin");
+          print("setup_stage2: addrof install begin");
           p.addrof = function addrof(o) {
             boxed_arr[0] = o;
             return BigInt.fromDouble(unboxed_arr[0]);
-          }        
+          }
+          print("setup_stage2: addrof install done");
+          print("setup_stage2: fakeobj install begin");
           p.fakeobj = function fakeobj(addr) {
             unboxed_arr[0] = addr.asDouble();
             return boxed_arr[0];
           }
-          print("setup_stage2: addrof/fakeobj installed");
+          print("setup_stage2: fakeobj install done");
           let scribble_element;
           let scribbles = [];
           let prev_addr = 0n;
+          print("setup_stage2: local state allocated");
           print("setup_stage2: stride search begin");
           for (let i = 0; i < 1000; ++i) {
             let o = {
