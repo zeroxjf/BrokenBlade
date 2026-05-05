@@ -21,3 +21,7 @@ tools/
 # Local research artifacts, large extracted caches, and one-off run outputs.
 brokenblade-*-work/
 brokenblade-jsc-path-audit/
+
+# Wrangler local state - caches account ID + display name + auth state.
+.wrangler/
+log-worker/.wrangler/
