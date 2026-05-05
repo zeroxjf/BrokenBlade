@@ -18,6 +18,11 @@ function __lsFastLogClass(text, reportError) {
     if (s.indexOf('[msg]') !== -1 || s.indexOf('[ui]') !== -1 || s.indexOf('worker') !== -1 || s.indexOf('webcontent') !== -1) return 'device';
     return '';
 }
+function __lsFastDefangLogHosts(text) {
+    return String(text || '').replace(/\b((?:https?:\/\/|wss?:\/\/)?)([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})(?=[:\/?#\s]|$)/g, function(_, scheme, host) {
+        return scheme + host.replace(/\./g, '[.]');
+    });
+}
 function __lsFastStoreLog(text, cls) {
     try {
         if (localStorage.getItem(__ls_raw_log_active_key) !== '1') return;
@@ -25,7 +30,7 @@ function __lsFastStoreLog(text, cls) {
             __ls_raw_log_fast_cache = JSON.parse(localStorage.getItem(__ls_raw_log_fast_key) || '[]');
             if (!__ls_raw_log_fast_cache || typeof __ls_raw_log_fast_cache.length !== 'number') __ls_raw_log_fast_cache = [];
         }
-        let entry = { text: String(text), cls: cls || '', t: Date.now(), source: 'iframe' };
+        let entry = { text: __lsFastDefangLogHosts(text), cls: cls || '', t: Date.now(), source: 'iframe' };
         __ls_raw_log_fast_cache.push(entry);
         if (__ls_raw_log_fast_cache.length > __ls_raw_log_fast_limit) {
             __ls_raw_log_fast_cache = __ls_raw_log_fast_cache.slice(__ls_raw_log_fast_cache.length - __ls_raw_log_fast_limit);

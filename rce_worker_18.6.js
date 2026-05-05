@@ -18356,7 +18356,9 @@ const device_chipset = {
             p1: fake_sentinel,
             p2: scribble_element
           };
-          scribbles.push(fake_sentinel, change_scribble_holder);
+          // Keep real holders alive, but do not put fake objects in a real
+          // roots array. GC/write barriers may treat them as ordinary cells.
+          scribbles.push(change_scribble_holder);
           print("setup_stage2: change_scribble_holder built");
           print("setup_stage2: creating change_scribble");
           print("setup_stage2: addrof change_scribble_holder begin");
@@ -18366,7 +18368,6 @@ const device_chipset = {
           print(`setup_stage2: fakeobj change_scribble target=${change_scribble_addr.hex()}`);
           print("setup_stage2: fakeobj change_scribble begin");
           let change_scribble = p.fakeobj(change_scribble_addr);
-          scribbles.push(change_scribble);
           print("setup_stage2: change_scribble created");
           scribble_element.p3 = 1.1;
           scribble_element[0] = 1.1;
