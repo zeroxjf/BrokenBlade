@@ -757,6 +757,32 @@
       height: 12px;
       flex-shrink: 0;
     }
+    .log-sheet-download {
+      background: #0a84ff;
+      border: 1px solid #0a84ff;
+      color: #fff;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 1px 2px rgba(10, 132, 255, 0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .log-sheet-download:hover {
+      background: #086ad6;
+      border-color: #086ad6;
+    }
+    .log-sheet-download:active { opacity: 0.75; }
+    .log-sheet-download svg {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+    }
     .log-sheet-header .tweak-sheet-back {
       background: none;
       border: none;
@@ -1949,6 +1975,14 @@
         <div class="log-sheet-header">
           <span class="log-sheet-title">WebContent Log</span>
           <div class="log-sheet-actions">
+            <button type="button" class="log-sheet-download" id="logSheetDownloadBtn" onclick="downloadWebLog(this)" aria-label="Download Web Log as .txt file">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v12"/>
+                <path d="M7 11l5 5 5-5"/>
+                <path d="M5 21h14"/>
+              </svg>
+              <span data-copy-label>Download .txt</span>
+            </button>
             <button type="button" class="log-sheet-copy" id="logSheetCopyBtn" onclick="copyWebLog(this)" aria-label="Copy Web Log">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="9" y="9" width="11" height="11" rx="2"/>
@@ -3036,6 +3070,57 @@
         return;
       }
       legacyCopy();
+    }
+
+    // Build a .txt file from the WebContent log lines and trigger a
+    // browser download. Filename includes a timestamp so multiple runs
+    // don't clobber each other in the user's Downloads folder. On iOS
+    // Safari this surfaces the standard "Download / Open in / Save to
+    // Files" sheet — the file lands in the on-device Files app under
+    // Downloads.
+    function downloadWebLog(srcBtn) {
+      var scroll = document.getElementById('rawLogScroll');
+      var btn = srcBtn;
+      var lines = scroll ? scroll.querySelectorAll('.raw-log-line') : [];
+      var arr = [];
+      for (var i = 0; i < lines.length; i++) arr.push(lines[i].textContent || '');
+      var text = arr.join('\n');
+      function flash(label) {
+        if (!btn) return;
+        var labelHost = btn.querySelector('[data-copy-label]') || btn;
+        var prev = labelHost.textContent;
+        labelHost.textContent = label;
+        setTimeout(function() {
+          if (labelHost.textContent === label) labelHost.textContent = prev;
+        }, 1800);
+      }
+      if (!text) {
+        flash('No log yet');
+        return;
+      }
+      var d = new Date();
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      var ts = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+        + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
+      var filename = 'brokenblade-weblog-' + ts + '.txt';
+      try {
+        var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+          try { a.parentNode.removeChild(a); } catch (e) {}
+          try { URL.revokeObjectURL(url); } catch (e) {}
+        }, 0);
+        flash('Downloaded!');
+      } catch (e) {
+        flash('Download failed');
+      }
     }
 
     function markDone(message) {
