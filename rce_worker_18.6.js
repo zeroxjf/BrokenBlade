@@ -18612,11 +18612,21 @@ async function main() {
     return p.read64(p.addrof(this) + 0x10n);
   };
   async function loadObjcClass(cls) {
+    print(`loadObjcClass: begin cls=${cls.hex()}`);
+    print("loadObjcClass: createImageBitmap begin");
     const bitmap = await createImageBitmap(canvas);
+    print("loadObjcClass: createImageBitmap done");
+    print("loadObjcClass: addrof bitmap begin");
     const wrappedBitmap = p.read64(p.addrof(bitmap) + 0x18n);
+    print(`loadObjcClass: wrappedBitmap=${wrappedBitmap.hex()}`);
     const imagebuffer = p.read64(wrappedBitmap + 0x10n);
+    print(`loadObjcClass: imagebuffer=${imagebuffer.hex()}`);
+    print("loadObjcClass: class write begin");
     p.write64(imagebuffer + 0x20n, cls);
+    print("loadObjcClass: class write done");
+    print("loadObjcClass: bitmap close begin");
     bitmap.close();
+    print("loadObjcClass: bitmap close done");
   }
   let slow_fcall_resolve;
   self.onmessage = async function (e) {
