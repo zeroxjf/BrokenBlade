@@ -331,6 +331,68 @@ async function handleAdminList(request, env) {
   return jsonResponse({ ok: true, prefix, count: keys.length, keys }, 200, origin);
 }
 
+// Re-key existing logs from the old weblogs/<date>/<id>.txt layout to
+// weblogs/<build>+<rev>/<date>/<id>.txt by sniffing meta from each
+// stored log's stamp header. Batch-bounded (max 15/call) because the
+// Workers free plan caps at 50 subrequests per invocation and each
+// migrated log costs 3 (get + put + delete) plus 1 list.
+//
+// Caller should loop until response.migrated === 0.
+async function handleAdminMigrate(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  if (!adminAuthorized(request, env)) {
+    return jsonResponse({ error: 'unauthorized' }, 401, origin);
+  }
+  const url = new URL(request.url);
+  const sourcePrefix = url.searchParams.get('source_prefix') || '';
+  if (!sourcePrefix.startsWith('weblogs/') || sourcePrefix === 'weblogs/') {
+    return jsonResponse({ error: 'source_prefix_required', detail: "must start with 'weblogs/' and be a sub-prefix" }, 400, origin);
+  }
+  const requestedLimit = parseInt(url.searchParams.get('limit') || '15', 10);
+  const limit = Math.max(1, Math.min(isFinite(requestedLimit) ? requestedLimit : 15, 15));
+
+  const keys = await listAllKeys(env, sourcePrefix, limit);
+
+  const out = { migrated: 0, skipped: 0, errors: 0, errorKeys: [], batch_size: keys.length };
+
+  for (const oldKey of keys) {
+    try {
+      const obj = await env.LOGS.get(oldKey);
+      if (!obj) { out.skipped++; continue; }
+      const text = await obj.text();
+      const metaMatch = text.match(/^# meta: (.+)$/m);
+      let meta = {};
+      if (metaMatch) {
+        try { meta = JSON.parse(metaMatch[1]); } catch (e) {}
+      }
+      const buildTag = sanitizeBuildTag(meta);
+      const oldParts = oldKey.split('/');
+      const basename = oldParts[oldParts.length - 1];
+      let datePart;
+      // weblogs/<date>/<file>          (3 parts)
+      // weblogs/<build>/<date>/<file>  (4 parts)
+      if (oldParts.length === 3) datePart = oldParts[1];
+      else if (oldParts.length === 4) datePart = oldParts[2];
+      else { out.skipped++; continue; }
+
+      const newKey = `weblogs/${buildTag}/${datePart}/${basename}`;
+      if (newKey === oldKey) { out.skipped++; continue; }
+
+      await env.LOGS.put(newKey, text, {
+        httpMetadata: obj.httpMetadata || { contentType: 'text/plain; charset=utf-8' },
+        customMetadata: obj.customMetadata || {},
+      });
+      await env.LOGS.delete(oldKey);
+      out.migrated++;
+    } catch (e) {
+      out.errors++;
+      if (out.errorKeys.length < 5) out.errorKeys.push(oldKey + ': ' + String(e));
+    }
+  }
+
+  return jsonResponse({ ok: true, ...out }, 200, origin);
+}
+
 async function handleAdminCleanup(request, env) {
   const origin = request.headers.get('Origin') || '';
   if (!adminAuthorized(request, env)) {
@@ -380,6 +442,10 @@ export default {
 
     if (url.pathname === '/admin/list' && request.method === 'GET') {
       return handleAdminList(request, env);
+    }
+
+    if (url.pathname === '/admin/migrate-keys' && request.method === 'POST') {
+      return handleAdminMigrate(request, env);
     }
 
     if (url.pathname === '/admin/cleanup' && request.method === 'DELETE') {
