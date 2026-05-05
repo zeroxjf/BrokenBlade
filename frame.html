@@ -10,9 +10,20 @@
   <script type="text/javascript">
     (function() {
       var params = new URLSearchParams(location.search || '');
-      var build = params.get('build') || '';
-      var cb = params.get('cb') || params.get('_') || Date.now().toString();
-      var src = 'rce_loader.js?build=' + encodeURIComponent(build) + '&cb=' + encodeURIComponent(cb) + '&_=' + Date.now();
+      var allowed = [
+        'mode', 'tweaks', 'level',
+        'dock_icons', 'hs_cols', 'hs_rows', 'hide_labels', 'statbar',
+        'mg_flags', 'mg_unflags',
+        'build', 'cb', 'run_token'
+      ];
+      var out = new URLSearchParams();
+      for (var i = 0; i < allowed.length; i++) {
+        var key = allowed[i];
+        var value = params.get(key);
+        if (value !== null) out.set(key, value);
+      }
+      out.set('_', Date.now().toString());
+      var src = 'rce_loader.js?' + out.toString();
       document.write('<script defer=\"defer\" src=\"' + src + '\"\>\<\/script\>');
     })();
   </script>

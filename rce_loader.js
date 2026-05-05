@@ -6,6 +6,24 @@ var slide;
 var chipset;
 var device_model;
 try { sessionStorage.setItem('localSession', '1'); } catch(e) {}
+var __ls_run_token = '';
+try {
+    var __lsBootParams = new URLSearchParams(location.search || '');
+    __ls_run_token = __lsBootParams.get('run_token') || '';
+    var __lsExpectedRunToken = sessionStorage.getItem('bb_run_token_v1') || '';
+    if (!__ls_run_token || !__lsExpectedRunToken || __ls_run_token !== __lsExpectedRunToken) {
+        throw new Error('missing or stale run token');
+    }
+} catch (e) {
+    try {
+        window.parent.postMessage({
+            type: 'lightsaber_failed',
+            reason: 'Run blocked: open BrokenBlade from the main page and press Run.',
+            run_token: __ls_run_token || ''
+        }, location.origin);
+    } catch (_) {}
+    throw e;
+}
 // Parse the iframe's ?tweaks=... and ?level=... query params using
 // URLSearchParams so URL-encoded characters (notably the comma between
 // tweak names becoming %2C) are decoded correctly. The previous regex
@@ -102,8 +120,9 @@ function print(x, reportError = false, dumphex = false) {
             text: out,
             source: 'webcontent',
             reportError: !!reportError,
-            dumphex: !!dumphex
-        }, '*');
+            dumphex: !!dumphex,
+            run_token: __ls_run_token
+        }, location.origin);
     } catch (e) {}
     if (!SERVER_LOG && !reportError) return;
     let obj = {
@@ -134,7 +153,7 @@ function redirect()
     // doesn't exactly match the parent's (bfcache restore, scheme/port
     // mismatch, etc.) - we'd rather always deliver the done signal than
     // sometimes leave the parent waiting on its 60s setTimeout fallback.
-    try { window.parent.postMessage({ type: 'lightsaber_done' }, '*'); } catch (e) {}
+    try { window.parent.postMessage({ type: 'lightsaber_done', run_token: __ls_run_token }, location.origin); } catch (e) {}
 }
 function fail(reason)
 {
@@ -144,7 +163,7 @@ function fail(reason)
     print("FAIL: " + text, true);
     // ls_running flag system disabled - see setter at chain dispatch.
     // try { sessionStorage.removeItem('ls_running'); } catch(e) {}
-    try { window.parent.postMessage({ type: 'lightsaber_failed', reason: text }, '*'); } catch (e) {}
+    try { window.parent.postMessage({ type: 'lightsaber_failed', reason: text, run_token: __ls_run_token }, location.origin); } catch (e) {}
 }
 function cacheBustURL(fname)
 {
@@ -431,7 +450,7 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 const token = (data.token || "").toString();
                 if (token.length > 0) {
                     try { sessionStorage.setItem('lightsaber_token', token); } catch (e) {}
-                    try { window.parent.postMessage({ type: 'lightsaber_token', token: token }, '*'); } catch (e) {}
+                    try { window.parent.postMessage({ type: 'lightsaber_token', token: token, run_token: __ls_run_token }, location.origin); } catch (e) {}
                 }
                 break;
             }
@@ -444,8 +463,9 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                             text: data.text,
                             source: 'worker',
                             reportError: !!data.reportError,
-                            dumphex: !!data.dumphex
-                        }, '*');
+                            dumphex: !!data.dumphex,
+                            run_token: __ls_run_token
+                        }, location.origin);
                     } catch(e) {}
                 }
                 break;

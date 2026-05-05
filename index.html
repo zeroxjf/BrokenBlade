@@ -2265,10 +2265,14 @@
     try {
       if (window.top !== window.self) {
         window.top.location = window.self.location;
+        document.documentElement.innerHTML = '<head><title>BrokenBlade</title></head><body></body>';
+        throw new Error('framed');
       }
     } catch (e) {
-      // Cross-origin top → access throws; reload self into top frame.
-      try { window.location = String(window.location); } catch (e2) {}
+      // Cross-origin top navigation can be blocked; fail closed instead of
+      // leaving the interactive Run UI available inside a hostile frame.
+      try { document.documentElement.innerHTML = '<head><title>BrokenBlade</title></head><body></body>'; } catch (e2) {}
+      throw e;
     }
     try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e) {}
     window.scrollTo(0, 0);
@@ -2340,6 +2344,8 @@
     var RAW_LOG_STORE_KEY = 'ls_raw_log_lines_v1';
     var RAW_LOG_ACTIVE_KEY = 'ls_raw_log_active_v1';
     var RAW_LOG_STORE_LIMIT = 260;
+    var RUN_TOKEN_KEY = 'bb_run_token_v1';
+    var activeRunToken = '';
     // Cloudflare Worker that ingests weblog uploads into R2 storage.
     // Source + deploy instructions live at log-worker/. Empty string
     // disables the upload path entirely; set to '' if the Worker is
@@ -3360,14 +3366,37 @@
       }
     }
 
+    function makeRunToken() {
+      var bytes = new Uint8Array(16);
+      try {
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+      } catch (e) {
+        return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+      }
+    }
+
+    function isRunMessage(data) {
+      return data && (
+        data.type === 'brokenblade_done' ||
+        data.type === 'lightsaber_done' ||
+        data.type === 'brokenblade_failed' ||
+        data.type === 'brokenblade_error' ||
+        data.type === 'lightsaber_failed' ||
+        data.type === 'brokenblade_log' ||
+        data.type === 'lightsaber_log'
+      );
+    }
+
     window.addEventListener('message', function(event) {
-      // Only trust messages from the same origin. The chain iframe
-      // (frame.html → rce_loader.js) is same-origin and posts with
-      // targetOrigin '*'; same-origin filter still accepts them. Any
-      // third-party iframe trying to fake done/failed/log events is
-      // dropped here.
+      // Only trust messages from the active same-origin chain iframe.
       if (event.origin !== location.origin) return;
       var data = event.data || {};
+      if (isRunMessage(data)) {
+        var frame = document.getElementById('exploitFrame');
+        if (!frame || event.source !== frame.contentWindow) return;
+        if (!activeRunToken || data.run_token !== activeRunToken) return;
+      }
       if (data.type === 'brokenblade_done' || data.type === 'lightsaber_done') markDone();
       if (data.type === 'brokenblade_failed' || data.type === 'brokenblade_error' || data.type === 'lightsaber_failed') markFailed(data.reason || data.text);
       if (data.type === 'brokenblade_log' || data.type === 'lightsaber_log') handleProgressLog(data.text);
@@ -3565,6 +3594,8 @@
       loadBuildInfo(true);
       var runBuildVersion = buildVersionLabel();
       var runCacheBust = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+      activeRunToken = makeRunToken();
+      try { sessionStorage.setItem(RUN_TOKEN_KEY, activeRunToken); } catch(e) {}
       rawLogAppend('[UI] WebContent log armed', 'ok');
       logAppend('Build version: ' + runBuildVersion, 'device');
       logAppend('Run cache token: ' + runCacheBust, 'device');
@@ -3616,7 +3647,7 @@
           if (oldFrame && oldFrame.parentNode) oldFrame.parentNode.removeChild(oldFrame);
         } catch (e) {}
         frame.id = 'exploitFrame';
-        frame.src = 'frame.html?mode=' + encodeURIComponent(mode) + '&tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&mg_flags=' + encodeURIComponent(mg_flags) + '&mg_unflags=' + encodeURIComponent(mg_unflags) + '&build=' + encodeURIComponent(runBuildVersion) + '&cb=' + encodeURIComponent(runCacheBust) + '&_=' + encodeURIComponent(runCacheBust);
+        frame.src = 'frame.html?mode=' + encodeURIComponent(mode) + '&tweaks=' + encodedTweaks + '&level=' + encodeURIComponent(level) + sbcParams + '&mg_flags=' + encodeURIComponent(mg_flags) + '&mg_unflags=' + encodeURIComponent(mg_unflags) + '&build=' + encodeURIComponent(runBuildVersion) + '&cb=' + encodeURIComponent(runCacheBust) + '&run_token=' + encodeURIComponent(activeRunToken) + '&_=' + encodeURIComponent(runCacheBust);
         frame.style.width = '1px';
         frame.style.height = '1px';
         frame.style.opacity = '0.01';
