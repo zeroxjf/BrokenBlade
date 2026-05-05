@@ -2445,6 +2445,22 @@
       return rev ? version + '+' + rev : version;
     }
 
+    // Recover build/revision from a rawLog body when buildInfo hasn't
+    // loaded yet (replay-after-crash path: setTimeout(uploadWebLog) can
+    // fire before the async build-info.json XHR completes). The previous
+    // session's logAppend('Build version: ...') line is in the replayed
+    // rawLog with the full short-rev label.
+    function extractBuildFromRawLog(text) {
+      if (!text) return null;
+      var rx = /Build version:\s*(v[\d.]+)(?:\+([0-9a-f]{7,40}))?/i;
+      var lines = String(text).split('\n');
+      for (var i = lines.length - 1; i >= 0; i--) {
+        var m = rx.exec(lines[i]);
+        if (m) return { build: m[1], revision: m[2] || '' };
+      }
+      return null;
+    }
+
     function applyBuildInfo(info) {
       if (!info || typeof info !== 'object') return;
       if (info.version) buildInfo.version = String(info.version);
@@ -3344,10 +3360,20 @@
       var text = arr.join('\n');
       if (!text) text = '(no log lines yet)';
 
+      var resolvedBuild = (buildInfo && buildInfo.version) || APP_VERSION;
+      var resolvedRevision = (buildInfo && buildInfo.revision) || '';
+      if (!resolvedRevision) {
+        var fromLog = extractBuildFromRawLog(text);
+        if (fromLog && fromLog.revision) {
+          resolvedRevision = fromLog.revision;
+          if (fromLog.build) resolvedBuild = fromLog.build;
+        }
+      }
+
       var meta = {
         reason: reason || 'unknown',
-        build: (buildInfo && buildInfo.version) || APP_VERSION,
-        revision: (buildInfo && buildInfo.revision) || '',
+        build: resolvedBuild,
+        revision: resolvedRevision,
         run_token: (typeof activeRunToken === 'string') ? activeRunToken : '',
         ua: navigator.userAgent || '',
         href: location.href || '',
