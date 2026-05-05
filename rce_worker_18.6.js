@@ -18729,10 +18729,28 @@ async function main() {
   };
   async function loadObjcClass(cls) {
     function dumpClassCandidate(label, candidate) {
+      print(`loadObjcClass: ${label} dump begin cls=${candidate.hex()}`);
+      sleep(10);
+      print(`loadObjcClass: ${label} isa read begin addr=${candidate.hex()}`);
+      sleep(10);
       const isa = p.read64(candidate);
+      print(`loadObjcClass: ${label} isa=${isa.hex()}`);
+      sleep(10);
+      print(`loadObjcClass: ${label} super read begin addr=${(candidate + 8n).hex()}`);
+      sleep(10);
       const superclass = p.read64(candidate + 8n);
+      print(`loadObjcClass: ${label} super=${superclass.hex()}`);
+      sleep(10);
+      print(`loadObjcClass: ${label} cache read begin addr=${(candidate + 0x10n).hex()}`);
+      sleep(10);
       const cache = p.read64(candidate + 0x10n);
+      print(`loadObjcClass: ${label} cache=${cache.hex()}`);
+      sleep(10);
+      print(`loadObjcClass: ${label} data read begin addr=${(candidate + 0x20n).hex()}`);
+      sleep(10);
       const data = p.read64(candidate + 0x20n);
+      print(`loadObjcClass: ${label} data=${data.hex()}`);
+      sleep(10);
       print(`loadObjcClass: ${label} cls=${candidate.hex()} isa=${isa.hex()} super=${superclass.hex()} cache=${cache.hex()} data=${data.hex()}`);
     }
     async function closeClassLoadWorker(index) {
