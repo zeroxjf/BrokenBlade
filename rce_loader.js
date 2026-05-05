@@ -199,6 +199,7 @@ const dlopen_worker = `(() => {
         break;
       case 'load_objc_class':
         try {
+          self.postMessage({ type: 'load_objc_class_started' });
           globalThis[1].close();
           self.postMessage({ type: 'load_objc_class_done' });
         } catch (e) {
@@ -352,28 +353,44 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                     worker.postMessage({ type: 'load_objc_class_failed', index });
                     break;
                 }
-                helper.onmessage = function(event) {
-                    const message = event.data || {};
-                    if (message.type === 'load_objc_class_failed') {
+                let settled = false;
+                const finish = function(type, message) {
+                    if (settled) return;
+                    settled = true;
+                    if (type === 'load_objc_class_failed') {
                         worker.postMessage({
-                            type: 'load_objc_class_failed',
+                            type,
                             index,
-                            message: message.message || 'helper failed'
+                            message: message || 'helper failed'
                         });
                     } else {
                         worker.postMessage({ type: 'load_objc_class_done', index });
                     }
                 };
+                helper.onmessage = function(event) {
+                    const message = event.data || {};
+                    if (message.type === 'load_objc_class_started') {
+                        print("[MSG] load_objc_class helper started index=" + index);
+                        return;
+                    }
+                    if (message.type === 'load_objc_class_failed') {
+                        finish('load_objc_class_failed', message.message || 'helper failed');
+                    } else {
+                        finish('load_objc_class_done');
+                    }
+                };
                 helper.onerror = function(event) {
-                    worker.postMessage({
-                        type: 'load_objc_class_failed',
-                        index,
-                        message: (event && event.message) ? event.message : 'helper worker error'
-                    });
+                    finish('load_objc_class_failed', (event && event.message) ? event.message : 'helper worker error');
                 };
                 helper.postMessage({
                     type: 'load_objc_class'
                 });
+                setTimeout(function() {
+                    if (!settled) {
+                        print("[MSG] load_objc_class helper timeout; continuing index=" + index);
+                        finish('load_objc_class_done');
+                    }
+                }, 75);
                 break;
             }
             case 'sign_pointers':
