@@ -11,6 +11,7 @@ var __ls_raw_log_fast_key = 'ls_raw_log_fast_lines_v1';
 var __ls_raw_log_last_key = 'ls_raw_log_last_v1';
 var __ls_raw_log_fast_limit = 360;
 var __ls_raw_log_fast_cache = null;
+var __ls_raw_log_fast_armed = false;
 function __lsFastLogClass(text, reportError) {
     if (reportError) return 'err';
     let s = String(text || '').toLowerCase();
@@ -23,8 +24,26 @@ function __lsFastDefangLogHosts(text) {
         return scheme + host.replace(/\./g, '[.]');
     });
 }
+function __lsFastShouldStoreLog(text, cls) {
+    if (cls === 'err') return true;
+    let s = String(text || '');
+    if (!__ls_raw_log_fast_armed) {
+        if (s.indexOf("Finished stage2 prims") !== -1 ||
+            s.indexOf("[MSG] prepare_dlopen_workers") !== -1 ||
+            s.indexOf("dlopen prepared") !== -1 ||
+            s.indexOf("worker resolver:") !== -1 ||
+            s.indexOf("Load TextToSpeech") !== -1 ||
+            s.indexOf("loadObjcClass") !== -1) {
+            __ls_raw_log_fast_armed = true;
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
 function __lsFastStoreLog(text, cls) {
     try {
+        if (!__lsFastShouldStoreLog(text, cls || '')) return;
         if (localStorage.getItem(__ls_raw_log_active_key) !== '1') return;
         if (__ls_raw_log_fast_cache === null) {
             __ls_raw_log_fast_cache = JSON.parse(localStorage.getItem(__ls_raw_log_fast_key) || '[]');
