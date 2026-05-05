@@ -24,9 +24,11 @@ try {
             if (__validTweaks[__t] && __tweaksList.indexOf(__t) < 0) __tweaksList.push(__t);
         }
     }
-    if (__tweaksList.length === 0) __tweaksList.push('fiveicon');
+    // Empty tweaks list propagates as empty - downstream sbx1 emits all
+    // __ls_enable_<name> = false and pe_main skips tweak injection.
+    // Run button on the page is a pure chain test; no fiveicon fallback.
     globalThis.__ls_tweaks = __tweaksList.join(',');
-} catch (e) { globalThis.__ls_tweaks = 'fiveicon'; }
+} catch (e) { globalThis.__ls_tweaks = ''; }
 try {
     var __lsParams2 = new URLSearchParams(location.search || '');
     var __validLevels = { off: 1, nominal: 1, light: 1, moderate: 1, heavy: 1 };

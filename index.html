@@ -2069,7 +2069,7 @@
       </div>
     </div>
 
-    <details open class="debug">
+    <details open class="debug" style="display:none">
       <summary><strong>Capture device logs (Mac / PC)</strong></summary>
       <div class="details-body">
         <p style="margin:0 0 12px;font-size:0.8rem">If the chain fails, the filtered device syslog is the only useful debug artifact. Please run this from your computer during the test:</p>
@@ -3001,11 +3001,18 @@
     }
     lsLoadState();
 
-    // Beta-mode: tweak picker is hidden via CSS, so force the default
-    // SBCustomizer tweak checked so confirmInstall has something to send.
+    // Beta-mode: tweak picker is hidden via CSS. The Run button is a
+    // pure chain-test - no tweaks are auto-selected, no tweak payloads
+    // are injected. confirmInstall sends an empty tweak list, the
+    // worker route in rce_loader.js no longer falls back to fiveicon
+    // when tweaks=, and sbx1 emits all __ls_enable_<name> = false so
+    // pe_main's "all-undefined → true" gate doesn't kick in.
     try {
-      var _betaFiveicon = document.getElementById('tweakFiveicon');
-      if (_betaFiveicon && !_betaFiveicon.disabled) _betaFiveicon.checked = true;
+      var _ftweakIds = ['tweakFiveicon','tweakPowercuff','tweakMgpatcher','tweakApplimit','sbcStatbar','sbcHideLabels'];
+      for (var _fi = 0; _fi < _ftweakIds.length; _fi++) {
+        var _ftcb = document.getElementById(_ftweakIds[_fi]);
+        if (_ftcb) _ftcb.checked = false;
+      }
     } catch (e) {}
 
     // Auto-show kill Safari prompt if a previous chain run left dirty state
