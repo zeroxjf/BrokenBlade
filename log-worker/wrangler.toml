@@ -2,9 +2,21 @@ name = "brokenblade-weblogs"
 main = "worker.js"
 compatibility_date = "2026-05-01"
 
+# Override default rate limit (60/hr/IP). Plain string vars only - parsed
+# as int at request time. To temporarily lower for testing, set this to
+# e.g. "5" and redeploy; raise back when done.
+[vars]
+RATE_LIMIT_PER_HOUR = "60"
+
 # R2 bucket binding. The bucket "brokenblade-weblogs" must exist before
 # `wrangler deploy` will succeed - create with:
 #   wrangler r2 bucket create brokenblade-weblogs
 [[r2_buckets]]
 binding = "LOGS"
 bucket_name = "brokenblade-weblogs"
+
+# KV namespace for the per-IP rate counter. Created via:
+#   wrangler kv namespace create RATE_LIMITER
+[[kv_namespaces]]
+binding = "RATE_LIMITER"
+id = "330e286c916e456caf83c47183b21d0d"

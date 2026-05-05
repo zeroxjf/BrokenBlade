@@ -6,32 +6,31 @@
 //   returns: { id, key, size }
 //
 // GET /log/<key>
-//   returns: text/plain content of the stored log (only if KEY matches)
+//   returns: text/plain content of the stored log
 //
 // GET /health
 //   returns: 200 ok
 //
-// Abuse mitigations:
-//   - 1 MB body cap
-//   - per-IP rate limit (60 / hr) via in-memory cache (best-effort, resets on
-//     Worker isolate cycling - fine for casual abuse, not a security boundary)
-//   - rejects non-text payloads
+// Admin (X-Admin-Token: ${env.ADMIN_TOKEN}):
+//   GET    /admin/list?prefix=weblogs/...   - list keys
+//   DELETE /admin/cleanup?prefix=weblogs/... - delete every key with prefix
+//
+// Rate limit: KV-backed counter, IP × hour-bucket, default 60/hr/IP.
+// In-memory cache fallback if the KV binding is missing (e.g. local dev).
 //
 // Privacy: every request stores CF country / client IP in metadata.
-// Adjust if you want anonymized logs.
 
-const RATE_LIMIT_PER_HOUR = 60;
+const DEFAULT_RATE_LIMIT_PER_HOUR = 60;
 const MAX_BODY_BYTES = 1 * 1024 * 1024; // 1 MB
 
-// Per-isolate rate-limit cache. Maps IP -> array of timestamps within the
-// rolling 1 hour window. Best-effort only.
-const rateCache = new Map();
+// Per-isolate fallback cache. Used only when env.RATE_LIMITER (KV) is missing.
+const memRateCache = new Map();
 
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Token',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -47,18 +46,38 @@ function jsonResponse(obj, status, origin) {
   });
 }
 
-function rateOk(ip) {
-  const now = Date.now();
-  const horizon = now - 60 * 60 * 1000;
-  let arr = rateCache.get(ip) || [];
-  arr = arr.filter((t) => t > horizon);
-  if (arr.length >= RATE_LIMIT_PER_HOUR) {
-    rateCache.set(ip, arr);
-    return false;
+function hourBucket(now) {
+  return Math.floor(now / (60 * 60 * 1000));
+}
+
+// Returns { allowed, count, limit }. KV-backed when env.RATE_LIMITER is
+// present, in-memory fallback otherwise. KV is eventually consistent
+// (~60s edge propagation), so the limit may overshoot under heavy
+// concurrent burst — good enough for casual abuse mitigation, not a
+// strict security boundary.
+async function checkRate(env, ip) {
+  const limit = parseInt(env.RATE_LIMIT_PER_HOUR || '', 10) || DEFAULT_RATE_LIMIT_PER_HOUR;
+  const bucket = hourBucket(Date.now());
+  const key = `rl:${ip}:${bucket}`;
+
+  if (env.RATE_LIMITER) {
+    let count = 0;
+    try {
+      const raw = await env.RATE_LIMITER.get(key);
+      count = parseInt(raw || '0', 10) || 0;
+    } catch (e) {}
+    if (count >= limit) {
+      return { allowed: false, count, limit };
+    }
+    try {
+      await env.RATE_LIMITER.put(key, String(count + 1), { expirationTtl: 3600 });
+    } catch (e) {}
+    return { allowed: true, count: count + 1, limit };
   }
-  arr.push(now);
-  rateCache.set(ip, arr);
-  return true;
+
+  const arr = (memRateCache.get(key) || 0) + 1;
+  memRateCache.set(key, arr);
+  return { allowed: arr <= limit, count: arr, limit };
 }
 
 function ts2() {
@@ -79,8 +98,9 @@ async function handleLogPost(request, env) {
   const origin = request.headers.get('Origin') || '';
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  if (!rateOk(ip)) {
-    return jsonResponse({ error: 'rate_limited' }, 429, origin);
+  const rl = await checkRate(env, ip);
+  if (!rl.allowed) {
+    return jsonResponse({ error: 'rate_limited', count: rl.count, limit: rl.limit }, 429, origin);
   }
 
   const ct = (request.headers.get('Content-Type') || '').toLowerCase();
@@ -163,6 +183,67 @@ async function handleLogGet(request, env, key) {
   });
 }
 
+function adminAuthorized(request, env) {
+  if (!env.ADMIN_TOKEN) return false;
+  const got = request.headers.get('X-Admin-Token') || '';
+  return got && got === env.ADMIN_TOKEN;
+}
+
+async function listAllKeys(env, prefix, max) {
+  const out = [];
+  let cursor;
+  let safety = 0;
+  while (out.length < max && safety++ < 50) {
+    const opts = { prefix, limit: 1000 };
+    if (cursor) opts.cursor = cursor;
+    const page = await env.LOGS.list(opts);
+    for (const obj of page.objects) {
+      out.push(obj.key);
+      if (out.length >= max) break;
+    }
+    if (!page.truncated) break;
+    cursor = page.cursor;
+  }
+  return out;
+}
+
+async function handleAdminList(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  if (!adminAuthorized(request, env)) {
+    return jsonResponse({ error: 'unauthorized' }, 401, origin);
+  }
+  const url = new URL(request.url);
+  const prefix = url.searchParams.get('prefix') || 'weblogs/';
+  const max = Math.min(parseInt(url.searchParams.get('max') || '5000', 10) || 5000, 50000);
+  const keys = await listAllKeys(env, prefix, max);
+  return jsonResponse({ ok: true, prefix, count: keys.length, keys }, 200, origin);
+}
+
+async function handleAdminCleanup(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  if (!adminAuthorized(request, env)) {
+    return jsonResponse({ error: 'unauthorized' }, 401, origin);
+  }
+  const url = new URL(request.url);
+  const prefix = url.searchParams.get('prefix');
+  if (!prefix || !prefix.startsWith('weblogs/')) {
+    return jsonResponse({ error: 'prefix_required', detail: "must start with 'weblogs/'" }, 400, origin);
+  }
+  const keys = await listAllKeys(env, prefix, 50000);
+  let deleted = 0;
+  // R2 list-then-delete in 1000-key batches.
+  for (let i = 0; i < keys.length; i += 1000) {
+    const slice = keys.slice(i, i + 1000);
+    try {
+      await env.LOGS.delete(slice);
+      deleted += slice.length;
+    } catch (e) {
+      return jsonResponse({ error: 'delete_failed', detail: String(e), deleted }, 500, origin);
+    }
+  }
+  return jsonResponse({ ok: true, prefix, deleted }, 200, origin);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -183,6 +264,14 @@ export default {
     if (url.pathname.startsWith('/log/') && request.method === 'GET') {
       const key = decodeURIComponent(url.pathname.slice('/log/'.length));
       return handleLogGet(request, env, key);
+    }
+
+    if (url.pathname === '/admin/list' && request.method === 'GET') {
+      return handleAdminList(request, env);
+    }
+
+    if (url.pathname === '/admin/cleanup' && request.method === 'DELETE') {
+      return handleAdminCleanup(request, env);
     }
 
     return new Response('not found', { status: 404, headers: corsHeaders(origin) });
