@@ -3311,21 +3311,21 @@
     //   fired). The key is per-tab so cross-tab uploads still go through.
     function uploadWebLog(reason) {
       if (!LOG_UPLOAD_URL) return;
-      try {
-        if (sessionStorage.getItem(LOG_UPLOAD_DEDUPE_KEY) === '1') return;
-      } catch (e) {}
+      // No dedupe. Each terminal hook (start / done / failed / watchdog
+      // / replay-after-crash) creates a separate R2 object. Worker has
+      // its own per-IP rate-limit; multiple uploads per run are fine.
       var scroll = document.getElementById('rawLogScroll');
       var lines = scroll ? scroll.querySelectorAll('.raw-log-line') : [];
-      if (!lines.length) return;
       var arr = [];
       for (var i = 0; i < lines.length; i++) arr.push(lines[i].textContent || '');
       var text = arr.join('\n');
-      if (!text) return;
+      if (!text) text = '(no log lines yet)';
 
       var meta = {
         reason: reason || 'unknown',
         build: (buildInfo && buildInfo.version) || APP_VERSION,
         revision: (buildInfo && buildInfo.revision) || '',
+        run_token: (typeof activeRunToken === 'string') ? activeRunToken : '',
         ua: navigator.userAgent || '',
         href: location.href || '',
         ts_client: new Date().toISOString(),
@@ -3334,16 +3334,20 @@
       };
       var payload = JSON.stringify({ log: text, meta: meta });
 
-      try { sessionStorage.setItem(LOG_UPLOAD_DEDUPE_KEY, '1'); } catch (e) {}
-
+      // sendBeacon with application/json triggers a CORS preflight that
+      // some iOS Safari builds drop the actual POST on. Use text/plain
+      // (CORS-safelisted, no preflight) for the Beacon path - the
+      // worker accepts JSON in any body when it starts with '{'.
       try {
         if (navigator.sendBeacon) {
-          var blob = new Blob([payload], { type: 'application/json' });
+          var blob = new Blob([payload], { type: 'text/plain;charset=UTF-8' });
           var ok = navigator.sendBeacon(LOG_UPLOAD_URL, blob);
           if (ok) return;
         }
       } catch (e) {}
 
+      // fetch fallback - keepalive lets the request finish even if the
+      // page is unloading.
       try {
         fetch(LOG_UPLOAD_URL, {
           method: 'POST',
@@ -3662,6 +3666,14 @@
       logAppend(mode === 'cleanup' ? 'Starting cleanup-only run' : (displayTweaks.length ? 'Starting install with: ' + displayTweaks.join(', ') : 'Starting chain-only install'), 'ok');
       startLogWatchdog();
       scrollToLog();
+      // Fire an early upload BEFORE the iframe loads so we capture
+      // every Run tap regardless of what happens after. If the chain
+      // hangs / Safari kills the page before any terminal hook fires,
+      // this is the only upload that lands. Subsequent
+      // markDone / markFailed / watchdog / replay-after-crash also
+      // upload (no client-side dedupe) - each becomes its own R2
+      // object with a different reason in meta.
+      uploadWebLog('start');
 
       // Match the upstream DarkSword install button: just a 60-second
       // setTimeout fallback plus a postMessage listener for the iframe's

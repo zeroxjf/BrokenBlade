@@ -152,10 +152,23 @@ async function handleLogPost(request, env) {
     }
     text = String(body.log || '');
     meta = body.meta || {};
-  } else if (ct.startsWith('text/plain') || ct.startsWith('text/')) {
-    text = await request.text();
-  } else if (!ct) {
-    text = await request.text();
+  } else if (ct.startsWith('text/plain') || ct.startsWith('text/') || !ct) {
+    // Page-side sendBeacon uses text/plain (CORS-safelisted, no
+    // preflight) but the body is a JSON envelope {log, meta}. Try
+    // parsing as JSON first; fall back to treating the body as raw
+    // log text if that fails.
+    const raw = await request.text();
+    let parsed = null;
+    const trimmed = raw.trim();
+    if (trimmed.length && (trimmed[0] === '{' || trimmed[0] === '[')) {
+      try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+    }
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && typeof parsed.log === 'string') {
+      text = parsed.log;
+      meta = parsed.meta || {};
+    } else {
+      text = raw;
+    }
   } else {
     return jsonResponse({ error: 'unsupported_content_type', ct }, 415, origin);
   }
