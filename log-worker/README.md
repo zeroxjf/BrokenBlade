@@ -20,18 +20,28 @@ One-time setup:
 npm i -g wrangler
 wrangler login
 wrangler r2 bucket create brokenblade-weblogs
+wrangler kv namespace create RATE_LIMITER     # update wrangler.toml id
+wrangler secret put ADMIN_TOKEN               # paste a long random hex
+wrangler r2 bucket lifecycle add brokenblade-weblogs auto-expire-30d weblogs/ --expire-days 30 --force
 ```
 
 Each deploy:
 
 ```sh
 cd log-worker
-wrangler deploy
+./deploy.sh
 ```
 
-`wrangler deploy` prints the public URL, e.g.
-`https://brokenblade-weblogs.<account>.workers.dev`. Bake that URL into
-`index.html`'s `LOG_UPLOAD_URL` constant.
+`deploy.sh` exists because wrangler 4.x walks up to the nearest `.git`
+root and treats every file as a candidate static asset. The BrokenBlade
+repo root holds `firmware/extracted/` DSCs that exceed Cloudflare's
+25 MiB per-asset limit, so direct `wrangler deploy` fails. The script
+copies `worker.js` + `wrangler.toml` to a fresh tmp dir and deploys
+from there.
+
+`deploy.sh` prints the public URL, e.g.
+`https://brokenblade-weblogs.<account>.workers.dev`. That URL is baked
+into `index.html`'s `LOG_UPLOAD_URL` constant.
 
 ## Abuse posture
 

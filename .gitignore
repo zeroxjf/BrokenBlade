@@ -23,5 +23,15 @@ brokenblade-*-work/
 brokenblade-jsc-path-audit/
 
 # Wrangler local state - caches account ID + display name + auth state.
+# Also block stray wrangler.json* at the repo root (wrangler 4.x has
+# auto-asset-discovery that walks up to .git and can drop a generated
+# config there if you deploy from the wrong cwd).
 .wrangler/
 log-worker/.wrangler/
+/wrangler.json
+/wrangler.jsonc
+
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

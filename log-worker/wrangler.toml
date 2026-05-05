@@ -2,6 +2,14 @@ name = "brokenblade-weblogs"
 main = "worker.js"
 compatibility_date = "2026-05-01"
 
+# NOTE: do NOT run `wrangler deploy` from inside this directory. Wrangler
+# 4.x walks up to the parent .git root and tries to bundle the entire
+# repo (firmware/extracted/ etc.) as static assets. Setting [assets]
+# here did not suppress the walk in our testing.
+#
+# Use ./deploy.sh instead - it copies worker.js + wrangler.toml to a
+# fresh tmp dir and deploys from there. See README.md.
+
 # Override default rate limit (60/hr/IP). Plain string vars only - parsed
 # as int at request time. To temporarily lower for testing, set this to
 # e.g. "5" and redeploy; raise back when done.

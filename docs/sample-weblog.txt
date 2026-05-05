@@ -1,0 +1,28 @@
+# BrokenBlade weblog
+# uploaded: 2026-05-05T04:35:48.470Z
+# country: US
+# colo: IAD
+# user-agent: curl/8.7.1
+# meta: {"reason":"sample_for_disclaimer","build":"v0.0.130","revision":"sample0","ua":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6.2 Mobile/15E148 Safari/604.1","href":"https://zeroxjf.github.io/BrokenBlade/?tweaks=fiveicon&level=heavy","ts_client":"2026-05-05T04:35:00.000Z","ios":"18.6.2","line_count":21,"note":"This is a synthetic sample committed to the repo - real logs do not have this note field."}
+# ---
+[UI] WebContent log armed
+[UI] Build version: v0.0.130
+[UI] Starting install with: SBCustomizer
+[12ms] Fetching rce_module.js...
+[287ms] Loaded rce_module.js (807490 bytes, 275ms)
+[298ms] Selected RCE route: worker_18.6 for detected iOS 18.6.2
+[301ms] Using rce_worker_18.6.js for worker_18.6
+[315ms] Fetching rce_worker_18.6.js...
+[612ms] Loaded rce_worker_18.6.js (980318 bytes, 297ms)
+[634ms] Sending stage1_rce to worker (worker_18.6) tweaks=fiveicon level=heavy sbx0FallbackStart=0
+[651ms] ios_version: 18.6.2
+[653ms] device_model: iPhone17,1
+[1240ms] Starting check_attempt (worker_18.6), sbx0FallbackStart=0
+[1822ms] sbx0: probing MessageName offsets for device_model=iPhone17,1
+[2103ms] sbx0: kernel R/W established
+[3450ms] sbx1: prelude built, mediaplaybackd bridge live
+[5912ms] pe_main injected; tweak dispatch underway
+[12834ms] [SBC] sbcustomizer_light: dock patch applied (4 icons)
+[12891ms] [SBC] sbcustomizer_light: status bar overlay window installed
+[13002ms] chain_status: install_complete
+[13010ms] All tweaks applied; chain finished cleanly

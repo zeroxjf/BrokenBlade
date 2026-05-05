@@ -165,12 +165,13 @@ async function handleLogPost(request, env) {
   const key = `weblogs/${ymd}/${id}.txt`;
 
   const cf = request.cf || {};
+  // IP is intentionally NOT persisted - used only in-memory above for
+  // the rate-limit counter. Country/colo are kept (no per-user
+  // resolution); city is dropped since it's narrower than necessary.
   const stamp = [
     `# BrokenBlade weblog`,
     `# uploaded: ${new Date().toISOString()}`,
-    `# ip: ${ip}`,
     `# country: ${cf.country || ''}`,
-    `# city: ${cf.city || ''}`,
     `# colo: ${cf.colo || ''}`,
     `# user-agent: ${request.headers.get('User-Agent') || ''}`,
     `# meta: ${JSON.stringify(meta)}`,
@@ -184,7 +185,6 @@ async function handleLogPost(request, env) {
     await env.LOGS.put(key, body, {
       httpMetadata: { contentType: 'text/plain; charset=utf-8' },
       customMetadata: {
-        ip: ip,
         country: String(cf.country || ''),
         ua: (request.headers.get('User-Agent') || '').slice(0, 256),
         meta: JSON.stringify(meta).slice(0, 1024),
