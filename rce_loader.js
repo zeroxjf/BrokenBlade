@@ -121,7 +121,8 @@ function redirect()
 {
     if (__ls_terminal_sent) return;
     __ls_terminal_sent = true;
-    try { sessionStorage.removeItem('ls_running'); } catch(e) {}
+    // ls_running flag system disabled - see setter at chain dispatch.
+    // try { sessionStorage.removeItem('ls_running'); } catch(e) {}
     // Use '*' as targetOrigin to match upstream DarkSword. location.origin
     // would silently drop the message if the iframe's computed origin
     // doesn't exactly match the parent's (bfcache restore, scheme/port
@@ -135,7 +136,8 @@ function fail(reason)
     __ls_terminal_sent = true;
     let text = reason ? String(reason) : 'Unknown loader failure';
     print("FAIL: " + text, true);
-    try { sessionStorage.removeItem('ls_running'); } catch(e) {}
+    // ls_running flag system disabled - see setter at chain dispatch.
+    // try { sessionStorage.removeItem('ls_running'); } catch(e) {}
     try { window.parent.postMessage({ type: 'lightsaber_failed', reason: text }, '*'); } catch (e) {}
 }
 function getJS(fname,method = 'GET')
@@ -417,7 +419,10 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
         // touched. From this point on (new check_attempt()), Safari
         // is committed to running the exploit and any abort really
         // does require the user to force-quit Safari.
-        try { sessionStorage.setItem('ls_running', '1'); } catch(e) {}
+        // Disabled for now - the kill-Safari overlay was firing too
+        // eagerly and blocking legitimate retries. See index.html
+        // commented-out auto-show / confirmInstall / runExploit guards.
+        // try { sessionStorage.setItem('ls_running', '1'); } catch(e) {}
             if(isWorkerRcePath(ios_version))
             {
                 print("Sending stage1_rce to worker (" + rcePathName(ios_version) + ") tweaks=" + (globalThis.__ls_tweaks || 'fiveicon') + " level=" + (globalThis.__ls_powercuff_level || 'heavy') + " sbx0FallbackStart=" + (globalThis.__ls_sbx0_fallback_start || 0));
