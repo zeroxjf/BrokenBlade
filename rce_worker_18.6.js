@@ -17532,6 +17532,8 @@ async function _aarw_main() {
             const N = 50; // tunable count
             for (let i = 0; i < N; ++i) {
                 try {
+                    if (i === 0 || i === 4 || i === 9 || i === 24 || i === 49)
+                        print(`stage1 unit attempt ${i+1}/${N}`);
                     run(util, p_rce);
                     print(`success with ${i+1} unit tries`);
                     return;
@@ -17539,6 +17541,7 @@ async function _aarw_main() {
                     // log('retrying! ' + e);
                 }
             }
+            print("stage1 unit attempts exhausted");
             throw new TryAgainError();
         }
 
