@@ -17631,10 +17631,12 @@ async function _aarw_main() {
                   | BigInt(read64_str.charCodeAt(1)) << 16n);
           }
           print("after setting up prims");
+          print("gc disable: version parse begin");
           const gcDisableIosVersion = (function() {
               let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
               return version ? version.split('_').map(part => parseInt(part)) : null;
           })();
+          print(`gc disable: version parsed=${gcDisableIosVersion}`);
           const skipGcDisable = Array.isArray(gcDisableIosVersion) && gcDisableIosVersion[0] === 18 && gcDisableIosVersion[1] <= 3;
           if (skipGcDisable) {
               print(`gc disable: skipped for early iOS ${gcDisableIosVersion.join('.')}`);
