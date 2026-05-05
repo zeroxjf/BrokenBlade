@@ -18652,7 +18652,7 @@ async function main() {
       dumpClassCandidate("plus0x80", cls + 0x80n);
       dumpClassCandidate("minus0x80", cls - 0x80n);
       p.class_load_worker_next = helperIndex + 1;
-      await closeClassLoadWorker(helperIndex);
+      print(`loadObjcClass: helper close skipped index=${helperIndex}`);
       return;
     }
     print("loadObjcClass: no helper worker available, using local bitmap");
@@ -18845,6 +18845,10 @@ async function main() {
             if (initialPath != offsets.AVFAudio__cfstr_SystemLibraryTextToSpeech) continue;
             TextToSpeech_NSBundle = bundle;
             break;
+          }
+          if (!TextToSpeech_NSBundle) {
+            print("TextToSpeech_NSBundle not found after loadObjcClass");
+            throw new Error("missing TextToSpeech bundle");
           }
           print(`TextToSpeech_NSBundle: ${TextToSpeech_NSBundle.hex()}`);
           const TextToSpeech_CFBundle = p.read64(TextToSpeech_NSBundle + 0x10n);
