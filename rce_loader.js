@@ -316,9 +316,12 @@ let workerBlobUrl = URL.createObjectURL(workerBlob);
                 print("[MSG] Preparing dlopen workers...");
                 await prepare_dlopen_workers();
                 print("[MSG] dlopen workers prepared, notifying worker");
-                worker.postMessage({
-                type: 'dlopen_workers_prepared'
-                });
+                setTimeout(() => {
+                    worker.postMessage({
+                    type: 'dlopen_workers_prepared'
+                    });
+                    print("[MSG] dlopen worker ack posted");
+                }, 0);
                 break;
             }
             case 'trigger_dlopen1':

