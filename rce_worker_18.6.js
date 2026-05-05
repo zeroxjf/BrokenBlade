@@ -18563,8 +18563,12 @@ const device_chipset = {
             type: 'prepare_dlopen_workers'
           });
         }
+        print("stage1 prim: calling setup_stage1_prim");
         setup_stage1_prim(p_rce);
+        print("stage1 prim: setup_stage1_prim returned");
+        print("setup_stage2: calling setup_stage2_prim");
         setup_stage2_prim();
+        print("setup_stage2: setup_stage2_prim returned");
     } catch (e) {
         if (e instanceof TryAgainError) {
             print('failed _make_rw ... retry');
