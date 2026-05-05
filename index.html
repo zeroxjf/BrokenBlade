@@ -244,28 +244,6 @@
       background: #25ad48;
       border-color: #25ad48;
     }
-    /* Always-visible "Copy Web Log" link sitting under the install
-       button. Subtle, link-style; the install button stays the visual
-       primary while the run is in progress. After markDone the install
-       button itself flips to a green Copy-Web-Log button via
-       .btn-copy-log; this link is the early-failure escape hatch so
-       testers can grab the log even if the chain dies before markDone
-       (e.g. WebKit side fails fast and Safari never crashes back). */
-    .btn-copy-log-link {
-      background: none;
-      border: none;
-      color: var(--accent-hover);
-      font-family: inherit;
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 8px 14px;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      margin-top: 6px;
-      text-decoration: underline;
-    }
-    .btn-copy-log-link:hover { color: var(--accent-dark); }
-    .btn-copy-log-link:active { opacity: 0.5; }
     .note {
       font-size: 0.72rem;
       color: var(--subtle);
@@ -493,6 +471,44 @@
       color: #7d3d02;
       box-shadow: 0 1px 2px rgba(255,149,0,0.12), 0 4px 14px -6px rgba(255,149,0,0.28);
     }
+    .privacy-notice {
+      background: linear-gradient(180deg, #eaf3ff 0%, #dbe9ff 100%);
+      border: 1px solid #0a84ff;
+      border-left-width: 5px;
+      color: #062a52;
+      box-shadow: 0 1px 2px rgba(10,132,255,0.10), 0 4px 14px -6px rgba(10,132,255,0.30);
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+      line-height: 1.55;
+      text-align: left;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .privacy-notice .privacy-notice-icon {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      color: #0a84ff;
+      margin-top: 1px;
+    }
+    .privacy-notice strong { color: #062a52; font-weight: 800; }
+    .privacy-notice .privacy-notice-title {
+      display: block;
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #062a52;
+      margin-bottom: 4px;
+      letter-spacing: 0.01em;
+    }
+    .privacy-notice a {
+      color: #0a84ff;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    .privacy-notice a:hover { color: #086ad6; }
     .caution strong { color: #4d2806; font-weight: 700; }
     .caution a { color: #7d3d02; text-decoration: underline; }
     .debug {
@@ -1079,19 +1095,45 @@
        terminal styling on the scroll itself contrasts with the white card,
        so the raw stream reads like a console panel embedded in the card. */
     .log-upload-note {
-      padding: 8px 12px 10px;
-      font-size: 0.62rem;
-      color: var(--subtle);
-      background: var(--card-alt);
-      border-top: 1px solid var(--border-soft);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px 14px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      color: #0b3a72;
+      background: linear-gradient(180deg, #eaf3ff 0%, #dbe9ff 100%);
+      border-top: 1px solid #b6d3ff;
+      border-left: 4px solid #0a84ff;
       line-height: 1.55;
       letter-spacing: 0.01em;
     }
+    .log-upload-note .log-upload-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      color: #0a84ff;
+      margin-top: 1px;
+    }
+    .log-upload-note strong {
+      color: #062a52;
+      font-weight: 700;
+    }
+    .log-upload-note .log-upload-title {
+      display: block;
+      font-weight: 800;
+      font-size: 0.78rem;
+      color: #062a52;
+      margin-bottom: 2px;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+    }
     .log-upload-note a {
-      color: var(--accent-hover);
+      color: #0a84ff;
+      font-weight: 700;
       text-decoration: underline;
     }
-    .log-upload-note a:hover { color: var(--accent-dark); }
+    .log-upload-note a:hover { color: #086ad6; }
     #rawLogScroll {
       max-height: min(320px, 44dvh);
       overflow-y: auto;
@@ -1959,7 +2001,6 @@
 
       <div class="install-zone">
         <button type="button" id="runBtn" class="btn btn-run" onclick="confirmInstall()">Install Queue</button>
-        <button type="button" class="btn-copy-log-link" id="copyLogBtn" onclick="copyWebLog(this)">Copy Web Log</button>
         <div class="install-secondary-actions" style="display:none">
           <button type="button" class="btn-clear-queue" id="cleanupStateBtn" onclick="confirmCleanupState()">Clean kernel state</button>
           <button type="button" class="btn btn-respring" id="respringBtn" onclick="runRespring()">Respring</button>
@@ -1967,27 +2008,6 @@
         </div>
       </div>
       <div id="installStatus" class="install-status"></div>
-      <div class="run-expectations" id="runExpectations">
-        <div class="run-expectations-title">What to expect when you press Install</div>
-        <div class="expectation-list">
-          <div class="expectation-row" data-expectation="1">
-            <span class="expectation-badge">1</span>
-            <span class="expectation-copy"><strong>The page will freeze.</strong> That is the WebKit handoff to native code. Don&rsquo;t switch apps or lock the phone.</span>
-          </div>
-          <div class="expectation-row" data-expectation="2">
-            <span class="expectation-badge">2</span>
-            <span class="expectation-copy"><strong>The freeze lasts about 45&ndash;60 seconds.</strong> No UI progress while WebKit is paused &mdash; that is normal.</span>
-          </div>
-          <div class="expectation-row" data-expectation="3">
-            <span class="expectation-badge">3</span>
-            <span class="expectation-copy"><strong>Safari will crash to the home screen after the freeze.</strong> That is the good signal &mdash; tweaks are about to install.</span>
-          </div>
-          <div class="expectation-row" data-expectation="4">
-            <span class="expectation-badge">4</span>
-            <span class="expectation-copy"><strong>Just wait 10&ndash;20 seconds after the crash.</strong> Then check the home screen for the tweak you installed.</span>
-          </div>
-        </div>
-      </div>
       <div class="log-sheet" id="logSheet" aria-live="polite">
         <div class="log-sheet-header">
           <span class="log-sheet-title">WebContent Log</span>
@@ -2034,7 +2054,14 @@
           <div class="raw-log-empty" id="rawLogEmpty">WebContent log lines will appear here when a run starts.</div>
         </div>
         <div class="log-upload-note" aria-live="polite">
-          Auto-uploaded to a private Cloudflare R2 bucket for debugging (build, iOS, UA, country, chain trace). No IPs or personal identifiers stored. Logs auto-deleted after 30 days. <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/docs/sample-weblog.txt" target="_blank" rel="noopener">Sample</a> &middot; <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/log-worker/worker.js" target="_blank" rel="noopener">Worker source</a>.
+          <svg class="log-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+          <div>
+            <span class="log-upload-title">Privacy &mdash; auto-upload</span>
+            This log auto-uploads to a private Cloudflare R2 bucket I control so I can debug failures. Stored fields: <strong>build, iOS, user-agent, country, chain trace</strong>. <strong>No IP addresses or personal identifiers are kept.</strong> Logs auto-delete after 30 days. <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/docs/sample-weblog.txt" target="_blank" rel="noopener">See exact sample</a> &middot; <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/log-worker/worker.js" target="_blank" rel="noopener">Worker source</a>.
+          </div>
         </div>
       </div>
     </div>
@@ -2120,8 +2147,15 @@
       <div class="warning">
         <strong>Use caution.</strong> Derived from the <a href="https://iverify.io/blog/darksword-ios-exploit-kit-explained">DarkSword</a> exploit chain with all malware communication stripped and <a href="https://github.com/zeroxjf/BrokenBlade">fully open source</a>, but this is an inherently unstable chain and is <strong>not recommended for deployment on a daily driver</strong> unless you are willing to accept the risk. The chain may take several tries to succeed, SpringBoard may crash, the kernel may panic. Use at your own risk &mdash; I am not liable for any damage or data loss.
       </div>
-      <div class="caution">
-        <strong>Diagnostic upload.</strong> When you run the chain, the WebContent log (build version, iOS version, user-agent, country, and chain trace) is automatically uploaded to a Cloudflare R2 bucket I control, so I can debug failures. <strong>No IP addresses or other personal identifiers are stored.</strong> Logs are auto-deleted after 30 days. <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/docs/sample-weblog.txt" target="_blank" rel="noopener">See an exact sample</a> &middot; <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/log-worker/worker.js" target="_blank" rel="noopener">Worker source</a>.
+      <div class="privacy-notice">
+        <svg class="privacy-notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        <div>
+          <span class="privacy-notice-title">Privacy &mdash; diagnostic upload</span>
+          When you run the chain, your WebContent log auto-uploads to a private Cloudflare R2 bucket I control so I can debug failures. Stored fields: <strong>build, iOS, user-agent, country, chain trace</strong>. <strong>No IP addresses or other personal identifiers are stored.</strong> Logs auto-delete after 30 days. <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/docs/sample-weblog.txt" target="_blank" rel="noopener">See an exact sample</a> &middot; <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/log-worker/worker.js" target="_blank" rel="noopener">Worker source</a>.
+        </div>
       </div>
       <div class="dialog-btns">
         <button type="button" class="btn-confirm" onclick="dismissIntro()">I understand</button>
@@ -2320,7 +2354,6 @@
     // expected: pops the yellow callout for counter-intuitive moments
     // (freeze / cache-clean / Safari-kill) where the user might think the
     // chain broke when it's actually progressing.
-    // hit: ticks the matching numbered row in #runExpectations.
     var stageRules = [
       { match: 'Loading worker code',   stage: 'load',  phase: 1, name: 'Downloading exploit code',        sub: 'Fetching worker scripts from server',                  log: 'Preparing payload...' },
       { match: 'Worker created',        stage: 'init',  phase: 1, name: 'Initializing WebKit exploit',     sub: 'Web worker started',                                   log: 'Spawned exploit worker inside WebKit' },
@@ -2390,7 +2423,6 @@
           }
           if (rule.phase) setPhase(rule.phase);
           if (rule.expected) setExpectedCallout(rule.expected, rule.phase);
-          if (rule.hit) hitExpectation(rule.hit);
           if (rule.stage === 'done') markAllPhasesDone();
           // fcall is the WebKit→native handoff: parent main thread is about
           // to freeze with the iframe. Flip the strip into freeze-imminent
@@ -2467,25 +2499,6 @@
       var box = document.getElementById('logExpectedCallout');
       if (box) box.classList.remove('visible');
       currentExpectedPhase = 0;
-    }
-
-    function hitExpectation(idx) {
-      if (!idx) return;
-      var row = document.querySelector('.expectation-row[data-expectation="' + idx + '"]');
-      if (!row || row.classList.contains('hit')) return;
-      row.classList.add('hit');
-      var badge = row.querySelector('.expectation-badge');
-      if (badge) badge.textContent = '✓';
-    }
-
-    function resetExpectations() {
-      var rows = document.querySelectorAll('.expectation-row[data-expectation]');
-      for (var i = 0; i < rows.length; i++) {
-        rows[i].classList.remove('hit');
-        var badge = rows[i].querySelector('.expectation-badge');
-        var n = rows[i].getAttribute('data-expectation');
-        if (badge && n) badge.textContent = n;
-      }
     }
 
     function resetPhases() {
@@ -2670,13 +2683,13 @@
     var supportMsg = document.getElementById('supportMsg');
     var canRun = false;
 
-    // Allow any iOS 18 build through 18.6.2; older majors and 18.6.3+ /
-    // 18.7+ / 19+ are red. Per-build offset coverage is sorted out at
-    // runtime by the chain itself.
+    // Restricted to iOS 18.0 - 18.3 (any patch). Anything else - older
+    // majors, 18.4+, 19+ - blocks the Install button. Per-build offset
+    // coverage within that window is sorted out at runtime by the chain
+    // itself.
     function inSupportedWindow(maj, min, pat) {
       if (maj !== 18) return false;
-      if (min < 6) return true;
-      if (min === 6 && pat <= 2) return true;
+      if (min >= 0 && min <= 3) return true;
       return false;
     }
 
@@ -3056,11 +3069,6 @@
     // older Safari/iOS contexts where the async clipboard API is
     // gated. Flashes the button text to "Copied!" for ~1.5s on
     // success so the user gets feedback without an alert/dialog.
-    //
-    // srcBtn is the element to flash. Both call sites pass the
-    // clicked button so the right control gets the visual feedback:
-    // the always-visible #copyLogBtn link from inline onclick, or
-    // the post-run #runBtn from markDone's wired handler.
     function copyWebLog(srcBtn) {
       var scroll = document.getElementById('rawLogScroll');
       var btn = srcBtn || document.getElementById('runBtn');
@@ -3480,17 +3488,12 @@
       currentStage = 'start';
       currentStageName = 'Starting';
       resetPhases();
-      resetExpectations();
       var stageBanner = document.getElementById('logStageBanner');
       var stageText = document.getElementById('logStageText');
       var stageSub = document.getElementById('logStageSub');
       if (stageBanner) { stageBanner.classList.remove('done'); stageBanner.classList.remove('err'); }
       if (stageText) stageText.textContent = 'Starting exploit chain';
       if (stageSub) stageSub.textContent = 'Loading components...';
-      // Hide the static "What to expect" panel during a run — the phase
-      // strip and Expected callout cover that information in-context.
-      var runExpEl = document.getElementById('runExpectations');
-      if (runExpEl) runExpEl.classList.add('hidden');
       var tweakDisplayNames = { fiveicon: 'SBCustomizer', powercuff: 'Powercuff', mgpatcher: 'MobileGestalt Patcher', applimit: '3-App Limit Bypass' };
       var displayTweaks = tweaks.map(function(t) { return tweakDisplayNames[t] || t; });
       loadBuildInfo(true);
