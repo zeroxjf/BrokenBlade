@@ -260,11 +260,11 @@ function isIos183Path(version) {
     return Array.isArray(version) && version[0] === 18 && version[1] === 3;
 }
 function isWorkerRcePath(version) {
-    return isEarlyIos18Path(version) || isLateIos18WorkerPath(version);
+    return true;
 }
 function rcePathName(version) {
     if (isWorkerRcePath(version)) {
-        return "iOS 18.0-18.3/18.6-18.7 worker _aarw_main RCE path";
+        return "forced iOS 18.3/18.6 worker _aarw_main RCE path";
     }
     return "iOS 18.x check_attempt RCE path";
 }
