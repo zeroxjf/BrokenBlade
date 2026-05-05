@@ -533,6 +533,45 @@
       box-shadow: 0 2px 6px rgba(185,28,28,0.30);
       text-transform: uppercase;
     }
+    /* Collapsible callout pattern (used by .beta-banner, .test-tips,
+       .log-upload-note via <details>/<summary>). Hides the default disclosure
+       triangle, draws a custom right-arrow chevron that rotates when [open]. */
+    .callout { display: block; }
+    .callout > summary {
+      list-style: none;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 22px 0 0;
+      margin: 0;
+      position: relative;
+      user-select: none;
+    }
+    .callout > summary::-webkit-details-marker { display: none; }
+    .callout > summary::marker { content: ''; }
+    .callout > summary::after {
+      content: '';
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      opacity: 0.6;
+      transform: translate(0, -65%) rotate(-45deg);
+      transition: transform 0.18s ease;
+    }
+    .callout[open] > summary::after {
+      transform: translate(0, -30%) rotate(45deg);
+    }
+    .callout > summary > span,
+    .callout > summary > svg {
+      margin-bottom: 0 !important;
+    }
+    .callout > .callout-body { margin-top: 8px; }
     .beta-banner {
       background: #fef2f2;
       border: 1px solid #fca5a5;
@@ -552,7 +591,7 @@
       text-transform: uppercase;
       font-size: 0.7rem;
       color: #b91c1c;
-      margin-bottom: 4px;
+      margin-bottom: 0;
     }
     .test-tips {
       background: #fff8e6;
@@ -573,7 +612,7 @@
       text-transform: uppercase;
       font-size: 0.7rem;
       color: #b86700;
-      margin-bottom: 4px;
+      margin-bottom: 0;
     }
     .test-tips ul {
       margin: 6px 0 0 18px;
@@ -1123,9 +1162,6 @@
        terminal styling on the scroll itself contrasts with the white card,
        so the raw stream reads like a console panel embedded in the card. */
     .log-upload-note {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
       padding: 10px 12px;
       margin-bottom: 12px;
       font-size: 0.78rem;
@@ -1143,20 +1179,19 @@
       width: 18px;
       height: 18px;
       color: #0a84ff;
-      margin-top: 1px;
     }
     .log-upload-note strong {
       color: #062a52;
       font-weight: 800;
     }
     .log-upload-note .log-upload-title {
-      display: block;
+      display: inline-block;
       font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       font-size: 0.7rem;
       color: #0a84ff;
-      margin-bottom: 4px;
+      margin-bottom: 0;
     }
     .log-upload-note a {
       color: #0a84ff;
@@ -1873,31 +1908,37 @@
       <p id="supportMsg" style="font-size:0.78rem;margin-bottom:4px"></p>
       <p style="font-size:0.72rem;color:var(--muted);margin-bottom:10px">Beta testing the <strong>LightSaber</strong> chain &mdash; iPhone &middot; iOS 18.0&ndash;18.3</p>
 
-      <div class="beta-banner" role="alert">
-        <span class="beta-banner-title">Beta &mdash; use at your own risk</span>
-        This is an active beta of an experimental userland exploit chain. <strong>Not for daily drivers.</strong> Expect: page freezes, Safari crashes, repeated retries, SpringBoard crashes, and kernel panics. Back up before testing. Author is not liable for any damage or data loss.
-      </div>
+      <details class="callout beta-banner" role="alert">
+        <summary><span class="beta-banner-title">Beta &mdash; use at your own risk</span></summary>
+        <div class="callout-body">
+          This is an active beta of an experimental userland exploit chain. <strong>Not for daily drivers.</strong> Expect: page freezes, Safari crashes, repeated retries, SpringBoard crashes, and kernel panics. Back up before testing. Author is not liable for any damage or data loss.
+        </div>
+      </details>
 
-      <div class="test-tips" role="note">
-        <span class="test-tips-title">How testing works</span>
-        <strong>The chain will fail for most runs right now.</strong> I am iteratively improving it &mdash; every run uploads a log automatically (see Privacy below) and even failed runs help me move the chain forward. <strong>Please run the chain a few times in a row.</strong>
-        <ul>
-          <li>Each tap of <strong>Run</strong> is one attempt. The chain is non-deterministic; sometimes a retry progresses further than the previous attempt.</li>
-          <li>If the page barely freezes (under ~10 s) or the WebContent log stops well before <em>Starting check_attempt</em>, the chain didn&rsquo;t make it past Safari&rsquo;s setup. <strong>Clear Safari cache</strong> (Settings &rarr; Apps &rarr; Safari &rarr; Clear History and Website Data) and try again.</li>
-          <li>If many tries in a row stall in the same place, <strong>reboot the device</strong> for a fresh kernel and Safari state, then try once more.</li>
-        </ul>
-      </div>
+      <details class="callout test-tips" role="note">
+        <summary><span class="test-tips-title">How testing works</span></summary>
+        <div class="callout-body">
+          <strong>The chain will fail for most runs right now.</strong> I am iteratively improving it &mdash; every run uploads a log automatically (see Privacy below) and even failed runs help me move the chain forward. <strong>Please run the chain a few times in a row.</strong>
+          <ul>
+            <li>Each tap of <strong>Run</strong> is one attempt. The chain is non-deterministic; sometimes a retry progresses further than the previous attempt.</li>
+            <li>If the page barely freezes (under ~10 s) or the WebContent log stops well before <em>Starting check_attempt</em>, the chain didn&rsquo;t make it past Safari&rsquo;s setup. <strong>Clear Safari cache</strong> (Settings &rarr; Apps &rarr; Safari &rarr; Clear History and Website Data) and try again.</li>
+            <li>If many tries in a row stall in the same place, <strong>reboot the device</strong> for a fresh kernel and Safari state, then try once more.</li>
+          </ul>
+        </div>
+      </details>
 
-      <div class="log-upload-note" aria-live="polite">
-        <svg class="log-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
-          <path d="M9 12l2 2 4-4"/>
-        </svg>
-        <div>
+      <details class="callout log-upload-note">
+        <summary>
+          <svg class="log-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
           <span class="log-upload-title">Privacy &mdash; auto-upload</span>
+        </summary>
+        <div class="callout-body">
           When you run the chain, your WebContent log auto-uploads to a private Cloudflare R2 bucket I control so I can debug failures. Stored fields: <strong>build, iOS, user-agent, country, chain trace</strong>. <strong>No IP addresses or personal identifiers are kept.</strong> Logs auto-delete after 30 days. <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/docs/sample-weblog.txt" target="_blank" rel="noopener">See exact sample</a> &middot; <a href="https://github.com/zeroxjf/BrokenBlade/blob/main/log-worker/worker.js" target="_blank" rel="noopener">Worker source</a>.
         </div>
-      </div>
+      </details>
 
       <div class="tweak-list" style="display:none">
         <div class="tweak-section-label">SpringBoard</div>
