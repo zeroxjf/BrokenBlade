@@ -2389,10 +2389,28 @@
       if (el) el.classList.remove('visible');
     }
     var ua = navigator.userAgent;
-    var iosMatch = /iPhone OS ([0-9_]+)/g.exec(ua);
-    var iosVer = iosMatch ? iosMatch[1].replace(/_/g, '.') : null;
-    var iosParts = iosVer ? iosVer.split('.').map(Number) : [0,0,0];
-    var major = iosParts[0], minor = iosParts[1], patch = iosParts[2] || 0;
+    // Robust iOS version detection. The naive /iPhone OS NN_NN/ regex was
+    // failing for at least one iPhone 11 Pro / 18.1.1 user (cause unknown -
+    // could be iOS UA-reduction in some context, third-party browser quirk,
+    // PWA standalone mode, etc.). Try several patterns and fall through
+    // gracefully to a 'version unknown' branch so we never render the
+    // literal string 'null' in the support message.
+    function detectIosVersion(uaString) {
+      if (!uaString) return null;
+      // Standard iOS Safari / Chrome iOS / Firefox iOS / Edge iOS:
+      //   "CPU iPhone OS 18_1_1 like Mac OS X"
+      //   "CPU OS 18_1 like Mac OS X" (some iPad UAs)
+      var m1 = uaString.match(/(?:iPhone OS|CPU OS|CPU iPhone OS)\s+(\d+(?:[._]\d+)+)/i);
+      if (m1) return m1[1].replace(/_/g, '.');
+      // Some browsers (or PWAs) only carry the iOS version in the
+      //   "Version/18.1.1" segment without an "iPhone OS NN" prefix.
+      var m2 = uaString.match(/Version\/(\d+(?:\.\d+)+)/);
+      if (m2 && /iPhone|iPad|iPod/.test(uaString)) return m2[1];
+      return null;
+    }
+    var iosVer = detectIosVersion(ua);
+    var iosParts = iosVer ? iosVer.split(/[._]/).map(function(p) { var n = parseInt(p, 10); return isFinite(n) ? n : 0; }) : [0,0,0];
+    var major = iosParts[0] || 0, minor = iosParts[1] || 0, patch = iosParts[2] || 0;
     var isIphone = /iPhone/.test(ua);
     var doneSignal = false;
     var logWatchdog = null;
@@ -2814,19 +2832,24 @@
 
     var supportText = '';
     var supportColor = '';
+    // Permissive mode: anyone can tap Run. The label is informational
+    // only - we still detect iPhone + iOS version when we can, but a
+    // missing or out-of-window version no longer blocks the button.
+    // The chain code does its own version check at dispatch time.
+    var iosLabel = (typeof iosVer === 'string' && iosVer) ? ('iOS ' + iosVer) : 'iOS version not detected';
+    canRun = true;
     if (!isIphone) {
-      supportColor = '#b91c1c';
-      supportText = 'Not an iPhone';
-    } else if (major < 18) {
-      supportColor = '#b91c1c';
-      supportText = 'iOS ' + iosVer + ' \u2014 not supported';
+      supportColor = '#b86700';
+      supportText = 'Non-iPhone UA \u2014 you can still try Run';
+    } else if (!iosVer) {
+      supportColor = '#b86700';
+      supportText = iosLabel + ' \u2014 you can still try Run';
     } else if (inSupportedWindow(major, minor, patch)) {
       supportColor = '#15803d';
-      supportText = 'iOS ' + iosVer + ' \u2014 supported';
-      canRun = true;
+      supportText = iosLabel + ' \u2014 within tested window';
     } else {
-      supportColor = '#b91c1c';
-      supportText = 'iOS ' + iosVer + ' \u2014 not yet supported';
+      supportColor = '#b86700';
+      supportText = iosLabel + ' \u2014 outside tested window, can still try Run';
     }
     supportMsg.style.color = supportColor;
     supportMsg.style.fontWeight = '600';
