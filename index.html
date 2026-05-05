@@ -2013,7 +2013,7 @@
       </div>
 
       <div class="install-zone">
-        <button type="button" id="runBtn" class="btn btn-run" onclick="confirmInstall()">Install Queue</button>
+        <button type="button" id="runBtn" class="btn btn-run" onclick="confirmInstall()">Run</button>
         <div class="install-secondary-actions" style="display:none">
           <button type="button" class="btn-clear-queue" id="cleanupStateBtn" onclick="confirmCleanupState()">Clean kernel state</button>
           <button type="button" class="btn btn-respring" id="respringBtn" onclick="runRespring()">Respring</button>
@@ -3281,7 +3281,7 @@
       }
       var btn = document.getElementById('runBtn');
       if (btn && canRun) {
-        btn.textContent = 'Install Selected';
+        btn.textContent = 'Run';
         btn.className = 'btn btn-run';
       }
       uploadWebLog('failed');
@@ -3419,7 +3419,7 @@
       var btn = document.getElementById('runBtn');
       if (btn && canRun) {
         btn.className = 'btn btn-run';
-        btn.textContent = 'Install Selected';
+        btn.textContent = 'Run';
       }
       document.getElementById('killSafariOverlay').className = 'overlay active';
     }
