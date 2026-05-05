@@ -365,6 +365,24 @@ async function handleAdminMigrate(request, env) {
       if (metaMatch) {
         try { meta = JSON.parse(metaMatch[1]); } catch (e) {}
       }
+      // Recover revision from rawLog body when the page-side meta has
+      // an empty revision string (replay-after-crash uploads where the
+      // async build-info.json XHR lost the race against setTimeout).
+      // The page logs `Build version: vX.Y.Z+<short-rev>` near the top
+      // of every run's rawLog, and that line is preserved verbatim in
+      // the replay, so we can scrape it back here.
+      if (!meta.revision) {
+        const rxBuild = /Build version:\s*(v[\d.]+)(?:\+([0-9a-f]{7,40}))?/i;
+        const lines = text.split('\n');
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const m = rxBuild.exec(lines[i]);
+          if (m && m[2]) {
+            meta.revision = m[2];
+            if (m[1] && !meta.build) meta.build = m[1];
+            break;
+          }
+        }
+      }
       const buildTag = sanitizeBuildTag(meta);
       const oldParts = oldKey.split('/');
       const basename = oldParts[oldParts.length - 1];
