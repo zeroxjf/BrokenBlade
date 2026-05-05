@@ -19245,7 +19245,7 @@ async function main() {
               const maxRetries = 15;
               for (let attempt = 0; attempt < maxRetries; attempt++) {
                 p_temp = await main();
-                if (p_temp && p_temp.addrof && p_temp.read64 && p_temp.write64)
+                if (p_temp && p.addrof && p.read64 && p.write64)
                   return;
                 print("Failed rce, retry " + (attempt + 1) + "/" + maxRetries);
               }
