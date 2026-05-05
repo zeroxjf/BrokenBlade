@@ -17689,7 +17689,15 @@ async function _aarw_main() {
           })();
           print("jsc_base now: " + jsc_base.hex());
           function resolverCheckpoint(message) {
-              print("resolver: " + message);
+              const keep = message.startsWith("fallback selected") ||
+                  message.startsWith("device_model:") ||
+                  message.startsWith("slide:") ||
+                  message.indexOf("selected worker=") !== -1 ||
+                  message.startsWith("worker selected=") ||
+                  message.startsWith("worker global offsets") ||
+                  message.startsWith("Finished stage1");
+              if (keep)
+                  print("resolver: " + message);
               sleep(10);
           }
           resolverCheckpoint("post-jsc-base");
