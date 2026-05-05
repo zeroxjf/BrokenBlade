@@ -126,6 +126,14 @@ async function handleLogPost(request, env) {
     return jsonResponse({ error: 'origin_not_allowed' }, 403, origin);
   }
 
+  // Reject oversized bodies before parsing (defends against memory
+  // exhaustion via huge JSON / text payloads). Cloudflare also caps at
+  // its own outer limit, but this lets us 413 fast on intent.
+  const declaredLen = parseInt(request.headers.get('Content-Length') || '0', 10);
+  if (declaredLen > MAX_BODY_BYTES) {
+    return jsonResponse({ error: 'body_too_large', limit: MAX_BODY_BYTES, declared: declaredLen }, 413, origin);
+  }
+
   const rl = await checkRate(env, ip);
   if (!rl.allowed) {
     return jsonResponse({ error: 'rate_limited', count: rl.count, limit: rl.limit }, 429, origin);
@@ -165,6 +173,18 @@ async function handleLogPost(request, env) {
   const key = `weblogs/${ymd}/${id}.txt`;
 
   const cf = request.cf || {};
+  // JSON.stringify can throw on circular refs / exotic values. Wrap so
+  // a hostile meta payload can't 500 the request. Cap the serialized
+  // meta length so it can't bloat the stamp header.
+  let metaStr;
+  try {
+    metaStr = JSON.stringify(meta);
+  } catch (e) {
+    metaStr = '"<unserializable>"';
+  }
+  if (typeof metaStr !== 'string') metaStr = '"<unserializable>"';
+  if (metaStr.length > 4096) metaStr = metaStr.slice(0, 4093) + '...';
+
   // IP is intentionally NOT persisted - used only in-memory above for
   // the rate-limit counter. Country/colo are kept (no per-user
   // resolution); city is dropped since it's narrower than necessary.
@@ -174,7 +194,7 @@ async function handleLogPost(request, env) {
     `# country: ${cf.country || ''}`,
     `# colo: ${cf.colo || ''}`,
     `# user-agent: ${request.headers.get('User-Agent') || ''}`,
-    `# meta: ${JSON.stringify(meta)}`,
+    `# meta: ${metaStr}`,
     `# ---`,
     '',
   ].join('\n');
@@ -187,7 +207,7 @@ async function handleLogPost(request, env) {
       customMetadata: {
         country: String(cf.country || ''),
         ua: (request.headers.get('User-Agent') || '').slice(0, 256),
-        meta: JSON.stringify(meta).slice(0, 1024),
+        meta: metaStr.slice(0, 1024),
       },
     });
   } catch (e) {
@@ -213,15 +233,31 @@ async function handleLogGet(request, env, key) {
     status: 200,
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
       ...corsHeaders(origin),
     },
   });
 }
 
+// Constant-time string compare. Length leaks (matters for variable-length
+// secrets; our admin token is fixed 64-hex), but per-character comparison
+// is timing-stable. Pure JS so it works on any Workers runtime regardless
+// of crypto.subtle.timingSafeEqual availability.
+function constantTimeStringEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) {
+    r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return r === 0;
+}
+
 function adminAuthorized(request, env) {
   if (!env.ADMIN_TOKEN) return false;
   const got = request.headers.get('X-Admin-Token') || '';
-  return got && got === env.ADMIN_TOKEN;
+  if (!got) return false;
+  return constantTimeStringEqual(got, env.ADMIN_TOKEN);
 }
 
 async function listAllKeys(env, prefix, max) {

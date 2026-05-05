@@ -2258,6 +2258,18 @@
     // view on first paint. Disabling history.scrollRestoration plus three
     // explicit scrollTo(0,0) calls (immediate, on DOMContentLoaded, and
     // on the load event) covers every iOS Safari path I've seen.
+    // Frame-busting. CSP frame-ancestors is header-only and we can't
+    // set custom response headers on GitHub Pages, so this is the only
+    // clickjacking defense available. If the page is loaded inside an
+    // iframe, replace the top-level location with our own URL.
+    try {
+      if (window.top !== window.self) {
+        window.top.location = window.self.location;
+      }
+    } catch (e) {
+      // Cross-origin top → access throws; reload self into top frame.
+      try { window.location = String(window.location); } catch (e2) {}
+    }
     try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e) {}
     window.scrollTo(0, 0);
     document.addEventListener('DOMContentLoaded', function() { window.scrollTo(0, 0); });
@@ -3349,6 +3361,12 @@
     }
 
     window.addEventListener('message', function(event) {
+      // Only trust messages from the same origin. The chain iframe
+      // (frame.html → rce_loader.js) is same-origin and posts with
+      // targetOrigin '*'; same-origin filter still accepts them. Any
+      // third-party iframe trying to fake done/failed/log events is
+      // dropped here.
+      if (event.origin !== location.origin) return;
       var data = event.data || {};
       if (data.type === 'brokenblade_done' || data.type === 'lightsaber_done') markDone();
       if (data.type === 'brokenblade_failed' || data.type === 'brokenblade_error' || data.type === 'lightsaber_failed') markFailed(data.reason || data.text);
