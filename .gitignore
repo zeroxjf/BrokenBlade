@@ -22,6 +22,10 @@ tools/
 brokenblade-*-work/
 brokenblade-jsc-path-audit/
 
+# Local pulls from the Cloudflare R2 weblog bucket - tester device
+# UAs, build versions, and chain traces. Never publish.
+tester-logs/
+
 # Wrangler local state - caches account ID + display name + auth state.
 # Also block stray wrangler.json* at the repo root (wrangler 4.x has
 # auto-asset-discovery that walks up to .git and can drop a generated
