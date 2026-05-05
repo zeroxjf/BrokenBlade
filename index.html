@@ -554,6 +554,34 @@
       color: #b91c1c;
       margin-bottom: 4px;
     }
+    .test-tips {
+      background: #fff8e6;
+      border: 1px solid #f5c26b;
+      border-left: 4px solid #b86700;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      color: #7a4a05;
+    }
+    .test-tips strong { color: #5c3604; font-weight: 800; }
+    .test-tips-title {
+      display: block;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      color: #b86700;
+      margin-bottom: 4px;
+    }
+    .test-tips ul {
+      margin: 6px 0 0 18px;
+      padding: 0;
+    }
+    .test-tips li {
+      margin: 3px 0;
+    }
     /* Beta-mode: hide bottom disclaimer/caution/warning details and the
        Add-to-Home-Screen prompt - the beta-banner already carries the
        risk messaging, and beta testers don't need the bookmark nudge. */
@@ -1848,6 +1876,16 @@
       <div class="beta-banner" role="alert">
         <span class="beta-banner-title">Beta &mdash; use at your own risk</span>
         This is an active beta of an experimental userland exploit chain. <strong>Not for daily drivers.</strong> Expect: page freezes, Safari crashes, repeated retries, SpringBoard crashes, and kernel panics &mdash; <strong>kernel panics are a real possibility, not a rare edge case</strong>. Back up before testing. Author is not liable for any damage or data loss.
+      </div>
+
+      <div class="test-tips" role="note">
+        <span class="test-tips-title">How testing works</span>
+        <strong>The chain will fail for most runs right now.</strong> I am iteratively improving it &mdash; every run uploads a log automatically (see Privacy below) and even failed runs help me move the chain forward. <strong>Please run the chain a few times in a row.</strong>
+        <ul>
+          <li>Each tap of <strong>Run</strong> is one attempt. The chain is non-deterministic; sometimes a retry progresses further than the previous attempt.</li>
+          <li>If the page barely freezes (under ~10 s) or the WebContent log stops well before <em>Starting check_attempt</em>, the chain didn&rsquo;t make it past Safari&rsquo;s setup. <strong>Clear Safari cache</strong> (Settings &rarr; Apps &rarr; Safari &rarr; Clear History and Website Data) and try again.</li>
+          <li>If many tries in a row stall in the same place, <strong>reboot the device</strong> for a fresh kernel and Safari state, then try once more.</li>
+        </ul>
       </div>
 
       <div class="log-upload-note" aria-live="polite">
