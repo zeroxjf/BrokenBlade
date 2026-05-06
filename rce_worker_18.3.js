@@ -18649,11 +18649,12 @@ async function main() {
       print(`loadObjcClass: helper close done index=${index}`);
     }
     print(`loadObjcClass: begin cls=${valueHex(cls)}`);
-    sleep(10);
     if (typeof cls !== 'bigint')
       throw new Error(`loadObjcClass: invalid cls=${String(cls)}`);
     const helperIndex = p.class_load_worker_next || 0;
+    print(`loadObjcClass: helper lookup begin index=${helperIndex}`);
     const helper = p.class_load_workers && p.class_load_workers[helperIndex];
+    print(`loadObjcClass: helper lookup done present=${helper ? 1 : 0}`);
     if (helper) {
       print(`loadObjcClass: using helper worker index=${helperIndex} id=${helper.id.hex()}`);
       const wrappedBitmap = p.read64(helper.bitmap + 0x18n);
@@ -18849,7 +18850,6 @@ async function main() {
           }
           const providerRequestClass = offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest;
           print(`Load TextToSpeech target=${valueHex(providerRequestClass)}`);
-          sleep(10);
           await loadObjcClass(providerRequestClass);
           print('TextToSpeech Loaded');
           const NSBundleTables = p.read64(offsets.Foundation__NSBundleTables_bundleTables_value);
