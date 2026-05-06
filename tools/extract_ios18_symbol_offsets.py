@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FIRMWARE = ROOT / "firmware"
 WORK = FIRMWARE / "work"
+JSC_IMAGE = "/System/Library/Frameworks/JavaScriptCore.framework/JavaScriptCore"
 
 
 TARGETS = {
@@ -45,7 +46,7 @@ SYMBOL_PATTERNS = {
     "AXCoreUtilities__DefaultLoader": r"_defaultLoader\._DefaultLoader\s+AXCoreUtilities$",
     "Foundation__NSBundleTables_bundleTables_value": r"__32\+\[__NSBundleTables bundleTables\]_block_invoke\s+Foundation$",
     "GetCurrentThreadTLSIndex_CurrentThreadIndex": r"__ZZN3eglL24GetCurrentThreadTLSIndexEvE18CurrentThreadIndex\s+libANGLE-shared\.dylib$",
-    "JavaScriptCore__globalFuncParseFloat": r"__ZN3JSC20globalFuncParseFloat",
+    "JavaScriptCore__globalFuncParseFloat": r"__ZN3JSC20globalFuncParseFloatEPNS_14JSGlobalObjectEPNS_9CallFrameE\s+JavaScriptCore$",
     "ImageIO__IIOLoadCMPhotoSymbols": r"__ZL21IIOLoadCMPhotoSymbolsv\s+ImageIO$",
     "MediaAccessibility__MACaptionAppearanceGetDisplayType": r"_MACaptionAppearanceGetDisplayType(?:\s|$)",
     "WebProcess_singleton": r"__ZZN6WebKit10WebProcess9singletonEvE7process\s+WebKit$",
@@ -124,7 +125,7 @@ def read_symbols(path):
     return symbols, sorted(remaining)
 
 
-def image_base_for_symbol(dsc, addr):
+def cache_offset(dsc, addr):
     proc = subprocess.run(
         ["ipsw", "dyld", "a2o", str(dsc), hex(addr)],
         cwd=ROOT,
@@ -136,7 +137,47 @@ def image_base_for_symbol(dsc, addr):
     match = re.search(r"Offset\s+dec=\d+\s+hex=(0x[0-9a-fA-F]+)", proc.stdout)
     if not match:
         raise RuntimeError(f"could not parse a2o output for {hex(addr)}:\n{proc.stdout}")
-    return addr - int(match.group(1), 16)
+    return int(match.group(1), 16)
+
+
+def image_rows(dsc, image):
+    proc = subprocess.run(
+        ["ipsw", "dyld", "image", str(dsc), image],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=True,
+    )
+    rows = []
+    for line in proc.stdout.splitlines():
+        match = re.match(
+            r"\s*(0x[0-9a-fA-F]+)\s+\|\s+(0x[0-9a-fA-F]+)\s+\|\s+(0x[0-9a-fA-F]+)\s+\|\s+([rwx-]+)",
+            line,
+        )
+        if match:
+            rows.append(
+                {
+                    "file_off": int(match.group(1), 16),
+                    "file_size": int(match.group(2), 16),
+                    "vm_off": int(match.group(3), 16),
+                    "perms": match.group(4),
+                }
+            )
+    if not rows:
+        raise RuntimeError(f"no image rows parsed for {image} in {dsc}")
+    return rows
+
+
+def image_base_for_symbol(dsc, image, addr):
+    file_off = cache_offset(dsc, addr)
+    for row in image_rows(dsc, image):
+        row_start = row["file_off"]
+        row_end = row_start + row["file_size"]
+        if row_start <= file_off < row_end:
+            vm_off = row["vm_off"] + file_off - row_start
+            return addr - vm_off
+    raise RuntimeError(f"could not map file offset {hex(file_off)} into {image} rows for {hex(addr)}")
 
 
 def pthread_image_layout(tag):
@@ -364,7 +405,7 @@ def main():
             )
             missing = [item for item in missing if item != "WebCore__softLinkDDDFACacheCreateFromFramework"]
         if "JavaScriptCore__globalFuncParseFloat" in symbols:
-            symbols["jsc_base"] = image_base_for_symbol(meta["dsc"], symbols["JavaScriptCore__globalFuncParseFloat"])
+            symbols["jsc_base"] = image_base_for_symbol(meta["dsc"], JSC_IMAGE, symbols["JavaScriptCore__globalFuncParseFloat"])
         text_file_off, linkedit_vm_off = pthread_image_layout(tag)
         pthread_create = public_pthread_create(meta["dsc"])
         pthread_offset = cache_offset(meta["dsc"], pthread_create) - text_file_off
