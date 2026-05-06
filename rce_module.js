@@ -15137,9 +15137,15 @@ const pthread_create_offset = {
 '18,6,2': 0x6988n
 };
 const linkedit_to_device = {
+'18,3,2': {
+    [0x2722f4000n]: "iPhone11,8_22D82",
+    [0x2734e4000n]: "iPhone14,2_22D82",
+    [0x2732f8000n]: "iPhone17,5_22D8082",
+},
 '18,1,1': {
     [0x26d41c000n]: "iPhone14,5_22B91",
     [0x26ce08000n]: "iPhone12,3_5_22B91",
+    [0x26ccf8000n]: "iPhone11,8_22B91",
 },
 '18,0': {
     [0x26ae10000n]: "iPhone11,8_22A3354",
@@ -15167,6 +15173,8 @@ const linkedit_to_device = {
     [0x272a54000n]: "iPhone14,6_22D63",
     [0x272ea0000n]: "iPhone14,7_22D63",
     [0x273c38000n]: "iPhone15,3_22D60",
+    [0x272400000n]: "iPhone12,1_22D64",
+    [0x273c58000n]: "iPhone15,3_22D63",
 },
 '18,4': {
     [0x27075c000n]: "iPhone11,2_4_6_22E240",
@@ -15265,6 +15273,13 @@ const linkedit_to_device = {
 }
 };
 const device_chipset = {
+"iPhone17,5_22D8082": "6149d995753968891870832e3fec9195",
+"iPhone14,2_22D82": "c90776dbac058ed6957f476e287867f8",
+"iPhone11,8_22D82": "0b92b8b2602c011d1831c6c27ef74b76",
+"iPhone15,3_22D63": "22f32fd975a694d340a6ad22b872b1ae",
+"iPhone12,1_22D64": "f35b705e8c57ae59e369ebc9145a9dbc",
+"iPhone12,1_22B91": "f35b705e8c57ae59e369ebc9145a9dbc",
+"iPhone11,8_22B91": "0b92b8b2602c011d1831c6c27ef74b76",
 "iPhone12,3_5_22B91": "f35b705e8c57ae59e369ebc9145a9dbc",
 "iPhone14,5_22B91": "c90776dbac058ed6957f476e287867f8",
 "iPhone17,1_22C152": "6149d995753968891870832e3fec9195",
