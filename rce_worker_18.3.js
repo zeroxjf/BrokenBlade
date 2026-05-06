@@ -18970,7 +18970,7 @@ async function main() {
           ];
           for (let i = 0; i < preloadClasses.length; ++i) {
             const [className, cls] = preloadClasses[i];
-            if (p.device_model === "iPhone15,3_22D60" && i === 1) {
+            if ((p.device_model === "iPhone15,3_22D60" || p.device_model === "iPhone11,8_22B91") && i === 1) {
               print(`preload class[${i}] ${className} skipped for ${p.device_model} cls=${cls.hex()}`);
               continue;
             }
