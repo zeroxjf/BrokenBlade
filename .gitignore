@@ -18,7 +18,6 @@ lightsaber-logs/
 # workspace layout stays documented for anyone browsing the repo.
 firmware/
 !firmware/README.md
-tools/
 
 # Local research artifacts, large extracted caches, and one-off run outputs.
 brokenblade-*-work/
