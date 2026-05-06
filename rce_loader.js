@@ -259,6 +259,9 @@ function isEarlyIos18Path(version) {
 function isIos183Path(version) {
     return Array.isArray(version) && version[0] === 18 && version[1] === 3;
 }
+function isSupportedWorkerIos(version) {
+    return Array.isArray(version) && version[0] === 18 && version[1] >= 0 && version[1] <= 7;
+}
 function isWorkerRcePath(version) {
     return true;
 }
@@ -269,6 +272,12 @@ function rcePathName(version) {
     return "iOS 18.x check_attempt RCE path";
 }
 print("Tweak selection: mode=" + (globalThis.__ls_run_mode || 'install') + " tweaks=" + (globalThis.__ls_tweaks || '(none)') + " level=" + (globalThis.__ls_powercuff_level || '(none)') + " sbc=" + globalThis.__ls_sbc_dock_icons + "/" + globalThis.__ls_sbc_hs_cols + "x" + globalThis.__ls_sbc_hs_rows + " rawSearch=" + (location.search || '(empty)'));
+if (!isSupportedWorkerIos(ios_version)) {
+    let unsupported = "Unsupported iOS version for worker RCE path: " + iosVersionString(ios_version);
+    print(unsupported, true);
+    fail(unsupported);
+    throw new Error(unsupported);
+}
 print("Selected RCE route: " + rcePathName(ios_version) + " for detected iOS " + iosVersionString(ios_version));
 print("Cache token: " + (globalThis.__ls_cache_bust || '(none)'));
 print("Loading worker code...");
