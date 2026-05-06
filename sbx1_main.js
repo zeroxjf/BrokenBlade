@@ -5192,9 +5192,9 @@
     }
   } else {}
   const ios_version = function () {
-    let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
+    let version = /(?:iPhone OS|CPU OS|CPU iPhone OS)\s+(\d+(?:[._]\d+)*)/i.exec(navigator.userAgent || "")?.[1];
     if (version) {
-      version = version.split('_').map(part => parseInt(part));
+      version = version.split(/[._]/).map(part => parseInt(part, 10));
       return parseInt(version.join('')).toString(16);
     }
   }();

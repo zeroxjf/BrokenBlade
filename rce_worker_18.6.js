@@ -17754,8 +17754,8 @@ async function _aarw_main() {
           print("after setting up prims");
           print("gc disable: version parse begin");
           const gcDisableIosVersion = (function() {
-              let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
-              return version ? version.split('_').map(part => parseInt(part)) : null;
+              let version = /(?:iPhone OS|CPU OS|CPU iPhone OS)\s+(\d+(?:[._]\d+)*)/i.exec(navigator.userAgent || "")?.[1];
+              return version ? version.split(/[._]/).map(part => parseInt(part, 10)) : null;
           })();
           print(`gc disable: version parsed=${gcDisableIosVersion}`);
           const skipGcDisable = Array.isArray(gcDisableIosVersion) && gcDisableIosVersion[0] === 18 && gcDisableIosVersion[1] <= 3;
@@ -18221,9 +18221,9 @@ const device_chipset = {
           resolverCheckpoint("device chipset map ready");
 
           const ios_version = (function() {
-          let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
+          let version = /(?:iPhone OS|CPU OS|CPU iPhone OS)\s+(\d+(?:[._]\d+)*)/i.exec(navigator.userAgent || "")?.[1];
               if (version) {
-                  return version.split('_').map(part => parseInt(part));
+                  return version.split(/[._]/).map(part => parseInt(part, 10));
               }
           })();
           print(`ios_version: ${ios_version}`);

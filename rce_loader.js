@@ -235,14 +235,17 @@ const dlopen_worker = `(() => {
 })();`;
 const dlopen_worker_blob = new Blob([dlopen_worker], { type: 'application/javascript'});
 const dlopen_worker_url = URL.createObjectURL(dlopen_worker_blob);
+function detectIosVersionParts(uaString) {
+    const match = /(?:iPhone OS|CPU OS|CPU iPhone OS)\s+(\d+(?:[._]\d+)*)/i.exec(uaString || '');
+    return match ? match[1].split(/[._]/).map(part => parseInt(part, 10)) : null;
+}
 const ios_version = (function() {
     print("UserAgent: " + navigator.userAgent);
     print("Build version: " + (globalThis.__ls_build_version || 'v0.0.130'));
-    let version = /iPhone OS ([0-9_]+)/g.exec(navigator.userAgent)?.[1];
+    let version = detectIosVersionParts(navigator.userAgent);
     if (version) {
-        let parsed = version.split('_').map(part => parseInt(part));
-        print("Detected iOS version: " + parsed.join('.') + " (raw: " + version + ")");
-        return parsed;
+        print("Detected iOS version: " + version.join('.'));
+        return version;
     }
     print("WARNING: Could not detect iOS version from UA!");
     return null;
